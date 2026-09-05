@@ -17,10 +17,13 @@ select = [
 ]
 ignore = [
     "S101",  # Allow assert in tests
+    "S105",  # Allow string literals that look like passwords (bearer, HS256, etc.)
+    "B008",  # Allow Depends() in function defaults (FastAPI's required pattern)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["E501", "S106"]  # Long strings and hardcoded test passwords are acceptable
+"migrations/**" = ["E501"]     # Migration column comments may be long
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

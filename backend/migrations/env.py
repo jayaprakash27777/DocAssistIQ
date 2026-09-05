@@ -45,8 +45,8 @@ config.set_main_option("sqlalchemy.url", settings.sync_database_url)
 # ---------------------------------------------------------------------------
 from app.infrastructure.database import Base  # noqa: E402
 
-# --- model imports (future phases add here) ---
-# (none in Phase 3 — first migration installs extensions only)
+# --- model imports (add new models here as phases progress) ---
+from app.models.user import User as _User  # noqa: F401, E402  — registers table with Base.metadata
 
 target_metadata = Base.metadata
 

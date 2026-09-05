@@ -188,3 +188,143 @@ export async function getReady(): Promise<ApiResult<ReadinessResponse>> {
 export async function getPing(): Promise<ApiResult<PingResponse>> {
   return fetchWithTimeout<PingResponse>(`${BASE_URL}/api/v1/ping`);
 }
+
+// ── Auth types ─────────────────────────────────────────────
+
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  full_name: string;
+}
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+export interface MeResponse {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  is_active: boolean;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Token storage ──────────────────────────────────────────
+
+const TOKEN_KEY = "docassistiq_access_token";
+
+export function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function storeToken(token: string): void {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(TOKEN_KEY, token);
+  }
+}
+
+export function clearStoredToken(): void {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+// ── Auth API wrappers ──────────────────────────────────────
+
+function authHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function authedFetch<T>(
+  url: string,
+  options: RequestInit = {},
+): Promise<ApiResult<T>> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  const requestId = generateRequestId();
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "X-Request-ID": requestId,
+    ...authHeaders(),
+    ...(options.headers as Record<string, string>),
+  };
+
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal, headers });
+    clearTimeout(timer);
+
+    const responseRequestId = res.headers.get("x-request-id") ?? requestId;
+
+    if (res.status === 204) {
+      return { ok: true, data: undefined as unknown as T, statusCode: 204, requestId: responseRequestId };
+    }
+
+    let rawBody: unknown;
+    try { rawBody = await res.json(); } catch { rawBody = null; }
+
+    if (res.ok) {
+      return { ok: true, data: rawBody as T, statusCode: res.status, requestId: responseRequestId };
+    }
+
+    if (res.status === 401) {
+      clearStoredToken();
+    }
+
+    return {
+      ok: false,
+      error: parseApiError(rawBody, res.status),
+      statusCode: res.status,
+      requestId: responseRequestId,
+    };
+  } catch (err: unknown) {
+    clearTimeout(timer);
+    const isTimeout = err instanceof Error && err.name === "AbortError";
+    return {
+      ok: false,
+      error: { code: isTimeout ? "TIMEOUT" : "NETWORK_ERROR", message: isTimeout ? "Request timed out" : "Network error", statusCode: 0 },
+      statusCode: 0,
+      requestId: null,
+    };
+  }
+}
+
+export async function authRegister(payload: RegisterPayload): Promise<ApiResult<MeResponse>> {
+  return authedFetch<MeResponse>(`${BASE_URL}/api/v1/auth/register`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function authLogin(payload: LoginPayload): Promise<ApiResult<TokenResponse>> {
+  return authedFetch<TokenResponse>(`${BASE_URL}/api/v1/auth/login`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function authLogout(): Promise<ApiResult<undefined>> {
+  const result = await authedFetch<undefined>(`${BASE_URL}/api/v1/auth/logout`, {
+    method: "POST",
+  });
+  clearStoredToken();
+  return result;
+}
+
+export async function authGetMe(): Promise<ApiResult<MeResponse>> {
+  return authedFetch<MeResponse>(`${BASE_URL}/api/v1/auth/me`);
+}
+

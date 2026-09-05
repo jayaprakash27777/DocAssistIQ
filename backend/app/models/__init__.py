@@ -1,0 +1,1 @@
+"""DocAssistIQ — User ORM Model."""

@@ -37,6 +37,10 @@ from sqlalchemy.ext.asyncio import (
 
 from app.infrastructure.database import Base
 
+# Import all ORM models so Base.metadata is fully populated before
+# any fixture calls create_all / drop_all on the SQLite unit engine.
+from app.models.user import User as _User  # noqa: F401
+
 # ============================================================
 # Pytest markers
 # ============================================================
@@ -154,3 +158,74 @@ async def db_session(unit_session: AsyncSession) -> AsyncGenerator[AsyncSession,
     Use ``int_session`` directly in tests marked ``@pytest.mark.integration``.
     """
     yield unit_session
+
+
+# ============================================================
+# Integration test client (FastAPI TestClient + real DB)
+# ============================================================
+
+
+@pytest.fixture
+def test_client():
+    """Synchronous FastAPI TestClient wired to the real PostgreSQL database.
+
+    Overrides the ``get_db`` dependency so that each request uses a
+    connection to the live Docker PostgreSQL (port 5434).  Uses
+    ``NullPool`` to prevent pool-teardown errors in synchronous tests.
+
+    Settings cache is cleared before creating the client so that the
+    test process picks up ``database_url`` pointing to port 5434 rather
+    than any stale cached value from unit tests.
+    """
+
+    from sqlalchemy.pool import NullPool
+
+    from app.config import get_settings
+    from app.dependencies import get_db
+    from app.main import create_app
+
+    # Clear stale lru_cache so settings re-read from env / defaults
+    get_settings.cache_clear()
+
+    async def _override_get_db():
+        """Per-request session connected to the real PostgreSQL.
+
+        Uses autobegin=True (SQLAlchemy default) so that both:
+          - READ-only routes (login, /me) can SELECT without explicit begin()
+          - WRITE routes (register) that call atomic() get a proper SAVEPOINT
+            that is committed to the outer autobegin transaction, which this
+            generator then commits at the end.
+
+        With autobegin=False the session raises InvalidRequestError when
+        session.execute(SELECT) is called outside of an explicit begin().
+        """
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        engine = create_async_engine(
+            _INTEGRATION_URL,
+            echo=False,
+            poolclass=NullPool,
+        )
+        # autobegin=True is the default; omitting autobegin=False here
+        # so that SELECTs work without an explicit session.begin() call.
+        session = AsyncSession(bind=engine, expire_on_commit=False)
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+            await engine.dispose()
+
+    app = create_app()
+    app.dependency_overrides[get_db] = _override_get_db
+
+    from fastapi.testclient import TestClient
+
+    with TestClient(app, raise_server_exceptions=True) as client:
+        yield client
+
+    app.dependency_overrides.clear()
+
