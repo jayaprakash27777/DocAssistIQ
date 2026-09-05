@@ -13,16 +13,20 @@ Design:
                  Returns 200 if all healthy, 503 if any are degraded.
                  Each dependency reports its own status and error detail.
                  The frontend polls this to display the system status bar.
+
+Both endpoints include the current `request_id` in the response body
+for observability and cross-referencing with structured logs.
 """
 
 import asyncio
 import logging
 from enum import StrEnum
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
+from app.dependencies import get_request_id_dep
 from app.infrastructure.redis import probe_redis
 from app.infrastructure.storage import probe_storage
 
@@ -77,18 +81,26 @@ async def _probe_database_async() -> dict[str, str]:
 
 
 @router.get("/health")
-async def health() -> dict[str, str]:
+async def health(
+    request_id: str = Depends(get_request_id_dep),
+) -> dict[str, str]:
     """Liveness check — always returns 200 if the process is alive.
 
     Does not probe any external dependencies. Used by Docker to decide
     whether to restart the container (not whether to send it traffic).
     """
     settings = get_settings()
-    return {"status": "healthy", "service": settings.app_name}
+    return {
+        "status": "healthy",
+        "service": settings.app_name,
+        "request_id": request_id,
+    }
 
 
 @router.get("/ready")
-async def ready() -> JSONResponse:
+async def ready(
+    request_id: str = Depends(get_request_id_dep),
+) -> JSONResponse:
     """Readiness check — probes all external dependencies.
 
     Returns 200 if all dependencies are healthy.
@@ -121,6 +133,7 @@ async def ready() -> JSONResponse:
         status_code=status_code,
         content={
             "status": overall,
+            "request_id": request_id,
             "dependencies": dependencies,
         },
     )

@@ -104,7 +104,7 @@ export default function SystemStatus() {
     // 1. Liveness probe
     const healthResult = await getHealth();
     if (!healthResult.ok) {
-      dispatch({ type: "OFFLINE", error: healthResult.error });
+      dispatch({ type: "OFFLINE", error: healthResult.error.message });
       return;
     }
 
@@ -112,7 +112,7 @@ export default function SystemStatus() {
     const readyResult = await getReady();
     if (!readyResult.ok && readyResult.statusCode === 0) {
       // Network error — treat as offline
-      dispatch({ type: "OFFLINE", error: readyResult.error });
+      dispatch({ type: "OFFLINE", error: readyResult.error.message });
       return;
     }
 
@@ -121,7 +121,10 @@ export default function SystemStatus() {
     } else if ("data" in readyResult && readyResult.data) {
       dispatch({ type: "DEGRADED", readiness: readyResult.data });
     } else {
-      const errMsg = "error" in readyResult ? readyResult.error : "Readiness check unavailable";
+      const errMsg =
+        "error" in readyResult
+          ? readyResult.error.message
+          : "Readiness check unavailable";
       dispatch({ type: "OFFLINE", error: errMsg });
     }
   }, []);

@@ -2,12 +2,19 @@
 
 Typed settings loaded from environment variables with validation.
 Uses pydantic-settings for type-safe configuration management.
+
+Startup validation rules:
+  - In non-development environments, the dev placeholder secret key
+    is rejected immediately so the process fails fast rather than
+    running insecurely.
 """
 
 from functools import lru_cache
 
-from pydantic import computed_field
+from pydantic import computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEV_SECRET_PLACEHOLDER = "dev-secret-key-change-in-production"  # noqa: S105
 
 
 class Settings(BaseSettings):
@@ -23,13 +30,15 @@ class Settings(BaseSettings):
     # Application
     app_name: str = "DocAssistIQ"
     app_env: str = "development"
+    app_version: str = "0.1.0"
+    api_version: str = "v1"
     debug: bool = True
     log_level: str = "info"
 
     # Backend server
     backend_host: str = "0.0.0.0"  # noqa: S104
     backend_port: int = 8000
-    backend_secret_key: str = "dev-secret-key-change-in-production"  # noqa: S105
+    backend_secret_key: str = _DEV_SECRET_PLACEHOLDER  # noqa: S105
     backend_cors_origins: str = "http://localhost:3000"
 
     # Database (PostgreSQL + asyncpg)
@@ -55,6 +64,34 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"
 
+    # --------------------------------------------------------
+    # Startup validation
+    # --------------------------------------------------------
+
+    @model_validator(mode="after")
+    def validate_secrets_for_environment(self) -> "Settings":
+        """Reject dev placeholder secrets in non-development environments.
+
+        This causes a hard failure at import time so the process never
+        starts in an insecure state. The error is logged before the
+        process exits so the issue is visible in container logs.
+        """
+        if (
+            self.app_env != "development"
+            and self.backend_secret_key == _DEV_SECRET_PLACEHOLDER
+        ):
+            msg = (
+                "BACKEND_SECRET_KEY must be set to a strong random value "
+                f"in environment '{self.app_env}'. "
+                "The development placeholder is not permitted in production."
+            )
+            raise ValueError(msg)
+        return self
+
+    # --------------------------------------------------------
+    # Computed properties
+    # --------------------------------------------------------
+
     @property
     def cors_origins(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""
@@ -70,6 +107,11 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """Synchronous database URL (for Alembic)."""
         return self.database_url.replace("+asyncpg", "")
+
+    @property
+    def api_v1_prefix(self) -> str:
+        """The versioned API prefix, e.g. '/api/v1'."""
+        return f"/api/{self.api_version}"
 
 
 @lru_cache

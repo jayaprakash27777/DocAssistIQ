@@ -35,14 +35,21 @@ afterEach(() => {
 
 // ── Helper responses ─────────────────────────────────────────
 const healthyHealth = (): Promise<api.ApiResult<api.HealthResponse>> =>
-  Promise.resolve({ ok: true, data: { status: "healthy", service: "DocAssistIQ" }, statusCode: 200 });
+  Promise.resolve({
+    ok: true,
+    data: { status: "healthy", service: "DocAssistIQ", request_id: "test-rid" },
+    statusCode: 200,
+    requestId: "test-rid",
+  });
 
 const healthyReady = (): Promise<api.ApiResult<api.ReadinessResponse>> =>
   Promise.resolve({
     ok: true,
     statusCode: 200,
+    requestId: "test-rid",
     data: {
       status: "healthy",
+      request_id: "test-rid",
       dependencies: {
         database: { status: "healthy" },
         redis: { status: "healthy" },
@@ -55,8 +62,10 @@ const degradedReady = (unhealthyDeps: Partial<api.ReadinessResponse["dependencie
   Promise.resolve({
     ok: true,
     statusCode: 503,
+    requestId: "test-rid",
     data: {
       status: "degraded",
+      request_id: "test-rid",
       dependencies: {
         database: { status: "healthy" },
         redis: { status: "healthy" },
@@ -67,7 +76,12 @@ const degradedReady = (unhealthyDeps: Partial<api.ReadinessResponse["dependencie
   });
 
 const offlineHealth = (): Promise<api.ApiResult<api.HealthResponse>> =>
-  Promise.resolve({ ok: false, error: "Network error", statusCode: 0 });
+  Promise.resolve({
+    ok: false,
+    error: { code: "NETWORK_ERROR", message: "Network error", statusCode: 0 },
+    statusCode: 0,
+    requestId: null,
+  });
 
 // ── Tests ────────────────────────────────────────────────────
 
