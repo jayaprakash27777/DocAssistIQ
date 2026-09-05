@@ -1,0 +1,227 @@
+# ============================================================
+# DocAssistIQ — Docker Compose (Development)
+# ============================================================
+# Usage:
+#   docker compose up -d          — start all services
+#   docker compose down           — stop (keep volumes)
+#   docker compose down -v        — stop + delete volumes (clean slate)
+#   docker compose logs -f backend — tail logs
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # PostgreSQL 16 with pgvector
+  # ----------------------------------------------------------
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: docassistiq_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-docassistiq}
+      POSTGRES_USER: ${POSTGRES_USER:-docassistiq}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docassistiq} -d ${POSTGRES_DB:-docassistiq}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - docassistiq
+
+  # ----------------------------------------------------------
+  # Redis 7
+  # ----------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: docassistiq_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - docassistiq
+
+  # ----------------------------------------------------------
+  # MinIO — S3-compatible object storage
+  # ----------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: docassistiq_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MINIO_API_PORT:-9010}:9000"
+      - "${MINIO_CONSOLE_PORT:-9011}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - docassistiq
+
+  # ----------------------------------------------------------
+  # MinIO bucket initialization (one-shot)
+  # ----------------------------------------------------------
+  minio-init:
+    image: minio/mc:latest
+    container_name: docassistiq_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-docassistiq}
+    volumes:
+      - ./infra/minio/init.sh:/init.sh:ro
+    entrypoint: ["/bin/sh", "/init.sh"]
+    restart: "no"
+    networks:
+      - docassistiq
+
+  # ----------------------------------------------------------
+  # FastAPI Backend
+  # ----------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: docassistiq_backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-docassistiq}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-docassistiq}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-docassistiq}
+      BACKEND_CORS_ORIGINS: http://localhost:3000,http://frontend:3000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - docassistiq
+
+  # ----------------------------------------------------------
+  # Celery Worker
+  # ----------------------------------------------------------
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: docassistiq_worker
+    restart: unless-stopped
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-docassistiq}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-docassistiq}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-docassistiq}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Override the Dockerfile HEALTHCHECK: Celery worker has no HTTP server.
+    # Use celery inspect ping to confirm the worker is alive.
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.celery_app", "inspect", "ping", "--timeout=5"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - docassistiq
+
+  # ----------------------------------------------------------
+  # Next.js Frontend
+  # ----------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: docassistiq_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:${BACKEND_PORT:-8000}/api/v1
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - docassistiq
+
+# ----------------------------------------------------------
+# Volumes (persistent storage)
+# ----------------------------------------------------------
+volumes:
+  pg_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+# ----------------------------------------------------------
+# Network
+# ----------------------------------------------------------
+networks:
+  docassistiq:
+    driver: bridge

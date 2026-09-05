@@ -1,0 +1,16 @@
+# ============================================================
+# DocAssistIQ — Frontend Dockerfile (Development with hot-reload)
+# ============================================================
+FROM node:20-alpine AS dev
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Source is volume-mounted; only node_modules is baked in.
+EXPOSE 3000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget -qO- http://localhost:3000 || exit 1
+
+CMD ["npm", "run", "dev"]
