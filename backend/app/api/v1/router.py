@@ -10,6 +10,7 @@ This module deliberately stays thin — it is a registry, not a handler.
 
 from fastapi import APIRouter, Depends
 
+from app.api.v1.endpoints.admin import router as admin_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.config import Settings
 from app.dependencies import get_request_id_dep, get_settings_dep
@@ -18,6 +19,10 @@ api_v1_router = APIRouter(prefix="/api/v1")
 
 # Phase 4 — Authentication
 api_v1_router.include_router(auth_router)
+
+# Phase 5 — Authorization (admin probe endpoints)
+api_v1_router.include_router(admin_router)
+
 
 
 # ------------------------------------------------------------------

@@ -3,14 +3,16 @@
 Provides typed `Depends` callables that all routes will import.
 Each dependency is self-documenting, testable, and mockable in isolation.
 
-Usage in route functions:
+Usage in route functions::
+
+    from app.dependencies import get_db, get_current_user
+    from app.authorization import require_doctor, require_admin  # role guards
+
     @router.get("/patients/{pid}")
     async def get_patient(
         pid: UUID,
         db: AsyncSession = Depends(get_db),
-        request_id: str = Depends(get_request_id_dep),
-        settings: Settings = Depends(get_settings_dep),
-        user: User = Depends(get_current_user),
+        user: User = Depends(require_doctor),
     ) -> ...:
         ...
 """
@@ -121,3 +123,13 @@ async def get_current_user(
         session=db,
         settings=settings,
     )
+
+
+# ============================================================
+# Authorization dependencies
+# ============================================================
+# Import from app.authorization — NOT re-exported here to avoid a circular
+# import.  Route modules should import directly:
+#   from app.authorization import require_doctor, require_admin
+
+
