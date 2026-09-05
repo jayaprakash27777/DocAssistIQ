@@ -43,7 +43,7 @@ class Settings(BaseSettings):
 
     # Database (PostgreSQL + asyncpg)
     database_url: str = (
-        "postgresql+asyncpg://docassistiq:changeme@localhost:5432/docassistiq"
+        "postgresql+asyncpg://docassistiq:changeme@localhost:5434/docassistiq"
     )
     database_echo: bool = False
     database_pool_size: int = 10
@@ -105,7 +105,12 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def sync_database_url(self) -> str:
-        """Synchronous database URL (for Alembic)."""
+        """Synchronous PostgreSQL URL for use by Alembic migrations.
+
+        Alembic's env.py cannot use asyncpg (async-only driver). We
+        substitute psycopg2 (widely available binary, handles scram-sha-256)
+        so migrations work against a standard PostgreSQL docker instance.
+        """
         return self.database_url.replace("+asyncpg", "")
 
     @property

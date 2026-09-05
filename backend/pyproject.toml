@@ -20,7 +20,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["E501"]  # Long mock patch strings in tests are acceptable
+"tests/**" = ["E501", "S106"]  # Long strings and hardcoded test passwords are acceptable
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
@@ -30,4 +30,8 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 python_classes = "Test*"
+asyncio_mode = "auto"
 addopts = "-v --tb=short"
+markers = [
+    "integration: requires a live PostgreSQL database (uses Docker stack)",
+]
