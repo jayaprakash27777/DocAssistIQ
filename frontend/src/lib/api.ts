@@ -431,3 +431,88 @@ export async function listConsultations(
     `${BASE_URL}/api/v1/consultations/?page=${page}&page_size=${page_size}`,
   );
 }
+
+// -- Doctor types (Phase 10) ---------------------------------
+
+export interface DoctorResponse {
+  id: string;
+  user_id: string;
+  tenant_id: string | null;
+  specialty: string | null;
+  credential_reference: string | null;
+  credential_body: string | null;
+  bio: string | null;
+  verification_status: 'pending' | 'verified' | 'rejected';
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DoctorCreate {
+  specialty?: string;
+  credential_reference?: string;
+  credential_body?: string;
+  bio?: string;
+}
+
+export interface DoctorUpdate {
+  specialty?: string;
+  credential_reference?: string;
+  credential_body?: string;
+  bio?: string;
+}
+
+export interface VerifyDoctorRequest {
+  action: 'verify' | 'reject';
+  rejection_reason?: string;
+}
+
+// ── Doctor API functions ────────────────────────────────────
+
+export async function getMyDoctorProfile(): Promise<ApiResult<DoctorResponse>> {
+  return authedFetch<DoctorResponse>(`${BASE_URL}/api/v1/doctors/me`);
+}
+
+export async function createMyDoctorProfile(
+  payload: DoctorCreate,
+): Promise<ApiResult<DoctorResponse>> {
+  return authedFetch<DoctorResponse>(`${BASE_URL}/api/v1/doctors/me`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateMyDoctorProfile(
+  payload: DoctorUpdate,
+): Promise<ApiResult<DoctorResponse>> {
+  return authedFetch<DoctorResponse>(`${BASE_URL}/api/v1/doctors/me`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listPendingDoctors(
+  page = 1,
+  page_size = 20,
+): Promise<ApiResult<PagedResponse<DoctorResponse>>> {
+  return authedFetch<PagedResponse<DoctorResponse>>(
+    `${BASE_URL}/api/v1/doctors/pending?page=${page}&page_size=${page_size}`,
+  );
+}
+
+export async function verifyDoctor(
+  doctor_id: string,
+  payload: VerifyDoctorRequest,
+): Promise<ApiResult<DoctorResponse>> {
+  return authedFetch<DoctorResponse>(
+    `${BASE_URL}/api/v1/doctors/${doctor_id}/verify`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+

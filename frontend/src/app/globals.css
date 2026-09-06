@@ -1567,3 +1567,548 @@ body {
 /* PHASE 8 CSS START */
 
 @import './phase8.css';
+
+/* --- Phase 10: Doctor Profile ------------------------------- */
+
+.doctor-profile-page {
+  max-width: 760px;
+}
+
+.doctor-profile-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.doctor-profile-title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+}
+
+.doctor-profile-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Status banner */
+.doctor-status-banner {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  border: 1px solid transparent;
+}
+
+.doctor-status--pending {
+  background: hsl(45 100% 96%);
+  border-color: hsl(45 90% 75%);
+}
+
+.doctor-status--verified {
+  background: hsl(145 60% 95%);
+  border-color: hsl(145 50% 70%);
+}
+
+.doctor-status--rejected {
+  background: hsl(0 80% 97%);
+  border-color: hsl(0 60% 80%);
+}
+
+.doctor-status-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.doctor-status-body {
+  flex: 1;
+}
+
+.doctor-status-label {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+}
+
+.doctor-status-message {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.doctor-rejection-reason {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: hsl(0 60% 93%);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: hsl(0 60% 30%);
+}
+
+/* No profile */
+.doctor-noprofile {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: var(--surface-elevated);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+}
+
+.doctor-noprofile-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.doctor-noprofile h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  color: var(--text-primary);
+}
+
+.doctor-noprofile p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0 0 1.25rem;
+}
+
+/* View */
+.doctor-profile-dl {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--surface-elevated);
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.doctor-profile-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  gap: 1rem;
+  align-items: start;
+}
+
+.doctor-profile-row:last-child {
+  border-bottom: none;
+}
+
+.doctor-profile-row dt {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.doctor-profile-row dd {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.doctor-profile-bio {
+  white-space: pre-wrap;
+}
+
+.doctor-empty {
+  color: var(--text-tertiary);
+}
+
+/* Buttons */
+.doctor-profile-edit-btn,
+.doctor-create-btn,
+.doctor-resubmit-btn {
+  padding: 0.5rem 1.125rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.doctor-profile-edit-btn {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+}
+
+.doctor-create-btn,
+.doctor-resubmit-btn {
+  margin-top: 1rem;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+}
+
+.doctor-profile-edit-btn:hover,
+.doctor-create-btn:hover,
+.doctor-resubmit-btn:hover {
+  opacity: 0.85;
+}
+
+/* Form */
+.doctor-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.doctor-profile-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* --- Admin Doctor Verification ----------------------------- */
+
+.admin-doctors-page {
+  max-width: 900px;
+}
+
+.admin-doctors-header {
+  margin-bottom: 1.5rem;
+}
+
+.admin-doctors-title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+}
+
+.admin-doctors-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.admin-doctors-table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+}
+
+.admin-doctors-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.admin-doctors-table th {
+  background: var(--surface-elevated);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.admin-doctors-table td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  vertical-align: top;
+}
+
+.admin-doctors-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-doctors-id {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.admin-empty {
+  color: var(--text-tertiary);
+}
+
+.admin-doctors-actions-cell {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.admin-verify-btn,
+.admin-reject-btn {
+  padding: 0.375rem 0.875rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  border: none;
+}
+
+.admin-verify-btn {
+  background: hsl(145 55% 42%);
+  color: #fff;
+}
+
+.admin-reject-btn {
+  background: hsl(0 60% 48%);
+  color: #fff;
+}
+
+.admin-verify-btn:hover,
+.admin-reject-btn:hover {
+  opacity: 0.85;
+}
+
+.admin-doctors-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: var(--surface-elevated);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+}
+
+.admin-doctors-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.admin-doctors-empty h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem;
+}
+
+.admin-doctors-empty p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.admin-doctors-skeleton-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.875rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.admin-doctors-error {
+  padding: 1rem 1.25rem;
+  background: hsl(0 80% 97%);
+  border: 1px solid hsl(0 60% 80%);
+  border-radius: 10px;
+  color: hsl(0 60% 30%);
+  font-size: 0.9rem;
+}
+
+.admin-doctors-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.admin-page-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.admin-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.admin-page-info {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Action dialog */
+.admin-action-overlay {
+  position: fixed;
+  inset: 0;
+  background: hsl(220 10% 4% / 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  animation: fadeIn 0.15s ease;
+}
+
+.admin-action-dialog {
+  background: var(--surface-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 2rem;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 20px 60px hsl(220 10% 4% / 0.4);
+}
+
+.admin-action-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem;
+}
+
+.admin-action-desc {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0 0 1.25rem;
+}
+
+.admin-action-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1.25rem;
+}
+
+.admin-action-field label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.admin-action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.admin-action-cancel {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.admin-action-confirm {
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  transition: opacity 0.15s;
+}
+
+.admin-action-confirm--verify {
+  background: hsl(145 55% 42%);
+}
+
+.admin-action-confirm--reject {
+  background: hsl(0 60% 48%);
+}
+
+.admin-action-confirm:disabled,
+.admin-action-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Admin Hub ---------------------------------------------- */
+.admin-page {
+  max-width: 720px;
+}
+
+.admin-page-header {
+  margin-bottom: 1.5rem;
+}
+
+.admin-page-title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+}
+
+.admin-page-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.admin-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-hub-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.admin-hub-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 16px hsl(220 10% 4% / 0.12);
+  transform: translateY(-1px);
+}
+
+.admin-hub-card-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.admin-hub-card-body {
+  flex: 1;
+}
+
+.admin-hub-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+}
+
+.admin-hub-card-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.admin-hub-card-arrow {
+  font-size: 1.125rem;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.admin-hub-card:hover .admin-hub-card-arrow {
+  transform: translateX(3px);
+}

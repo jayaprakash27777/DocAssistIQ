@@ -50,6 +50,12 @@ const Icons = {
       <path d="M4.93 4.93a10 10 0 0 0 0 14.14" />
     </svg>
   ),
+  profile: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
 };
 
 interface Props {
@@ -156,6 +162,12 @@ export function Sidebar({ mobileOpen, onMobileClose }: Props) {
             href="/notes"
             label="Clinical Notes"
             icon={Icons.notes}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            href="/profile"
+            label="My Profile"
+            icon={Icons.profile}
             collapsed={collapsed}
           />
           {isAdmin && (
