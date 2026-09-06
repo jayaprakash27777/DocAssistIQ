@@ -16,10 +16,10 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.platform import API_RESPONSES, PagedResponse, PaginationParams, paginate
 from app.authorization import require_admin
 from app.dependencies import get_db
 from app.models.user import User
-from app.repositories.user_repository import UserRepository
 from app.schemas.auth import MeResponse
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -37,13 +37,6 @@ class AdminPingResponse(BaseModel):
     message: str
 
 
-class UserListResponse(BaseModel):
-    """Paginated user list returned by the admin user endpoint."""
-
-    users: list[MeResponse]
-    total: int
-
-
 # ============================================================
 # GET /admin/ping
 # ============================================================
@@ -59,6 +52,7 @@ class UserListResponse(BaseModel):
         "Returns 401 UNAUTHORIZED for unauthenticated requests. "
         "Used in authorization tests to verify role enforcement."
     ),
+    responses=API_RESPONSES,
 )
 async def admin_ping(
     _current_admin: User = Depends(require_admin),  # noqa: B008
@@ -74,23 +68,23 @@ async def admin_ping(
 
 @router.get(
     "/users",
-    response_model=UserListResponse,
+    response_model=PagedResponse[MeResponse],
     summary="List all registered users (admin only)",
     description=(
         "Returns a paginated list of all registered users. "
+        "Supports ``page`` and ``page_size`` query parameters (page_size max 100). "
         "Restricted to admin-role accounts. "
         "Passwords and hashes are never included in the response."
     ),
+    responses=API_RESPONSES,
 )
 async def list_users(
     db: AsyncSession = Depends(get_db),  # noqa: B008
     _current_admin: User = Depends(require_admin),  # noqa: B008
-) -> UserListResponse:
-    """Return all registered users (admin-only)."""
-    repo = UserRepository(db)
-    users = await repo.list_paginated(limit=100, skip=0)
-    total = await repo.count()
-    return UserListResponse(
-        users=[MeResponse.model_validate(u) for u in users],
-        total=total,
-    )
+    pagination: PaginationParams = Depends(),  # noqa: B008
+) -> PagedResponse[MeResponse]:
+    """Return paginated list of all registered users (admin-only)."""
+    from sqlalchemy import select
+
+    query = select(User)
+    return await paginate(db, query, pagination, row_schema=MeResponse)

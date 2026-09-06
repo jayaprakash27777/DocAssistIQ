@@ -18,6 +18,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.platform import openapi_tags
 from app.api.v1.router import api_v1_router
 from app.config import get_settings
 from app.exception_handlers import register_exception_handlers
@@ -55,21 +56,27 @@ def create_app() -> FastAPI:
     application = FastAPI(
         title=settings.app_name,
         description=(
-            "Evidence-grounded Clinical Decision Support API. "
-            "All AI suggestions must be reviewed by qualified clinicians."
+            "## DocAssistIQ — Clinical Decision Support API\n\n"
+            "Evidence-grounded clinical decision support. "
+            "**All AI-generated suggestions must be reviewed "
+            "by qualified clinicians before acting on them.**\n\n"
+            "### API Conventions\n"
+            "- All errors use the standard error envelope:\n"
+            "  `{'error': {'code': '...', 'message': '...', 'request_id': '...'}}`.\n"
+            "- `X-Request-ID` is echoed on every response for log correlation.\n"
+            "- Paginated list endpoints return "
+            "`{'items': [...], 'total': N, 'page': P, 'page_size': S, 'pages': K}`.\n"
+            "- Sorting is whitelisted per endpoint — unknown columns return 422.\n"
         ),
         version=settings.app_version,
         docs_url="/docs" if settings.is_development else None,
         redoc_url="/redoc" if settings.is_development else None,
         lifespan=lifespan,
-        # OpenAPI metadata
-        contact={"name": "DocAssistIQ Engineering"},
-        license_info={"name": "Proprietary"},
-        openapi_tags=[
-            {"name": "system", "description": "Health, readiness, and diagnostics"},
-            {"name": "auth", "description": "Authentication and session management"},
-        ],
+        contact={"name": "DocAssistIQ Engineering", "email": "eng@docassistiq.example.com"},
+        license_info={"name": "Proprietary — All Rights Reserved"},
+        openapi_tags=openapi_tags,
     )
+
 
     # ----------------------------------------------------------------
     # Middleware (outermost first — RequestID must wrap everything)

@@ -68,6 +68,54 @@ export interface ApiFailure {
 
 export type ApiResult<T> = ApiSuccess<T> | ApiFailure;
 
+// ── Platform types (mirror backend app/api/platform.py) ────
+
+/**
+ * Standard paginated response envelope returned by all list endpoints.
+ *
+ * Backend shape:
+ *   { items: T[], total: number, page: number, page_size: number, pages: number }
+ */
+export interface PagedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
+/** Pagination query parameters for list endpoints. */
+export interface PaginationQuery {
+  page?: number;
+  page_size?: number;
+}
+
+/** Sorting query parameters for list endpoints. */
+export interface SortQuery {
+  sort_by?: string;
+  sort_dir?: "asc" | "desc";
+}
+
+/**
+ * Build a URL query string from pagination, sort, and arbitrary filter params.
+ *
+ * Omits keys whose value is undefined or null.
+ *
+ * Example:
+ *   buildQueryString({ page: 2, page_size: 10, sort_by: "email", role: "doctor" })
+ *   // => "page=2&page_size=10&sort_by=email&role=doctor"
+ */
+export function buildQueryString(
+  params: PaginationQuery & SortQuery & Record<string, string | number | boolean | undefined | null>,
+): string {
+  const entries = Object.entries(params).filter(
+    ([, v]) => v !== undefined && v !== null,
+  ) as [string, string | number | boolean][];
+  if (entries.length === 0) return "";
+  return entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+}
+
+
 // ── Client-side request ID ─────────────────────────────────
 
 function generateRequestId(): string {

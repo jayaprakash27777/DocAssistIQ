@@ -277,14 +277,15 @@ class TestAdminRoleAccess:
         assert resp.json()["ok"] is True
 
     def test_admin_can_access_admin_users(self, test_client: TestClient) -> None:
-        """admin role → GET /admin/users → 200 with user list."""
+        """admin role → GET /admin/users → 200 with PagedResponse envelope."""
         _, token = self._make_admin(test_client)
         resp = test_client.get("/api/v1/admin/users", headers=_auth_header(token))
         assert resp.status_code == 200
         body = resp.json()
-        assert "users" in body
-        assert "total" in body
-        assert isinstance(body["users"], list)
+        # Phase 6: /admin/users now returns the standard PagedResponse envelope
+        for key in ("items", "total", "page", "page_size", "pages"):
+            assert key in body, f"Missing PagedResponse key: '{key}'"
+        assert isinstance(body["items"], list)
 
     def test_admin_can_also_access_me_endpoint(self, test_client: TestClient) -> None:
         """admin role satisfies doctor-level requirement (admin ≥ doctor)."""
