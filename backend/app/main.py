@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.platform import openapi_tags
-from app.api.v1.router import api_v1_router
+from app.api.v1.router import api_v1_router, ws_router
 from app.config import get_settings
 from app.exception_handlers import register_exception_handlers
 from app.logging_config import configure_logging
@@ -107,6 +107,9 @@ def create_app() -> FastAPI:
 
     # Versioned business-logic API
     application.include_router(api_v1_router)
+
+    # Phase 8 — WebSocket stream (no /api/v1 prefix; browsers connect directly)
+    application.include_router(ws_router)
 
     return application
 

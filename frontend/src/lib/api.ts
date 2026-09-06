@@ -376,3 +376,58 @@ export async function authGetMe(): Promise<ApiResult<MeResponse>> {
   return authedFetch<MeResponse>(`${BASE_URL}/api/v1/auth/me`);
 }
 
+// ── Consultation types ──────────────────────────────────────
+
+/** Mandatory safety label — matches backend PLACEHOLDER_LABEL */
+export const PLACEHOLDER_LABEL = "PLACEHOLDER DEVELOPMENT RESPONSE — NOT CLINICAL";
+
+export interface ConsultationResponse {
+  id: string;
+  user_id: string;
+  input_text: string;
+  status: "pending" | "completed" | "failed";
+  placeholder_response: string | null;
+  is_placeholder: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConsultationSummary {
+  id: string;
+  status: string;
+  is_placeholder: boolean;
+  input_preview: string;
+  created_at: string;
+}
+
+// ── Consultation API functions ──────────────────────────────
+
+export async function createConsultation(
+  input_text: string,
+): Promise<ApiResult<ConsultationResponse>> {
+  return authedFetch<ConsultationResponse>(
+    `${BASE_URL}/api/v1/consultations/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input_text }),
+    },
+  );
+}
+
+export async function getConsultation(
+  id: string,
+): Promise<ApiResult<ConsultationResponse>> {
+  return authedFetch<ConsultationResponse>(
+    `${BASE_URL}/api/v1/consultations/${id}`,
+  );
+}
+
+export async function listConsultations(
+  page = 1,
+  page_size = 20,
+): Promise<ApiResult<PagedResponse<ConsultationSummary>>> {
+  return authedFetch<PagedResponse<ConsultationSummary>>(
+    `${BASE_URL}/api/v1/consultations/?page=${page}&page_size=${page_size}`,
+  );
+}

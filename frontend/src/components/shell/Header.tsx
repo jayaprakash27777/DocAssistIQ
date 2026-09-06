@@ -12,6 +12,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { NotificationBell } from "./NotificationBell";
 import { ProfileDropdown } from "./ProfileDropdown";
+import { WsStatus } from "./WsStatus";
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -69,6 +70,7 @@ export function Header({ onMenuToggle }: Props) {
       </div>
 
       <div className="shell-header-right">
+        <WsStatus />
         <NotificationBell unreadCount={0} />
         {user && <ProfileDropdown user={user} />}
       </div>

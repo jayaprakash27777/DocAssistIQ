@@ -93,8 +93,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Consultations — placeholder */}
-        <div className="dashboard-card dashboard-card--coming-soon">
+        {/* Consultations — now a real link */}
+        <a href="/consultations" className="dashboard-card dashboard-card--link">
           <div className="dashboard-card-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12 19.79 19.79 0 0 1 1.99 3.38a2 2 0 0 1 2-2.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
@@ -102,11 +102,9 @@ export default function DashboardPage() {
           </div>
           <div className="dashboard-card-body">
             <h3 className="dashboard-card-title">Consultations</h3>
-            <p className="dashboard-card-hint">
-              Coming in Phase 8 — Patient &amp; Consultation Management
-            </p>
+            <p className="dashboard-card-hint">View and submit clinical consultations →</p>
           </div>
-        </div>
+        </a>
 
         {/* Clinical Notes — placeholder */}
         <div className="dashboard-card dashboard-card--coming-soon">

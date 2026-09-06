@@ -12,7 +12,9 @@ from fastapi import APIRouter, Depends
 
 from app.api.v1.endpoints.admin import router as admin_router
 from app.api.v1.endpoints.auth import router as auth_router
+from app.api.v1.endpoints.consultations import router as consultations_router
 from app.api.v1.endpoints.platform_probe import router as probe_router
+from app.api.v1.endpoints.ws import router as ws_router
 from app.config import Settings
 from app.dependencies import get_request_id_dep, get_settings_dep
 
@@ -26,6 +28,13 @@ api_v1_router.include_router(admin_router)
 
 # Phase 6 — Core API Platform (probe endpoint exercises platform primitives)
 api_v1_router.include_router(probe_router)
+
+# Phase 8 — Walking Skeleton: consultations vertical slice
+api_v1_router.include_router(consultations_router)
+
+# Phase 8 — WebSocket stream (mounted at app level — see main.py)
+# ws_router is imported here and exported for main.py to include directly
+__all__ = ["api_v1_router", "ws_router"]
 
 
 
