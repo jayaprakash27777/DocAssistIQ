@@ -88,6 +88,5 @@ def downgrade() -> None:
     op.drop_column('diseases', 'version_string')
     op.drop_column('diseases', 'effective_date')
     op.drop_column('diseases', 'retrieval_date')
-    op.drop_column('diseases', 'retrieval_date')
     op.drop_column('diseases', 'publication_date')
     # ### end Alembic commands ###

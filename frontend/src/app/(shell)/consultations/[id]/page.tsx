@@ -386,14 +386,22 @@ export default function ConsultationDetailPage() {
           )}
 
           {currentStatus === "draft" && (
-            <button className="btn-primary" onClick={() => handleTransition("under_review")} disabled={actionLoading}>
-              Review Draft Analysis
-            </button>
+            <>
+              <button className="btn-primary" onClick={() => handleTransition("under_review")} disabled={actionLoading}>
+                Begin Note Review
+              </button>
+              <Link href={`/consultations/${consultation.id}/review`} className="btn-secondary" style={{ textDecoration: 'none' }}>
+                Open Note Workspace
+              </Link>
+            </>
           )}
 
           {currentStatus === "under_review" && (
             <>
-              <button className="btn-primary" onClick={() => handleTransition("analysis_ready")} disabled={actionLoading}>
+              <Link href={`/consultations/${consultation.id}/review`} className="btn-primary" style={{ textDecoration: 'none' }}>
+                Open Review Workspace
+              </Link>
+              <button className="btn-secondary" onClick={() => handleTransition("analysis_ready")} disabled={actionLoading}>
                 Mark Analysis Ready
               </button>
               <button className="btn-secondary" onClick={() => handleTransition("draft")} disabled={actionLoading}>
