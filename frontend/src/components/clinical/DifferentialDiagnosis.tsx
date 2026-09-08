@@ -4,12 +4,14 @@ import React, { useState, useEffect } from "react";
 import { getDifferentialDiagnosis, DifferentialDiagnosisResponse } from "@/lib/api";
 import { toast } from "react-hot-toast";
 import InvestigationPanel from "./InvestigationPanel";
+import MedicationPanel from "./MedicationPanel";
 
 export default function DifferentialDiagnosis({ consultationId }: { consultationId: string }) {
   const [data, setData] = useState<DifferentialDiagnosisResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [showInvestigationsFor, setShowInvestigationsFor] = useState<string | null>(null);
+  const [showMedicationsFor, setShowMedicationsFor] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -225,20 +227,35 @@ export default function DifferentialDiagnosis({ consultationId }: { consultation
                   </p>
                 </div>
 
-                <div className="mt-2 pt-2 flex justify-end">
+                <div className="mt-2 pt-2 flex justify-end gap-2">
                   <button
                     className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 rounded text-xs font-semibold transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowInvestigationsFor(showInvestigationsFor === candidate.disease ? null : candidate.disease);
+                      setShowMedicationsFor(null);
                     }}
                   >
                     {showInvestigationsFor === candidate.disease ? 'Hide Reference Investigations' : 'View Reference Investigations'}
+                  </button>
+                  <button
+                    className="px-3 py-1.5 bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 rounded text-xs font-semibold transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMedicationsFor(showMedicationsFor === candidate.disease ? null : candidate.disease);
+                      setShowInvestigationsFor(null);
+                    }}
+                  >
+                    {showMedicationsFor === candidate.disease ? 'Hide Reference Medications' : 'View Reference Medications'}
                   </button>
                 </div>
 
                 {showInvestigationsFor === candidate.disease && (
                   <InvestigationPanel consultationId={consultationId} disease={candidate.disease} />
+                )}
+
+                {showMedicationsFor === candidate.disease && (
+                  <MedicationPanel consultationId={consultationId} disease={candidate.disease} />
                 )}
 
               </div>

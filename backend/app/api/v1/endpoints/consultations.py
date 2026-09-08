@@ -288,7 +288,9 @@ async def get_differential_diagnosis(
         
     return response
 
-@router.get("/{consultation_id}/investigations")
+from app.schemas.investigation import InvestigationResponse
+
+@router.get("/{consultation_id}/investigations", response_model=InvestigationResponse)
 async def get_investigations_for_disease(
     consultation_id: uuid.UUID,
     disease: str,
@@ -303,3 +305,21 @@ async def get_investigations_for_disease(
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     return investigation_provider.get_investigations(disease)
+
+from app.schemas.medication import MedicationResponse
+
+@router.get("/{consultation_id}/medications", response_model=MedicationResponse)
+async def get_medications_for_disease(
+    consultation_id: uuid.UUID,
+    disease: str,
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Phase 45: Returns reference intelligence for medications."""
+    from app.services.medication_service import medication_provider
+    
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    return medication_provider.get_medications(disease)
