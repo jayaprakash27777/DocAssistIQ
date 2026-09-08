@@ -8,9 +8,11 @@ from app.models.clinical import ClinicalFinding
 from app.models.consultation import Consultation
 from app.models.provenance import Evidence, Article, Source
 from app.models.embedding import EmbeddingRecord
+from app.models.knowledge import Disease
 from app.schemas.explanation import ExplanationResponse, ExplanationEvidenceItem
 from app.schemas.rag import RAGQueryRequest, RAGFilterParams
 from app.services.rag_service import retrieve_evidence
+from app.services.graph_service import get_disease_knowledge_graph
 
 logger = logging.getLogger(__name__)
 
@@ -75,13 +77,44 @@ async def explain_clinical_finding(db: AsyncSession, finding_id: uuid.UUID) -> E
         except ValueError:
             pass
 
-    # 4. Synthesize Missing Information and Safety Flags (Mock heuristics based on text)
+    # 4. Synthesize Missing Information and Safety Flags
     missing_information = []
     safety_flags = []
+    linked_investigations = []
     
-    if finding.finding_type == "diagnosis":
-        missing_information.append("Recent lab results not found in transcript.")
+    if finding.finding_type == "diagnosis" and finding.concept:
+        # Phase 40: Use Knowledge Graph for real disease explanations
+        stmt_disease = select(Disease).where(Disease.name.ilike(finding.concept))
+        disease_res = await db.execute(stmt_disease)
+        disease = disease_res.scalar_one_or_none()
         
+        if disease:
+            graph = await get_disease_knowledge_graph(db, disease.id)
+            
+            # Use graph edges to find expected symptoms, investigations, medicines
+            expected_symptoms = [n.name for n in graph.nodes if n.node_type == 'symptom']
+            investigations = [n.name for n in graph.nodes if n.node_type == 'investigation']
+            medicines = [n.name for n in graph.nodes if n.node_type == 'medicine']
+            
+            linked_investigations.extend(investigations)
+            
+            # Check if expected symptoms are missing from the consultation
+            consultation_text = " ".join([f.finding_text.lower() for f in other_findings])
+            for sym in expected_symptoms:
+                if sym.lower() not in consultation_text:
+                    missing_information.append(f"Missing expected symptom for {disease.name}: {sym}")
+                    
+            for med in medicines:
+                if med.lower() in consultation_text:
+                    # If they are on a medicine for this disease, check for contraindications
+                    for edge in graph.edges:
+                        if edge.relationship == 'contraindicated_for':
+                            target_node = next((n for n in graph.nodes if n.id == edge.target_id), None)
+                            if target_node and target_node.name.lower() in consultation_text:
+                                safety_flags.append(f"Contraindication: {med} is contraindicated for {target_node.name}")
+        else:
+            missing_information.append("Recent lab results not found in transcript.")
+    
     if "pain" in finding.finding_text.lower() and not finding.certainty:
         missing_information.append("Severity/Scale of pain not mentioned.")
         
@@ -97,7 +130,7 @@ async def explain_clinical_finding(db: AsyncSession, finding_id: uuid.UUID) -> E
         supporting_findings=supporting_findings,
         contradicting_findings=contradicting_findings,
         missing_information=missing_information,
-        linked_investigations=[], # Placeholder for Phase 39
+        linked_investigations=linked_investigations,
         supporting_evidence=supporting_evidence,
         safety_flags=safety_flags,
         model_version=model_version,

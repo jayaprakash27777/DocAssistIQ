@@ -474,3 +474,105 @@ class DiseaseMedicine(Base):
         ForeignKey("sources.id", ondelete="SET NULL"),
         nullable=True,
     )
+
+
+class DiseaseEvidence(Base):
+    """Join table: Disease ↔ Evidence."""
+
+    __tablename__ = "disease_evidence"
+
+    __table_args__ = (
+        UniqueConstraint("disease_id", "evidence_id", name="uq_disease_evidence"),
+    )
+
+    disease_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("diseases.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    evidence_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("evidence.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    relevance_score: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Relevance score [0.0-1.0]"
+    )
+
+
+class MedicineContraindication(Base):
+    """Join table: Medicine ↔ Disease (Contraindications)."""
+
+    __tablename__ = "medicine_contraindications"
+
+    __table_args__ = (
+        UniqueConstraint("medicine_id", "disease_id", name="uq_medicine_contraindication"),
+    )
+
+    medicine_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("medicines.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    disease_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("diseases.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    severity: Mapped[str | None] = mapped_column(
+        String(40),
+        nullable=True,
+        comment="'absolute' | 'relative'"
+    )
+
+    source_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("sources.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+
+class MedicineInteraction(Base):
+    """Join table: Medicine ↔ Medicine (Interactions)."""
+
+    __tablename__ = "medicine_interactions"
+
+    __table_args__ = (
+        UniqueConstraint("medicine_id_1", "medicine_id_2", name="uq_medicine_interaction"),
+    )
+
+    medicine_id_1: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("medicines.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    medicine_id_2: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("medicines.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    severity: Mapped[str | None] = mapped_column(
+        String(40),
+        nullable=True,
+        comment="'major' | 'moderate' | 'minor'"
+    )
+
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    source_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("sources.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+

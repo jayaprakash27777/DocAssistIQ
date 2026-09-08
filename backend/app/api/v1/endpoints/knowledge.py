@@ -17,13 +17,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.platform import API_RESPONSES, PagedResponse
-from app.authorization import require_admin
+from app.authorization import require_admin, require_doctor
 from app.dependencies import get_db
 from app.models.provenance import Evidence, Source
 from app.models.user import User
 from app.services import knowledge_service
 from app.services.embedding_service import generate_and_store_embedding
 from app.models.embedding import EmbeddingRecord
+from app.services.graph_service import get_disease_knowledge_graph
+from app.schemas.graph import DiseaseKnowledgeGraph
 
 router = APIRouter(prefix="/knowledge", tags=["Knowledge Base (Entities)"])
 
@@ -177,12 +179,15 @@ async def sync_embedding(
     # Let's mock a simple content string for the baseline provider.
     content_to_embed = f"Knowledge Entity: {entity_type} {entity_id}"
     
-    record = await generate_and_store_embedding(
-        db=db,
-        source_record_id=str(entity_id),
-        source_record_type=entity_type,
-        content=content_to_embed,
-    )
+    try:
+        record = await generate_and_store_embedding(
+            db=db,
+            source_record_id=str(entity_id),
+            source_record_type=entity_type,
+            content=content_to_embed,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     if not record:
         from fastapi import HTTPException
@@ -194,3 +199,21 @@ async def sync_embedding(
         dimensions=record.dimensions,
         generated_at=record.generated_at.isoformat()
     )
+
+@router.get(
+    "/diseases/{disease_id}/graph",
+    response_model=DiseaseKnowledgeGraph,
+    summary="Get disease knowledge graph",
+    responses=API_RESPONSES,
+)
+async def get_disease_graph(
+    disease_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_doctor),
+) -> DiseaseKnowledgeGraph:
+    """
+    Fetch the complete knowledge graph for a specific disease, including
+    symptoms, investigations, medicines, and supporting evidence.
+    """
+    return await get_disease_knowledge_graph(db, disease_id)
+
