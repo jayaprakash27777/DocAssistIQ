@@ -77,6 +77,9 @@ from app.models.experiment import MLExperiment  # noqa: F401
 # ── Ingestion ─────────────────────────────────────────────────
 from app.models.ingestion import IngestionJob  # noqa: F401
 
+# ── Embeddings ────────────────────────────────────────────────
+from app.models.embedding import EmbeddingRecord  # noqa: F401
+
 __all__ = [
     # Provenance
     "KnowledgeVersion",
@@ -127,4 +130,6 @@ __all__ = [
     "EvaluationResult",
     # Experiments
     "MLExperiment",
+    # Embeddings
+    "EmbeddingRecord",
 ]

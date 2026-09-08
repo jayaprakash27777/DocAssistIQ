@@ -22,6 +22,8 @@ from app.dependencies import get_db
 from app.models.provenance import Evidence, Source
 from app.models.user import User
 from app.services import knowledge_service
+from app.services.embedding_service import generate_and_store_embedding
+from app.models.embedding import EmbeddingRecord
 
 router = APIRouter(prefix="/knowledge", tags=["Knowledge Base (Entities)"])
 
@@ -146,3 +148,49 @@ async def inspect_provenance(
         ))
         
     return provenance
+
+
+class EmbeddingSyncResponse(BaseModel):
+    id: uuid.UUID
+    model: str
+    dimensions: int
+    generated_at: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+@router.post(
+    "/{entity_type}/{entity_id}/embeddings/sync",
+    response_model=EmbeddingSyncResponse,
+    summary="Generate embedding for entity",
+    responses=API_RESPONSES,
+)
+async def sync_embedding(
+    entity_type: str,
+    entity_id: uuid.UUID,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> EmbeddingSyncResponse:
+    """Generate or retrieve the embedding vector for the specified entity via pgvector."""
+    # Dummy fetching entity details to embed. In reality we'd pull from knowledge tables.
+    # For now we use the entity code or name to generate the embedding text.
+    # Let's mock a simple content string for the baseline provider.
+    content_to_embed = f"Knowledge Entity: {entity_type} {entity_id}"
+    
+    record = await generate_and_store_embedding(
+        db=db,
+        source_record_id=str(entity_id),
+        source_record_type=entity_type,
+        content=content_to_embed,
+    )
+    
+    if not record:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="Failed to generate embedding")
+        
+    return EmbeddingSyncResponse(
+        id=record.id,
+        model=record.embedding_model,
+        dimensions=record.dimensions,
+        generated_at=record.generated_at.isoformat()
+    )

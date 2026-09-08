@@ -14,6 +14,7 @@ import {
   listPendingKnowledge,
   reviewKnowledge,
   inspectProvenance,
+  syncEmbedding,
   type KnowledgeEntityResponse,
   type ProvenanceItemResponse,
 } from "@/lib/api";
@@ -74,6 +75,19 @@ export default function KnowledgeReviewPage() {
     toast.success(`${inspectingEntity.name} marked as ${status}`);
     setInspectingEntity(null);
     fetchEntities();
+  }
+
+  async function handleSyncEmbedding() {
+    if (!inspectingEntity) return;
+    
+    toast.success(`Syncing embedding for ${inspectingEntity.name}...`);
+    const r = await syncEmbedding(activeTab, inspectingEntity.id);
+    
+    if (r.ok) {
+      toast.success(`Embedding generated (${r.data.dimensions}d, model: ${r.data.model})`);
+    } else {
+      toast.error(r.error.message || "Failed to generate embedding");
+    }
   }
 
   return (
@@ -202,17 +216,28 @@ export default function KnowledgeReviewPage() {
               )}
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", borderTop: "1px solid var(--border-subtle)", paddingTop: "1.5rem" }}>
-              <button className="btn-secondary" onClick={() => handleReview("REJECTED")}>
-                Reject (Do Not Publish)
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border-subtle)", paddingTop: "1.5rem" }}>
+              <button 
+                className="btn-secondary" 
+                onClick={handleSyncEmbedding}
+                style={{ fontSize: "0.875rem" }}
+              >
+                ⟳ Generate Embedding
               </button>
-              <button className="btn-secondary" onClick={() => handleReview("SUPERSEDED")}>
-                Mark as Superseded
-              </button>
-              <button className="btn-primary" onClick={() => handleReview("APPROVED")}>
-                Approve for Production
-              </button>
+              
+              <div style={{ display: "flex", gap: "1rem" }}>
+                <button className="btn-secondary" onClick={() => handleReview("REJECTED")}>
+                  Reject (Do Not Publish)
+                </button>
+                <button className="btn-secondary" onClick={() => handleReview("SUPERSEDED")}>
+                  Mark as Superseded
+                </button>
+                <button className="btn-primary" onClick={() => handleReview("APPROVED")}>
+                  Approve for Production
+                </button>
+              </div>
             </div>
+
           </div>
         </div>
       )}

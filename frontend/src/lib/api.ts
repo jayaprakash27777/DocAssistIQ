@@ -790,7 +790,27 @@ export async function inspectProvenance(
   id: string,
 ): Promise<ApiResult<ProvenanceItemResponse[]>> {
   return authedFetch<ProvenanceItemResponse[]>(
-    `${BASE_URL}/api/v1/knowledge///provenance`,
+    `${BASE_URL}/api/v1/knowledge/${entityType}/${id}/provenance`,
+  );
+}
+
+export interface EmbeddingSyncResponse {
+  id: string;
+  model: string;
+  dimensions: number;
+  generated_at: string;
+}
+
+export async function syncEmbedding(
+  entityType: string,
+  id: string,
+): Promise<ApiResult<EmbeddingSyncResponse>> {
+  return authedFetch<EmbeddingSyncResponse>(
+    `${BASE_URL}/api/v1/knowledge/${entityType}/${id}/embeddings/sync`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    },
   );
 }
 
