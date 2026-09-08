@@ -1364,6 +1364,22 @@ export async function getClinicalRepresentation(
 
 // ── Differential Diagnosis types ────────────────────────────
 
+export interface SafetyFlag {
+  rule_id: string;
+  rule_version: string;
+  category: string;
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  message: string;
+  source: string;
+  related_entity?: string | null;
+  timestamp: string;
+}
+
+export interface SafetyDecision {
+  decision: "ALLOW" | "WARN" | "ABSTAIN";
+  flags: SafetyFlag[];
+}
+
 export interface DifferentialDiagnosisItem {
   disease: string;
   score: number;
@@ -1372,6 +1388,7 @@ export interface DifferentialDiagnosisItem {
   contradicting_information: string[];
   uncertainty: string;
   explanation_reference: string;
+  safety_decision?: SafetyDecision | null;
 }
 
 export interface DifferentialDiagnosisResponse {

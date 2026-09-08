@@ -1,5 +1,6 @@
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
+from app.schemas.safety import SafetyDecision
 
 class DifferentialDiagnosisItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -11,6 +12,7 @@ class DifferentialDiagnosisItem(BaseModel):
     contradicting_information: List[str] = Field(default_factory=list)
     uncertainty: str = Field(..., description="Qualitative estimate of uncertainty")
     explanation_reference: str = Field(..., description="Explanation of how the algorithm matched this")
+    safety_decision: Optional[SafetyDecision] = Field(None, description="Deterministic safety evaluation result")
 
 class DifferentialDiagnosisResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

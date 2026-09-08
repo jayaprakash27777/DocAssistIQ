@@ -85,6 +85,15 @@ export default function DifferentialDiagnosis({ consultationId }: { consultation
                     </div>
                     <span>{Math.round(candidate.score * 100)}% Match</span>
                   </div>
+                  {candidate.safety_decision && candidate.safety_decision.decision !== "ALLOW" && (
+                    <div className="mt-1 flex items-center gap-1">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                        candidate.safety_decision.decision === 'ABSTAIN' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {candidate.safety_decision.decision === 'ABSTAIN' ? '🛑 UNSAFE' : '⚠️ WARNING'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="text-gray-400 text-xs font-mono">
@@ -132,6 +141,36 @@ export default function DifferentialDiagnosis({ consultationId }: { consultation
                     <div className="flex flex-wrap gap-1">
                       {candidate.contradicting_information.map((f, i) => (
                         <span key={i} className="text-[11px] px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded shadow-sm">✗ {f} (negated)</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Safety Flags */}
+                {candidate.safety_decision && candidate.safety_decision.flags.length > 0 && (
+                  <div className="mt-2 border border-red-100 rounded-md overflow-hidden">
+                    <div className="bg-red-50 px-3 py-1 border-b border-red-100 flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-red-800 uppercase tracking-wider">Safety Engine Analysis</span>
+                      <span className="text-[9px] text-red-600 font-mono">v{candidate.safety_decision.flags[0].rule_version}</span>
+                    </div>
+                    <div className="bg-white p-2 divide-y divide-red-50">
+                      {candidate.safety_decision.flags.map((flag, i) => (
+                        <div key={i} className="py-1.5 flex items-start gap-2">
+                          <span className="text-red-500 mt-0.5 text-[10px]">
+                            {flag.severity === 'CRITICAL' ? '🛑' : '⚠️'}
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-gray-800">{flag.category.replace('_', ' ')}</span>
+                              <span className={`text-[8px] px-1 rounded-sm font-bold ${
+                                flag.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {flag.severity}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-700 mt-0.5">{flag.message}</p>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>

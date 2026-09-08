@@ -264,6 +264,8 @@ async def get_differential_diagnosis(
     from app.services.representation_service import build_clinical_representation
     from app.services.diagnosis_provider import BaselineDiagnosisProvider
     
+    from app.services.safety_engine import safety_engine
+    
     consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
     if not consultation or consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=403, detail="Unauthorized")
@@ -271,4 +273,11 @@ async def get_differential_diagnosis(
     rep = await build_clinical_representation(db, consultation_id)
     
     provider = BaselineDiagnosisProvider()
-    return await provider.generate_differential(rep)
+    response = await provider.generate_differential(rep)
+    
+    # Phase 41: Evaluate safety for each differential candidate
+    for item in response.top_candidates:
+        safety_decision = await safety_engine.evaluate_differential_item(db, item, rep)
+        item.safety_decision = safety_decision
+        
+    return response
