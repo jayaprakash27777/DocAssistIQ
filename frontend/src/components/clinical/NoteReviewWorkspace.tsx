@@ -5,6 +5,7 @@ import { getClinicalNote, getConsultation, getTranscript, reviewClinicalFinding 
 import type { ConsultationResponse, TranscriptResponse, ClinicalFindingResponse } from "@/lib/api";
 import ClinicalNoteEditor from "@/components/clinical/ClinicalNoteEditor";
 import RAGAssistant from "@/components/clinical/RAGAssistant";
+import CitationVerifier from "@/components/clinical/CitationVerifier";
 
 export default function NoteReviewWorkspace({ consultationId }: { consultationId: string }) {
   const [consultation, setConsultation] = useState<ConsultationResponse | null>(null);
@@ -12,7 +13,7 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
-  const [showRAG, setShowRAG] = useState(false);
+  const [rightPanel, setRightPanel] = useState<"none" | "rag" | "verify">("none");
 
   useEffect(() => {
     async function loadData() {
@@ -133,26 +134,38 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
 
       </div>
 
-      {/* RIGHT PANE: Note Editor (and toggleable RAG Assistant) */}
+      {/* RIGHT PANE: Note Editor (and toggleable Assistants) */}
       <div className="w-full lg:w-1/2 flex flex-col overflow-hidden h-full border rounded-md shadow-sm bg-white relative">
-        {/* Toolbar to toggle RAG */}
-        <div className="bg-gray-100 border-b p-2 flex justify-end">
+        {/* Toolbar to toggle RAG/Verifier */}
+        <div className="bg-gray-100 border-b p-2 flex justify-end gap-2">
           <button
-            onClick={() => setShowRAG(!showRAG)}
-            className={`px-3 py-1 text-sm font-medium rounded transition-colors ${showRAG ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-white text-gray-700 hover:bg-gray-50 border shadow-sm'}`}
+            onClick={() => setRightPanel(rightPanel === "verify" ? "none" : "verify")}
+            className={`px-3 py-1 text-sm font-medium rounded transition-colors ${rightPanel === "verify" ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : 'bg-white text-gray-700 hover:bg-gray-50 border shadow-sm'}`}
           >
-            {showRAG ? "Hide Assistant" : "✨ Knowledge Assistant"}
+            {rightPanel === "verify" ? "Hide Verifier" : "🛡️ Verify Citation"}
+          </button>
+          <button
+            onClick={() => setRightPanel(rightPanel === "rag" ? "none" : "rag")}
+            className={`px-3 py-1 text-sm font-medium rounded transition-colors ${rightPanel === "rag" ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-white text-gray-700 hover:bg-gray-50 border shadow-sm'}`}
+          >
+            {rightPanel === "rag" ? "Hide Assistant" : "✨ Knowledge Assistant"}
           </button>
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          <div className={`flex-1 transition-all duration-300 ${showRAG ? 'w-1/2 border-r' : 'w-full'}`}>
+          <div className={`flex-1 transition-all duration-300 ${rightPanel !== "none" ? 'w-1/2 border-r' : 'w-full'}`}>
             <ClinicalNoteEditor consultationId={consultationId} />
           </div>
           
-          {showRAG && (
+          {rightPanel === "rag" && (
             <div className="w-1/2 transition-all duration-300 bg-gray-50">
               <RAGAssistant />
+            </div>
+          )}
+
+          {rightPanel === "verify" && (
+            <div className="w-1/2 transition-all duration-300 bg-gray-50">
+              <CitationVerifier />
             </div>
           )}
         </div>

@@ -855,6 +855,39 @@ export async function ragQuery(request: RAGQueryRequest): Promise<ApiResult<RAGR
   });
 }
 
+// -- Citation Verification (Phase 38) ----------------------------
+
+export interface ClaimVerificationRequest {
+  evidence_id: string;
+  claim_text: string;
+}
+
+export interface EvidenceDetails {
+  source_name: string;
+  source_status: string;
+  is_production_suitable: boolean;
+  evidence_grade?: string | null;
+  actual_claim: string;
+  is_ai_extracted: boolean;
+  reviewed_by_id?: string | null;
+}
+
+export interface ClaimVerificationResponse {
+  is_verified: boolean;
+  status: "VERIFIED" | "FABRICATED_ID" | "INVALID_SOURCE" | "UNAPPROVED_EVIDENCE" | "MISMATCHED_CLAIM";
+  reason: string;
+  evidence_details?: EvidenceDetails | null;
+}
+
+export async function verifyCitation(request: ClaimVerificationRequest): Promise<ApiResult<ClaimVerificationResponse>> {
+  return authedFetch<ClaimVerificationResponse>(`${BASE_URL}/api/v1/verification/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+}
+
+
 // -- Dataset Registry (Phase 17) ----------------------------
 
 export interface DatasetRegisterRequest {
