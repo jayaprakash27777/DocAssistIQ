@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { getClinicalNote, getConsultation, getTranscript, reviewClinicalFinding } from "@/lib/api";
 import type { ConsultationResponse, TranscriptResponse, ClinicalFindingResponse } from "@/lib/api";
 import ClinicalNoteEditor from "@/components/clinical/ClinicalNoteEditor";
+import RAGAssistant from "@/components/clinical/RAGAssistant";
 
 export default function NoteReviewWorkspace({ consultationId }: { consultationId: string }) {
   const [consultation, setConsultation] = useState<ConsultationResponse | null>(null);
@@ -11,6 +12,7 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+  const [showRAG, setShowRAG] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -131,9 +133,29 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
 
       </div>
 
-      {/* RIGHT PANE: Note Editor */}
-      <div className="w-full lg:w-1/2 flex flex-col overflow-hidden h-full">
-        <ClinicalNoteEditor consultationId={consultationId} />
+      {/* RIGHT PANE: Note Editor (and toggleable RAG Assistant) */}
+      <div className="w-full lg:w-1/2 flex flex-col overflow-hidden h-full border rounded-md shadow-sm bg-white relative">
+        {/* Toolbar to toggle RAG */}
+        <div className="bg-gray-100 border-b p-2 flex justify-end">
+          <button
+            onClick={() => setShowRAG(!showRAG)}
+            className={`px-3 py-1 text-sm font-medium rounded transition-colors ${showRAG ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-white text-gray-700 hover:bg-gray-50 border shadow-sm'}`}
+          >
+            {showRAG ? "Hide Assistant" : "✨ Knowledge Assistant"}
+          </button>
+        </div>
+
+        <div className="flex flex-1 overflow-hidden">
+          <div className={`flex-1 transition-all duration-300 ${showRAG ? 'w-1/2 border-r' : 'w-full'}`}>
+            <ClinicalNoteEditor consultationId={consultationId} />
+          </div>
+          
+          {showRAG && (
+            <div className="w-1/2 transition-all duration-300 bg-gray-50">
+              <RAGAssistant />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

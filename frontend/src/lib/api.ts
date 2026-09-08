@@ -814,6 +814,47 @@ export async function syncEmbedding(
   );
 }
 
+// -- RAG Retrieval (Phase 37) ----------------------------
+
+export interface RAGFilterParams {
+  min_evidence_grade?: string | null;
+  only_approved: boolean;
+  knowledge_version_id?: string | null;
+}
+
+export interface RAGQueryRequest {
+  query: string;
+  patient_context?: string | null;
+  filters: RAGFilterParams;
+  top_k: number;
+}
+
+export interface RAGCitation {
+  evidence_id: string;
+  claim: string;
+  evidence_grade?: string | null;
+  recommendation_grade?: string | null;
+  source_name: string;
+  source_code: string;
+  article_doi?: string | null;
+  entity_code?: string | null;
+}
+
+export interface RAGResponse {
+  query: string;
+  answer: string;
+  insufficient_evidence: boolean;
+  citations: RAGCitation[];
+}
+
+export async function ragQuery(request: RAGQueryRequest): Promise<ApiResult<RAGResponse>> {
+  return authedFetch<RAGResponse>(`${BASE_URL}/api/v1/rag/query`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+}
+
 // -- Dataset Registry (Phase 17) ----------------------------
 
 export interface DatasetRegisterRequest {

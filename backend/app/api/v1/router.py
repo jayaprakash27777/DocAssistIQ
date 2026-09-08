@@ -26,6 +26,7 @@ from app.api.v1.endpoints.experiments import router as experiments_router
 from app.api.v1.endpoints.platform_probe import router as probe_router
 from app.api.v1.endpoints.sources import router as sources_router
 from app.api.v1.endpoints.ws import router as ws_router
+from app.api.v1.endpoints.rag import router as rag_router
 from app.config import Settings
 from app.dependencies import get_request_id_dep, get_settings_dep
 
@@ -69,6 +70,9 @@ api_v1_router.include_router(evaluation_router)
 
 # Phase 19 — Experiment Tracking Foundation
 api_v1_router.include_router(experiments_router)
+
+# Phase 37 — RAG Retrieval
+api_v1_router.include_router(rag_router)
 
 # Phase 8 — WebSocket stream (mounted at app level — see main.py)
 # ws_router is imported here and exported for main.py to include directly
