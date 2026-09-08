@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Literal
 from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.safety import SafetyDecision
 
@@ -18,5 +18,8 @@ class DifferentialDiagnosisResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     consultation_id: str
+    status: Literal["SUCCESS", "INSUFFICIENT_INFO"] = Field(default="SUCCESS")
+    message: Optional[str] = Field(None, description="User-friendly message, especially when insufficient info")
+    missing_critical_info: List[str] = Field(default_factory=list, description="List of missing clinical parameters preventing analysis")
     provider_metadata: dict = Field(..., description="Metadata about the model/algorithm used")
     top_candidates: List[DifferentialDiagnosisItem] = Field(default_factory=list)

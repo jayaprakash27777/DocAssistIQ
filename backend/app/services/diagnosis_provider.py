@@ -31,6 +31,31 @@ class BaselineDiagnosisProvider(DiagnosisProvider):
     }
 
     async def generate_differential(self, representation: ClinicalRepresentationResponse) -> DifferentialDiagnosisResponse:
+        missing_critical_info = []
+        
+        if not representation.symptoms:
+            missing_critical_info.append("At least one reported symptom is required.")
+            
+        if not representation.duration:
+            missing_critical_info.append("Duration of symptoms is missing.")
+            
+        if not representation.severity:
+            missing_critical_info.append("Severity of symptoms is missing.")
+            
+        if not representation.symptoms:
+            # We absolutely cannot proceed without symptoms
+            return DifferentialDiagnosisResponse(
+                consultation_id=str(representation.consultation_id),
+                status="INSUFFICIENT_INFO",
+                message="Insufficient clinical information to generate a safe and meaningful differential diagnosis.",
+                missing_critical_info=missing_critical_info,
+                provider_metadata={
+                    "provider": "BaselineDiagnosisProvider",
+                    "version": "1.0"
+                },
+                top_candidates=[]
+            )
+
         rep_symptoms = set(item.value.lower() for item in representation.symptoms)
         rep_negations = set(item.value.lower() for item in representation.negations)
         
@@ -56,7 +81,12 @@ class BaselineDiagnosisProvider(DiagnosisProvider):
                 if contradictions:
                     explanation += f"Penalized for {len(contradictions)} contradictions. "
                 
+                # Apply uncertainty penalty for missing severity or duration
                 uncertainty = "High" if len(supporting) <= 1 else "Moderate" if score < 0.5 else "Low"
+                if missing_critical_info:
+                    score *= 0.8  # Penalty for missing core info
+                    uncertainty = "High"
+                    explanation += " Confidence reduced due to missing clinical context (duration/severity)."
                 
                 candidates.append(DifferentialDiagnosisItem(
                     disease=disease,
@@ -73,6 +103,9 @@ class BaselineDiagnosisProvider(DiagnosisProvider):
         
         return DifferentialDiagnosisResponse(
             consultation_id=str(representation.consultation_id),
+            status="SUCCESS",
+            message=None,
+            missing_critical_info=missing_critical_info,
             provider_metadata={
                 "provider": "BaselineDiagnosisProvider",
                 "version": "1.0",

@@ -1393,6 +1393,9 @@ export interface DifferentialDiagnosisItem {
 
 export interface DifferentialDiagnosisResponse {
   consultation_id: string;
+  status: "SUCCESS" | "INSUFFICIENT_INFO";
+  message?: string | null;
+  missing_critical_info: string[];
   provider_metadata: Record<string, any>;
   top_candidates: DifferentialDiagnosisItem[];
 }

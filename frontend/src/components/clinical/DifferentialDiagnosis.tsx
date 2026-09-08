@@ -42,7 +42,41 @@ export default function DifferentialDiagnosis({ consultationId }: { consultation
     );
   }
 
-  if (!data || data.top_candidates.length === 0) {
+  if (!data) {
+    return null;
+  }
+
+  if (data.status === "INSUFFICIENT_INFO") {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-6 overflow-hidden">
+        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+          <span className="text-gray-500">🤖</span>
+          <h3 className="font-semibold text-gray-700 text-sm">AI DIFFERENTIAL SUGGESTION</h3>
+        </div>
+        <div className="p-6 flex flex-col items-center justify-center text-center">
+          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-2xl mb-3">
+            🤷
+          </div>
+          <h4 className="text-sm font-bold text-gray-800 mb-2">Insufficient Information</h4>
+          <p className="text-sm text-gray-600 max-w-sm mb-4">
+            {data.message || "Not enough clinical information provided to generate a safe differential diagnosis."}
+          </p>
+          {data.missing_critical_info.length > 0 && (
+            <div className="text-left bg-yellow-50 text-yellow-800 p-3 rounded border border-yellow-200 text-xs w-full max-w-sm">
+              <strong className="block mb-1">Missing Requirements:</strong>
+              <ul className="list-disc pl-4 space-y-1">
+                {data.missing_critical_info.map((info, i) => (
+                  <li key={i}>{info}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (data.top_candidates.length === 0) {
     return null;
   }
 
