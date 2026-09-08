@@ -9,6 +9,7 @@ from app.schemas.safety import SafetyDecision, SafetyFlag
 from app.schemas.diagnosis import DifferentialDiagnosisItem
 from app.schemas.representation import ClinicalRepresentationResponse
 from app.services.graph_service import get_disease_knowledge_graph
+from app.services.red_flag_rules import RED_FLAG_RULES
 
 class SafetyEngine:
     """
@@ -17,6 +18,29 @@ class SafetyEngine:
     """
     
     VERSION = "1.0.0"
+
+    async def evaluate_clinical_representation(
+        self,
+        representation: ClinicalRepresentationResponse
+    ) -> SafetyDecision:
+        """
+        Evaluate the entire clinical representation against Red Flag rules.
+        Does not require a database connection.
+        """
+        flags: List[SafetyFlag] = []
+        
+        for rule in RED_FLAG_RULES:
+            flag = rule.evaluator(representation)
+            if flag:
+                flags.append(flag)
+                
+        decision = "ALLOW"
+        if any(f.severity == "CRITICAL" for f in flags):
+            decision = "ABSTAIN"
+        elif any(f.severity in ["HIGH", "MEDIUM"] for f in flags):
+            decision = "WARN"
+
+        return SafetyDecision(decision=decision, flags=flags)
 
     async def evaluate_differential_item(
         self,

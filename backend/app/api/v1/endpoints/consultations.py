@@ -246,6 +246,7 @@ async def get_clinical_representation(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.representation_service import build_clinical_representation
+    from app.services.safety_engine import safety_engine
     
     # Check if consultation exists and is owned by doctor
     consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
@@ -253,6 +254,11 @@ async def get_clinical_representation(
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     rep = await build_clinical_representation(db, consultation_id)
+    
+    # Phase 42: Evaluate clinical representation against red-flag rules
+    safety_decision = await safety_engine.evaluate_clinical_representation(rep)
+    rep.safety_decision = safety_decision
+    
     return rep
 
 @router.get("/{consultation_id}/differential")

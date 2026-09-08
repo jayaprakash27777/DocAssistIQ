@@ -24,6 +24,8 @@ import {
   correctTranscriptSegment,
   type TranscriptResponse,
   reviewClinicalFinding,
+  getClinicalRepresentation,
+  type ClinicalRepresentationResponse,
 } from "@/lib/api";
 import ClinicalNoteEditor from "@/components/clinical/ClinicalNoteEditor";
 import DifferentialDiagnosis from "@/components/clinical/DifferentialDiagnosis";
@@ -71,6 +73,8 @@ export default function ConsultationDetailPage() {
   const [editingSegment, setEditingSegment] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
 
+  const [representation, setRepresentation] = useState<ClinicalRepresentationResponse | null>(null);
+
   const fetchConsultation = useCallback(async () => {
     if (!id) return;
     const res = await getConsultation(id);
@@ -88,10 +92,15 @@ export default function ConsultationDetailPage() {
         setConsent(null);
       }
       
-      // Fetch Transcript
       const transcriptRes = await getTranscript(id);
       if (transcriptRes.ok) {
         setSavedTranscript(transcriptRes.data);
+      }
+      
+      // Fetch Representation
+      const repRes = await getClinicalRepresentation(id);
+      if (repRes.ok) {
+        setRepresentation(repRes.data);
       }
     } else {
       toast.error(res.error.message || "Failed to load consultation");
@@ -297,6 +306,71 @@ export default function ConsultationDetailPage() {
           </span>
         </div>
       </header>
+
+      {/* Phase 42: Red Flag Banner */}
+      {representation?.safety_decision && representation.safety_decision.decision !== "ALLOW" && (
+        <div className="bg-red-50 border-b-4 border-red-600 p-4 shrink-0 shadow-sm animate-pulse-slow z-50 sticky top-0">
+          <div className="flex items-start max-w-7xl mx-auto">
+            <div className="flex-shrink-0">
+              <span className="text-red-600 text-2xl" aria-hidden="true">🚨</span>
+            </div>
+            <div className="ml-3 w-full">
+              <h3 className="text-sm font-bold text-red-800 uppercase tracking-wider mb-1 flex items-center gap-2">
+                Critical Safety Warning
+                <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full font-mono border border-red-200">
+                  v{representation.safety_decision.flags[0]?.rule_version || "1.0"}
+                </span>
+              </h3>
+              <div className="mt-2 text-sm text-red-700 space-y-2">
+                {representation.safety_decision.flags.map((flag, idx) => (
+                  <div key={idx} className="bg-white/60 p-2 rounded border border-red-200 shadow-sm flex items-start gap-2">
+                    <span className="mt-0.5">{flag.severity === 'CRITICAL' ? '🛑' : '⚠️'}</span>
+                    <div>
+                      <p className="font-semibold text-red-900 text-xs mb-0.5">{flag.category.replace('_', ' ')}</p>
+                      <p className="text-red-800 text-xs font-medium">{flag.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConsentForm && !consent && (
+        <div style={{ padding: "1rem", background: "var(--surface-base)", borderRadius: "8px", border: "1px solid var(--border-subtle)", marginTop: "1rem" }}>
+          <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "1rem" }}>Provide Informed Consent</h3>
+          <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
+            To proceed with audio recording and automated analysis, we need explicit consent from the patient or legal guardian.
+          </p>
+          <div className="form-group">
+            <label>Consent Provided By</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="e.g., John Doe" 
+              value={consentActor} 
+              onChange={e => setConsentActor(e.target.value)} 
+            />
+          </div>
+          <div className="form-group">
+            <label>Relationship to Patient</label>
+            <select className="form-input" value={consentRelation} onChange={e => setConsentRelation(e.target.value)}>
+              <option value="self">Self</option>
+              <option value="parent">Parent</option>
+              <option value="guardian">Legal Guardian</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+            <button className="btn-primary" onClick={handleGrantConsent} disabled={actionLoading || !consentActor}>
+              Grant Consent & Proceed
+            </button>
+            <button className="btn-secondary" onClick={() => setShowConsentForm(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className={isSplitPane ? "flex flex-1 overflow-hidden" : ""} style={!isSplitPane ? { background: "var(--surface-base)", padding: "1.5rem", borderRadius: "8px", marginTop: "2rem" } : {}}>
         

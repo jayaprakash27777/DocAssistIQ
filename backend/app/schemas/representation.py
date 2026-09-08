@@ -4,6 +4,7 @@ import uuid
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
+from app.schemas.safety import SafetyDecision
 
 class Provenance(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -45,3 +46,5 @@ class ClinicalRepresentationResponse(BaseModel):
     vitals: List[RepresentationItem] = Field(default_factory=list)
     investigations: List[RepresentationItem] = Field(default_factory=list)
     report_findings: List[RepresentationItem] = Field(default_factory=list)
+    
+    safety_decision: Optional[SafetyDecision] = Field(None, description="Red flag safety evaluation result")
