@@ -287,3 +287,19 @@ async def get_differential_diagnosis(
         item.safety_decision = safety_decision
         
     return response
+
+@router.get("/{consultation_id}/investigations")
+async def get_investigations_for_disease(
+    consultation_id: uuid.UUID,
+    disease: str,
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Phase 44: Returns reference intelligence for investigations."""
+    from app.services.investigation_service import investigation_provider
+    
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    return investigation_provider.get_investigations(disease)

@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { getDifferentialDiagnosis, DifferentialDiagnosisResponse } from "@/lib/api";
 import { toast } from "react-hot-toast";
+import InvestigationPanel from "./InvestigationPanel";
 
 export default function DifferentialDiagnosis({ consultationId }: { consultationId: string }) {
   const [data, setData] = useState<DifferentialDiagnosisResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [showInvestigationsFor, setShowInvestigationsFor] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -218,10 +220,26 @@ export default function DifferentialDiagnosis({ consultationId }: { consultation
                   >
                     Why?
                   </button>
-                  <p className="text-xs text-gray-600 leading-relaxed pt-0.5">
+                  <p className="text-xs text-gray-600 leading-relaxed pt-0.5 flex-1">
                     {candidate.explanation_reference}
                   </p>
                 </div>
+
+                <div className="mt-2 pt-2 flex justify-end">
+                  <button
+                    className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 rounded text-xs font-semibold transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowInvestigationsFor(showInvestigationsFor === candidate.disease ? null : candidate.disease);
+                    }}
+                  >
+                    {showInvestigationsFor === candidate.disease ? 'Hide Reference Investigations' : 'View Reference Investigations'}
+                  </button>
+                </div>
+
+                {showInvestigationsFor === candidate.disease && (
+                  <InvestigationPanel consultationId={consultationId} disease={candidate.disease} />
+                )}
 
               </div>
             )}

@@ -1407,3 +1407,30 @@ export async function getDifferentialDiagnosis(
     `${BASE_URL}/api/v1/consultations/${consultation_id}/differential`,
   );
 }
+
+// ── Phase 44: Investigation Intelligence ───────────────────────────
+
+export interface InvestigationSuggestion {
+  name: string;
+  priority: "HIGH PRIORITY" | "CONDITIONAL" | "IF INDICATED";
+  rationale: string;
+  relevant_clinical_finding?: string | null;
+  evidence: string;
+  limitations: string;
+  safety_flags: string[];
+  provenance: string;
+}
+
+export interface InvestigationResponse {
+  disease: string;
+  suggestions: InvestigationSuggestion[];
+}
+
+export async function getInvestigationsForDisease(
+  consultation_id: string,
+  disease: string
+): Promise<ApiResult<InvestigationResponse>> {
+  return authedFetch<InvestigationResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/investigations?disease=${encodeURIComponent(disease)}`
+  );
+}
