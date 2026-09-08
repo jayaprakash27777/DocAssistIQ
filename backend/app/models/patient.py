@@ -116,29 +116,48 @@ class ConsentRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         comment="Related patient session",
     )
 
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
+    consultation_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        ForeignKey("consultations.id", ondelete="CASCADE"),
         nullable=False,
-        comment="Tenant scope",
+        comment="Related consultation",
     )
 
-    consent_type: Mapped[str] = mapped_column(
-        String(40),
+    actor_name: Mapped[str] = mapped_column(
+        String(150),
         nullable=False,
-        comment="'explicit' | 'implied' | 'revocation'",
+        comment="Name of the person giving consent (could be patient, guardian, proxy)",
     )
 
-    mechanism: Mapped[str] = mapped_column(
-        String(60),
+    actor_relationship: Mapped[str] = mapped_column(
+        String(50),
         nullable=False,
-        comment="How consent was obtained: 'verbal' | 'written' | 'electronic'",
+        comment="Relationship to patient: 'self', 'parent', 'legal_guardian', etc.",
     )
 
-    scope: Mapped[str] = mapped_column(
-        Text,
+    consent_text_version: Mapped[str] = mapped_column(
+        String(50),
         nullable=False,
-        comment="Description of what was consented to (non-PII)",
+        server_default="v1.0",
+        comment="Version of the consent script read to the actor",
+    )
+
+    purpose: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+        comment="Purpose of consent (e.g. 'Clinical AI Analysis & Recording')",
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        comment="'granted', 'revoked'",
+    )
+
+    recording_permitted: Mapped[bool] = mapped_column(
+        nullable=False,
+        server_default="false",
+        comment="True if audio/ambient recording is explicitly permitted",
     )
 
     recorded_by_id: Mapped[uuid.UUID] = mapped_column(
@@ -149,4 +168,4 @@ class ConsentRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:
-        return f"<ConsentRecord id={self.id} type={self.consent_type!r}>"
+        return f"<ConsentRecord id={self.id} status={self.status!r}>"

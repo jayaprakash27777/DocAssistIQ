@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, ForeignKey, Index, String, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database import Base
 from app.infrastructure.models import TimestampMixin, UUIDPrimaryKeyMixin
@@ -63,10 +63,11 @@ class ClinicalNote(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         comment="'history' | 'examination' | 'progress' | 'discharge' | 'referral'",
     )
 
-    body: Mapped[str] = mapped_column(
-        Text,
+    body: Mapped[dict] = mapped_column(
+        JSON,
         nullable=False,
-        comment="Note text (non-PII narrative; clinician-confirmed content only)",
+        server_default="{}",
+        comment="Structured note sections (JSON)",
     )
 
     status: Mapped[str] = mapped_column(
@@ -79,7 +80,14 @@ class ClinicalNote(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     version: Mapped[int] = mapped_column(
         nullable=False,
         server_default="1",
-        comment="Monotonically increasing version number",
+        comment="Monotonically increasing version number for optimistic concurrency",
+    )
+    
+    last_edited_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Clinician who made the last edit (null if AI)",
     )
 
     is_ai_generated: Mapped[bool] = mapped_column(
@@ -91,6 +99,65 @@ class ClinicalNote(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return f"<ClinicalNote id={self.id} type={self.note_type!r} v={self.version}>"
+
+
+class ManualIntake(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """
+    Structured manual clinical intake (Phase 22).
+    
+    Fields are separated from free text. Does not invent assumptions.
+    Supports draft and autosave.
+    """
+
+    __tablename__ = "manual_intakes"
+
+    __table_args__ = (
+        Index("ix_manual_intakes_consultation", "consultation_id", unique=True),
+    )
+
+    consultation_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("consultations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Parent consultation",
+    )
+    
+    doctor_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctors.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        server_default="draft",
+        comment="'draft' | 'final' | 'voided'",
+    )
+
+    # Core
+    chief_complaint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    symptoms: Mapped[str | None] = mapped_column(Text, nullable=True)
+    duration: Mapped[str | None] = mapped_column(Text, nullable=True)
+    severity: Mapped[str | None] = mapped_column(Text, nullable=True)
+    onset: Mapped[str | None] = mapped_column(Text, nullable=True)
+    location: Mapped[str | None] = mapped_column(Text, nullable=True)
+    associated_symptoms: Mapped[str | None] = mapped_column(Text, nullable=True)
+    aggravating_factors: Mapped[str | None] = mapped_column(Text, nullable=True)
+    relieving_factors: Mapped[str | None] = mapped_column(Text, nullable=True)
+    negations: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    # History & Vitals
+    past_medical_history: Mapped[str | None] = mapped_column(Text, nullable=True)
+    medications: Mapped[str | None] = mapped_column(Text, nullable=True)
+    allergies: Mapped[str | None] = mapped_column(Text, nullable=True)
+    family_social_history: Mapped[str | None] = mapped_column(Text, nullable=True)
+    vitals: Mapped[str | None] = mapped_column(Text, nullable=True)
+    previous_investigations: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<ManualIntake id={self.id} consultation={self.consultation_id}>"
 
 
 class ClinicalFinding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -128,6 +195,18 @@ class ClinicalFinding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         comment="'symptom' | 'sign' | 'measurement' | 'diagnosis' | 'risk_factor'",
     )
+    
+    # NLP Extraction Fields (Phase 28 & 29)
+    concept: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    value: Mapped[str | None] = mapped_column(Text, nullable=True, comment="Raw extracted value")
+    certainty: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    negated: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    temporality: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="'current' | 'past' | 'family'")
+    source_context: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    
+    canonical_concept: Mapped[str | None] = mapped_column(String(255), nullable=True, comment="Normalized verified term")
+    mapping_source: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="e.g. 'internal_dict', 'snomed'")
+    mapping_confidence: Mapped[float | None] = mapped_column(nullable=True, comment="Confidence of the normalization mapping")
 
     # AI vs clinician separation
     is_ai_suggested: Mapped[bool] = mapped_column(
@@ -161,6 +240,17 @@ class ClinicalFinding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     confidence_score: Mapped[float | None] = mapped_column(
         nullable=True,
         comment="AI confidence score [0.0–1.0] (null for clinician-entered findings)",
+    )
+
+    knowledge_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("knowledge_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="The specific version of the knowledge base that surfaced this finding",
+    )
+
+    consultation: Mapped["Consultation"] = relationship(
+        "Consultation", back_populates="findings"
     )
 
     def __repr__(self) -> str:

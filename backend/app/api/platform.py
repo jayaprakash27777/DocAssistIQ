@@ -32,7 +32,7 @@ Usage in a route::
 
 Design decisions:
     - Pages are 1-based (page=1 is the first page).
-    - page_size is capped at 100; page must be >= 1.
+    - page_size is capped at 500; page must be >= 1.
     - sort_by column names are whitelisted per-route to prevent column enumeration.
     - All filter values are parameterised — no raw SQL concatenation.
     - PagedResponse is generic so mypy/pyright can validate item types.
@@ -197,7 +197,7 @@ class PaginationParams(BaseModel):
         Query(default=1, ge=1, description="1-based page number"),
     )
     page_size: int = Field(
-        Query(default=20, ge=1, le=100, description="Items per page (max 100)"),
+        Query(default=20, ge=1, le=500, description="Items per page (max 500)"),
     )
 
     @property
@@ -347,7 +347,9 @@ def apply_sort(
 
     column = getattr(model, sort.sort_by)
     direction = asc(column) if sort.sort_dir == "asc" else desc(column)
-    return query.order_by(direction)
+    # Add stable secondary sort by id to ensure deterministic ordering on ties
+    id_dir = asc(model.id) if sort.sort_dir == "asc" else desc(model.id)
+    return query.order_by(direction, id_dir)
 
 
 # ============================================================

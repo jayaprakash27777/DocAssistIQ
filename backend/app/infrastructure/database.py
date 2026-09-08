@@ -145,14 +145,20 @@ async def atomic(session: AsyncSession) -> AsyncGenerator[AsyncSession, None]:
             tx.add(AuditLog(...))
         # Both rows committed, or neither if an exception occurred.
     """
-    async with session.begin():
-        try:
-            yield session
-        except Exception:
-            # session.begin() context manager rolls back automatically,
-            # but we log here for observability before re-raising.
-            logger.warning("transaction_rolled_back")
-            raise
+    if session.in_transaction():
+        async with session.begin_nested():
+            try:
+                yield session
+            except Exception:
+                logger.warning("nested_transaction_rolled_back")
+                raise
+    else:
+        async with session.begin():
+            try:
+                yield session
+            except Exception:
+                logger.warning("transaction_rolled_back")
+                raise
 
 
 # ============================================================

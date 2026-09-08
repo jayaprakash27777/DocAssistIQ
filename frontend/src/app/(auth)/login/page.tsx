@@ -10,7 +10,7 @@ interface FieldError {
   password?: string;
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextUrl = searchParams.get("next") ?? "/dashboard";
@@ -141,5 +141,15 @@ export default function LoginPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+import { Suspense } from "react";
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="auth-card">Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

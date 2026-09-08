@@ -25,13 +25,43 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database import Base
+
 from app.infrastructure.models import TimestampMixin, UUIDPrimaryKeyMixin
+
+
+class KnowledgeVersioningMixin:
+    """Fields to track knowledge quality and versioning (Phase 15)."""
+    
+    publication_date: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, comment="Original publication date of the source"
+    )
+    retrieval_date: Mapped[str | None] = mapped_column(
+        String(40), nullable=True, comment="When it was ingested"
+    )
+    effective_date: Mapped[str | None] = mapped_column(
+        String(40), nullable=True, comment="When this became active in production"
+    )
+    version_string: Mapped[str | None] = mapped_column(
+        String(40), nullable=True, comment="Semantic version or source version"
+    )
+    content_hash: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, comment="Hash of the core content to detect mutations"
+    )
+    credibility_tier: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="unknown", comment="'primary' | 'secondary' | 'tertiary' | 'unknown'"
+    )
+    evidence_level: Mapped[str | None] = mapped_column(
+        String(10), nullable=True, comment="Highest level of evidence (e.g. 'Ia')"
+    )
+    superseded_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), nullable=True, comment="FK to the entity that superseded this one"
+    )
 
 
 # ── Symptom ───────────────────────────────────────────────────
 
 
-class Symptom(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class Symptom(KnowledgeVersioningMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """A medical symptom in the knowledge base."""
 
     __tablename__ = "symptoms"
@@ -75,8 +105,8 @@ class Symptom(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        server_default="draft",
-        comment="'draft' | 'verified' | 'deprecated'",
+        server_default="PENDING_REVIEW",
+        comment="'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUPERSEDED' | 'OUTDATED'",
     )
 
     is_ai_generated: Mapped[bool] = mapped_column(
@@ -100,7 +130,7 @@ class Symptom(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 # ── Disease ───────────────────────────────────────────────────
 
 
-class Disease(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class Disease(KnowledgeVersioningMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """A disease or condition in the knowledge base."""
 
     __tablename__ = "diseases"
@@ -156,8 +186,8 @@ class Disease(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        server_default="draft",
-        comment="'draft' | 'verified' | 'deprecated'",
+        server_default="PENDING_REVIEW",
+        comment="'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUPERSEDED' | 'OUTDATED'",
     )
 
     is_ai_generated: Mapped[bool] = mapped_column(
@@ -179,7 +209,7 @@ class Disease(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 # ── Investigation ─────────────────────────────────────────────
 
 
-class Investigation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class Investigation(KnowledgeVersioningMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """A medical investigation (test, imaging, procedure) in the knowledge base."""
 
     __tablename__ = "investigations"
@@ -223,8 +253,8 @@ class Investigation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        server_default="draft",
-        comment="'draft' | 'verified' | 'deprecated'",
+        server_default="PENDING_REVIEW",
+        comment="'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUPERSEDED' | 'OUTDATED'",
     )
 
     is_ai_generated: Mapped[bool] = mapped_column(
@@ -246,7 +276,7 @@ class Investigation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 # ── Medicine ──────────────────────────────────────────────────
 
 
-class Medicine(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class Medicine(KnowledgeVersioningMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """
     A medicinal product in the knowledge base.
 
@@ -308,8 +338,8 @@ class Medicine(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        server_default="draft",
-        comment="'draft' | 'verified' | 'deprecated'",
+        server_default="PENDING_REVIEW",
+        comment="'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUPERSEDED' | 'OUTDATED'",
     )
 
     is_ai_generated: Mapped[bool] = mapped_column(

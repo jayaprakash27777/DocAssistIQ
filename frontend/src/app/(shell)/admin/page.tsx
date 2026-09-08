@@ -26,6 +26,48 @@ const ADMIN_CARDS: AdminCard[] = [
     icon: "👨‍⚕️",
     id: "admin-card-doctors",
   },
+  {
+    href: "/admin/sources",
+    title: "Medical Sources",
+    description: "Manage and verify clinical knowledge sources for the registry.",
+    icon: "📚",
+    id: "admin-card-sources",
+  },
+  {
+    href: "/admin/ingestion",
+    title: "Knowledge Ingestion",
+    description: "Monitor background ingestion queues and review parsed knowledge.",
+    icon: "⚙️",
+    id: "admin-card-ingestion",
+  },
+  {
+    href: "/admin/knowledge",
+    title: "Knowledge Publication",
+    description: "Safely review and publish clinical knowledge to production.",
+    icon: "🩺",
+    id: "admin-card-knowledge",
+  },
+  {
+    href: "/admin/datasets",
+    title: "Dataset Registry & Governance",
+    description: "Manage ML datasets and enforce PII validation rules.",
+    icon: "📊",
+    id: "admin-card-datasets",
+  },
+  {
+    href: "/admin/evaluations",
+    title: "Baseline Evaluation Harness",
+    description: "Run repeatable metrics against fixed hold-out datasets.",
+    icon: "📈",
+    id: "admin-card-evaluations",
+  },
+  {
+    href: "/admin/experiments",
+    title: "ML Experiment Tracking",
+    description: "Track model training runs, hyperparameters, and artifacts.",
+    icon: "🧪",
+    id: "admin-card-experiments",
+  },
 ];
 
 export default function AdminPage() {

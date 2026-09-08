@@ -383,13 +383,23 @@ export const PLACEHOLDER_LABEL = "PLACEHOLDER DEVELOPMENT RESPONSE — NOT CLINI
 
 export interface ConsultationResponse {
   id: string;
-  user_id: string;
+  doctor_id: string;
+  patient_session_id: string | null;
+  status: string;
   input_text: string;
-  status: "pending" | "completed" | "failed";
-  placeholder_response: string | null;
-  is_placeholder: boolean;
   created_at: string;
   updated_at: string;
+  findings: ClinicalFindingResponse[];
+}
+
+export interface ConsultationCreateRequest {
+  patient_session_id?: string | null;
+  input_text?: string;
+}
+
+export interface ConsultationTransitionRequest {
+  new_status: string;
+  input_text?: string | null;
 }
 
 export interface ConsultationSummary {
@@ -403,14 +413,14 @@ export interface ConsultationSummary {
 // ── Consultation API functions ──────────────────────────────
 
 export async function createConsultation(
-  input_text: string,
+  payload: ConsultationCreateRequest = {},
 ): Promise<ApiResult<ConsultationResponse>> {
   return authedFetch<ConsultationResponse>(
     `${BASE_URL}/api/v1/consultations/`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input_text }),
+      body: JSON.stringify(payload),
     },
   );
 }
@@ -420,6 +430,20 @@ export async function getConsultation(
 ): Promise<ApiResult<ConsultationResponse>> {
   return authedFetch<ConsultationResponse>(
     `${BASE_URL}/api/v1/consultations/${id}`,
+  );
+}
+
+export async function transitionConsultationStatus(
+  consultationId: string,
+  payload: ConsultationTransitionRequest,
+): Promise<ApiResult<ConsultationResponse>> {
+  return authedFetch<ConsultationResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultationId}/status`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
   );
 }
 
@@ -516,3 +540,725 @@ export async function verifyDoctor(
   );
 }
 
+
+// -- File Storage (Phase 11) ---------------------------------
+
+export interface FileObjectResponse {
+  id: string;
+  owner_id: string;
+  tenant_id: string | null;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  checksum_sha256: string | null;
+  status: string;
+  scan_status: string;
+  linked_entity_type: string | null;
+  linked_entity_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FileDownloadUrlResponse {
+  file_id: string;
+  download_url: string;
+  expires_in_seconds: number;
+}
+
+export interface FileUploadResponse {
+  file: FileObjectResponse;
+  message: string;
+}
+
+export async function uploadFile(
+  formData: FormData,
+): Promise<ApiResult<FileUploadResponse>> {
+  return authedFetch<FileUploadResponse>(`${BASE_URL}/api/v1/files/upload`, {
+    method: 'POST',
+    body: formData, // Do not set Content-Type header, let browser set it with boundary
+  });
+}
+
+export async function listFiles(
+  page = 1,
+  page_size = 20,
+): Promise<ApiResult<PagedResponse<FileObjectResponse>>> {
+  return authedFetch<PagedResponse<FileObjectResponse>>(
+    `${BASE_URL}/api/v1/files/?page=${page}&page_size=${page_size}`,
+  );
+}
+
+export async function getFileDownloadUrl(
+  fileId: string,
+): Promise<ApiResult<FileDownloadUrlResponse>> {
+  return authedFetch<FileDownloadUrlResponse>(
+    `${BASE_URL}/api/v1/files/${fileId}/download`,
+  );
+}
+
+export async function deleteFile(fileId: string): Promise<ApiResult<void>> {
+  return authedFetch<void>(`${BASE_URL}/api/v1/files/${fileId}`, {
+    method: 'DELETE',
+  });
+}
+
+// -- Medical Sources (Phase 12) ------------------------------
+
+export interface SourceResponse {
+  id: string;
+  code: string;
+  organisation: string;
+  name: string;
+  base_url: string | null;
+  access_mechanism: string;
+  data_type: string;
+  license_info: string | null;
+  is_production_suitable: boolean;
+  last_verified_at: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SourceCreate {
+  code: string;
+  organisation: string;
+  name: string;
+  base_url?: string;
+  access_mechanism: string;
+  data_type: string;
+  license_info?: string;
+}
+
+export interface SourceUpdate {
+  organisation?: string;
+  name?: string;
+  base_url?: string;
+  access_mechanism?: string;
+  data_type?: string;
+  license_info?: string;
+}
+
+export async function listSources(
+  page = 1,
+  page_size = 20,
+): Promise<ApiResult<PagedResponse<SourceResponse>>> {
+  return authedFetch<PagedResponse<SourceResponse>>(
+    `/api/v1/sources/?page=&page_size=`,
+  );
+}
+
+export async function getSource(id: string): Promise<ApiResult<SourceResponse>> {
+  return authedFetch<SourceResponse>(`${BASE_URL}/api/v1/sources/`);
+}
+
+export async function createSource(
+  payload: SourceCreate,
+): Promise<ApiResult<SourceResponse>> {
+  return authedFetch<SourceResponse>(`${BASE_URL}/api/v1/sources/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateSource(
+  id: string,
+  payload: SourceUpdate,
+): Promise<ApiResult<SourceResponse>> {
+  return authedFetch<SourceResponse>(`${BASE_URL}/api/v1/sources/`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function verifySource(
+  id: string,
+): Promise<ApiResult<SourceResponse>> {
+  return authedFetch<SourceResponse>(
+    `${BASE_URL}/api/v1/sources/${id}/verify`,
+    {
+      method: 'POST',
+    },
+  );
+}
+
+// -- Knowledge Ingestion (Phase 13) -------------------------
+
+export interface IngestionJobResponse {
+  id: string;
+  source_id: string;
+  source_version: string | null;
+  status: string;
+  content_hash: string | null;
+  raw_artifact_url: string | null;
+  validation_result: Record<string, any> | null;
+  error_message: string | null;
+  review_status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IngestionJobCreate {
+  source_id: string;
+  source_version?: string;
+}
+
+export async function listIngestionJobs(
+  page = 1,
+  page_size = 20,
+): Promise<ApiResult<PagedResponse<IngestionJobResponse>>> {
+  return authedFetch<PagedResponse<IngestionJobResponse>>(
+    `/api/v1/ingestion/jobs?page=&page_size=`,
+  );
+}
+
+export async function startIngestionJob(
+  payload: IngestionJobCreate,
+): Promise<ApiResult<IngestionJobResponse>> {
+  return authedFetch<IngestionJobResponse>(`${BASE_URL}/api/v1/ingestion/jobs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function reviewIngestionJob(
+  id: string,
+  status: 'approved' | 'rejected',
+): Promise<ApiResult<IngestionJobResponse>> {
+  return authedFetch<IngestionJobResponse>(
+    `${BASE_URL}/api/v1/ingestion/jobs/${id}/review`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ review_status: status }),
+    },
+  );
+}
+
+// -- Knowledge Review (Phase 14) ----------------------------
+
+export interface KnowledgeEntityResponse {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  is_ai_generated: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProvenanceItemResponse {
+  id: string;
+  claim: string;
+  evidence_grade: string | null;
+  recommendation_grade: string | null;
+  is_ai_extracted: boolean;
+  source_name: string;
+  source_code: string;
+}
+
+export async function listPendingKnowledge(
+  entityType: string,
+  page = 1,
+  pageSize = 20,
+): Promise<ApiResult<PagedResponse<KnowledgeEntityResponse>>> {
+  return authedFetch<PagedResponse<KnowledgeEntityResponse>>(
+    `/api/v1/knowledge//pending?page=&page_size=`,
+  );
+}
+
+export async function reviewKnowledge(
+  entityType: string,
+  id: string,
+  newStatus: 'APPROVED' | 'REJECTED' | 'SUPERSEDED' | 'OUTDATED',
+): Promise<ApiResult<KnowledgeEntityResponse>> {
+  return authedFetch<KnowledgeEntityResponse>(
+    `${BASE_URL}/api/v1/knowledge/${entityType}/${id}/review`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_status: newStatus }),
+    },
+  );
+}
+
+export async function inspectProvenance(
+  entityType: string,
+  id: string,
+): Promise<ApiResult<ProvenanceItemResponse[]>> {
+  return authedFetch<ProvenanceItemResponse[]>(
+    `${BASE_URL}/api/v1/knowledge///provenance`,
+  );
+}
+
+// -- Dataset Registry (Phase 17) ----------------------------
+
+export interface DatasetRegisterRequest {
+  name: string;
+  source: string;
+  license: string;
+  version: string;
+  hash: string;
+  schema_def: any;
+  intended_use: string;
+  limitations: string;
+  storage_path: string;
+}
+
+export interface DatasetResponse {
+  id: string;
+  name: string;
+  source: string;
+  version: string;
+  hash: string;
+  record_count: number;
+  is_deidentified: boolean;
+  approval_status: string;
+  storage_path: string;
+}
+
+export interface DatasetValidationResult {
+  is_valid: boolean;
+  record_count: number;
+  malformed: number;
+  missing_values: number;
+  duplicates: number;
+  pii_detected: boolean;
+  label_conflicts: number;
+  leakage_detected: boolean;
+  errors: string[];
+}
+
+export async function listDatasets(): Promise<ApiResult<DatasetResponse[]>> {
+  return authedFetch<DatasetResponse[]>(`/api/v1/datasets`);
+}
+
+export async function registerDataset(
+  payload: DatasetRegisterRequest,
+): Promise<ApiResult<DatasetResponse>> {
+  return authedFetch<DatasetResponse>(`/api/v1/datasets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function validateDataset(
+  id: string,
+): Promise<ApiResult<DatasetValidationResult>> {
+  return authedFetch<DatasetValidationResult>(
+    `/api/v1/datasets//validate`,
+    { method: 'POST' }
+  );
+}
+
+export async function approveDataset(
+  id: string,
+): Promise<ApiResult<DatasetResponse>> {
+  return authedFetch<DatasetResponse>(
+    `/api/v1/datasets//approve`,
+    { method: 'POST' }
+  );
+}
+
+// -- Evaluation Harness (Phase 18) --------------------------
+
+export interface EvaluationResultResponse {
+  id: string;
+  record_identifier: string;
+  task_type: string;
+  ground_truth: any;
+  model_output: any;
+  is_correct: boolean | null;
+  score: number | null;
+  failure_reason: string | null;
+}
+
+export interface EvaluationRunResponse {
+  id: string;
+  dataset_id: string;
+  model_version: string;
+  status: string;
+  metrics: any;
+}
+
+export interface EvaluationRunDetailResponse extends EvaluationRunResponse {
+  results: EvaluationResultResponse[];
+}
+
+export interface TriggerEvaluationRequest {
+  dataset_id: string;
+  model_version: string;
+}
+
+export async function listEvaluations(): Promise<ApiResult<EvaluationRunResponse[]>> {
+  return authedFetch<EvaluationRunResponse[]>(`/api/v1/evaluations`);
+}
+
+export async function getEvaluationDetails(
+  id: string,
+): Promise<ApiResult<EvaluationRunDetailResponse>> {
+  return authedFetch<EvaluationRunDetailResponse>(`/api/v1/evaluations/`);
+}
+
+export async function triggerEvaluation(
+  payload: TriggerEvaluationRequest,
+): Promise<ApiResult<EvaluationRunResponse>> {
+  return authedFetch<EvaluationRunResponse>(`/api/v1/evaluations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function executeEvaluationPipeline(
+  id: string,
+): Promise<ApiResult<{ status: string }>> {
+  return authedFetch<{ status: string }>(
+    `/api/v1/evaluations//execute`,
+    { method: 'POST' }
+  );
+}
+
+// -- ML Experiments (Phase 19) -----------------------------
+
+export interface ExperimentResponse {
+  id: string;
+  name: string;
+  status: string;
+  code_commit: string;
+  dataset_version: string;
+  dataset_hash: string;
+  preprocessing_version: string;
+  model_name: string;
+  configuration: any;
+  random_seed: number;
+  hardware: any;
+  execution_duration_sec: number | null;
+  metrics: any;
+  artifact_location: string | null;
+}
+
+export async function listExperiments(): Promise<ApiResult<ExperimentResponse[]>> {
+  return authedFetch<ExperimentResponse[]>(`/api/v1/experiments`);
+}
+
+export async function getExperiment(
+  id: string,
+): Promise<ApiResult<ExperimentResponse>> {
+  return authedFetch<ExperimentResponse>(`/api/v1/experiments/`);
+}
+
+// -- Consultation Lifecycle (Phase 20) --------------------------
+
+export interface ClinicalFindingResponse {
+  id: string;
+  finding_type: string;
+  finding_text: string;
+  concept: string | null;
+  value: string | null;
+  certainty: string | null;
+  negated: boolean;
+  temporality: string | null;
+  source_context: string | null;
+  canonical_concept: string | null;
+  mapping_source: string | null;
+  mapping_confidence: number | null;
+  is_ai_suggested: boolean;
+  is_clinician_confirmed: boolean;
+  status: string;
+  confidence_score: number | null;
+}
+
+
+
+
+export async function reviewClinicalFinding(
+  consultationId: string,
+  findingId: string,
+  action: 'confirm' | 'reject',
+): Promise<ApiResult<ClinicalFindingResponse>> {
+  return authedFetch<ClinicalFindingResponse>(`${BASE_URL}/api/v1/consultations/${consultationId}/findings/${findingId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  });
+}
+
+// -- Consent (Phase 21) -----------------------------------------
+
+export interface ConsentRecordResponse {
+  id: string;
+  consultation_id: string;
+  actor_name: string;
+  actor_relationship: string;
+  consent_text_version: string;
+  purpose: string;
+  status: string;
+  recording_permitted: boolean;
+  recorded_by_id: string;
+  created_at: string;
+}
+
+export interface ConsentRecordCreate {
+  consultation_id: string;
+  actor_name: string;
+  actor_relationship: string;
+  purpose: string;
+  recording_permitted: boolean;
+}
+
+export async function createConsent(
+  payload: ConsentRecordCreate,
+): Promise<ApiResult<ConsentRecordResponse>> {
+  return authedFetch<ConsentRecordResponse>(`/api/v1/consent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getActiveConsent(
+  consultationId: string,
+): Promise<ApiResult<ConsentRecordResponse>> {
+  return authedFetch<ConsentRecordResponse>(`/api/v1/consent/`);
+}
+
+export async function revokeConsent(
+  consultationId: string,
+): Promise<ApiResult<ConsentRecordResponse>> {
+  return authedFetch<ConsentRecordResponse>(`/api/v1/consent//revoke`, {
+    method: 'POST',
+  });
+}
+
+// -- Manual Intake (Phase 22) --------------------------
+
+export interface ManualIntakeResponse {
+  id: string;
+  consultation_id: string;
+  doctor_id: string;
+  status: string;
+  chief_complaint: string | null;
+  symptoms: string | null;
+  duration: string | null;
+  severity: string | null;
+  onset: string | null;
+  location: string | null;
+  associated_symptoms: string | null;
+  aggravating_factors: string | null;
+  relieving_factors: string | null;
+  negations: string | null;
+  past_medical_history: string | null;
+  medications: string | null;
+  allergies: string | null;
+  family_social_history: string | null;
+  vitals: string | null;
+  previous_investigations: string | null;
+  updated_at: string;
+}
+
+export type ManualIntakeUpdate = Partial<Omit<ManualIntakeResponse, "id" | "consultation_id" | "doctor_id" | "status" | "updated_at">>;
+
+export async function getIntake(
+  consultationId: string,
+): Promise<ApiResult<ManualIntakeResponse>> {
+  return authedFetch<ManualIntakeResponse>(`/api/v1/consultations/${consultationId}/intake`);
+}
+
+export async function updateIntake(
+  consultationId: string,
+  payload: ManualIntakeUpdate,
+): Promise<ApiResult<ManualIntakeResponse>> {
+  return authedFetch<ManualIntakeResponse>(`/api/v1/consultations/${consultationId}/intake`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function finalizeIntake(
+  consultationId: string,
+): Promise<ApiResult<ManualIntakeResponse>> {
+  return authedFetch<ManualIntakeResponse>(`/api/v1/consultations/${consultationId}/intake/finalize`, {
+    method: 'POST',
+  });
+}
+
+// ── Transcripts (Phase 27) ────────────────────────────────────────────────────────
+
+export interface TranscriptSegmentResponse {
+  id: string;
+  start_time: number;
+  end_time: number;
+  speaker_label: string | null;
+  speaker_confidence: number | null;
+  speaker_source: string | null;
+  raw_text: string;
+  processed_text: string;
+  clinician_corrected_text: string | null;
+  is_corrected: boolean;
+}
+
+export interface TranscriptResponse {
+  id: string;
+  consultation_id: string;
+  status: string;
+  segments: TranscriptSegmentResponse[];
+}
+
+export async function getTranscript(
+  consultationId: string,
+): Promise<ApiResult<TranscriptResponse>> {
+  return authedFetch<TranscriptResponse>(`/api/v1/consultations/${consultationId}/transcript`);
+}
+
+export async function saveTranscript(
+  consultationId: string,
+  payload: { status: string; segments: any[] },
+): Promise<ApiResult<TranscriptResponse>> {
+  return authedFetch<TranscriptResponse>(`/api/v1/consultations/${consultationId}/transcript`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function correctTranscriptSegment(
+  consultationId: string,
+  segmentId: string,
+  text: string,
+): Promise<ApiResult<TranscriptSegmentResponse>> {
+  return authedFetch<TranscriptSegmentResponse>(
+    `/api/v1/consultations/${consultationId}/transcript/segments/${segmentId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clinician_corrected_text: text }),
+    },
+  );
+}
+
+// ── Clinical Note types ─────────────────────────────────────
+
+export interface NoteSection {
+  text: string;
+  original_ai_text: string | null;
+  status: "draft" | "accepted";
+}
+
+export interface ClinicalNoteResponse {
+  id: string;
+  consultation_id: string;
+  author_id: string;
+  note_type: string;
+  body: Record<string, NoteSection>;
+  status: string;
+  version: number;
+  last_edited_by_id: string | null;
+  is_ai_generated: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClinicalNoteUpdate {
+  body: Record<string, NoteSection>;
+  version: number;
+}
+
+export async function getClinicalNote(
+  consultation_id: string,
+): Promise<ApiResult<ClinicalNoteResponse>> {
+  return authedFetch<ClinicalNoteResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/note`,
+  );
+}
+
+export async function updateClinicalNote(
+  consultation_id: string,
+  payload: ClinicalNoteUpdate,
+): Promise<ApiResult<ClinicalNoteResponse>> {
+  return authedFetch<ClinicalNoteResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/note`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+// ── Clinical Representation types ───────────────────────────
+
+export interface Provenance {
+  source_type: string;
+  source_id: string;
+  timestamp: string;
+  author_id: string | null;
+}
+
+export interface RepresentationItem {
+  value: string;
+  concept: string | null;
+  status: string | null;
+  provenances: Provenance[];
+}
+
+export interface PatientContext {
+  demographics: string | null;
+  provenances: Provenance[];
+}
+
+export interface ClinicalRepresentationResponse {
+  consultation_id: string;
+  schema_version: string;
+  generated_at: string;
+  patient_context: PatientContext;
+  symptoms: RepresentationItem[];
+  negations: RepresentationItem[];
+  duration: RepresentationItem[];
+  severity: RepresentationItem[];
+  history: RepresentationItem[];
+  medications: RepresentationItem[];
+  allergies: RepresentationItem[];
+  vitals: RepresentationItem[];
+  investigations: RepresentationItem[];
+  report_findings: RepresentationItem[];
+}
+
+export async function getClinicalRepresentation(
+  consultation_id: string,
+): Promise<ApiResult<ClinicalRepresentationResponse>> {
+  return authedFetch<ClinicalRepresentationResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/representation`,
+  );
+}
+
+// ── Differential Diagnosis types ────────────────────────────
+
+export interface DifferentialDiagnosisItem {
+  disease: string;
+  score: number;
+  supporting_findings: string[];
+  missing_expected_findings: string[];
+  contradicting_information: string[];
+  uncertainty: string;
+  explanation_reference: string;
+}
+
+export interface DifferentialDiagnosisResponse {
+  consultation_id: string;
+  provider_metadata: Record<string, any>;
+  top_candidates: DifferentialDiagnosisItem[];
+}
+
+export async function getDifferentialDiagnosis(
+  consultation_id: string,
+): Promise<ApiResult<DifferentialDiagnosisResponse>> {
+  return authedFetch<DifferentialDiagnosisResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/differential`,
+  );
+}

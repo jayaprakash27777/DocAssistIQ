@@ -10,7 +10,7 @@ Verification state machine:
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -31,8 +31,8 @@ class DoctorResponse(BaseModel):
     bio: str | None
     verification_status: Literal["pending", "verified", "rejected"]
     rejection_reason: str | None
-    created_at: str
-    updated_at: str
+    created_at: Any
+    updated_at: Any
 
     model_config = {"from_attributes": True}
 

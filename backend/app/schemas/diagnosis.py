@@ -1,0 +1,20 @@
+from typing import List, Optional
+from pydantic import BaseModel, ConfigDict, Field
+
+class DifferentialDiagnosisItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    disease: str
+    score: float = Field(..., description="Algorithmic score (NOT a medical probability)")
+    supporting_findings: List[str] = Field(default_factory=list)
+    missing_expected_findings: List[str] = Field(default_factory=list)
+    contradicting_information: List[str] = Field(default_factory=list)
+    uncertainty: str = Field(..., description="Qualitative estimate of uncertainty")
+    explanation_reference: str = Field(..., description="Explanation of how the algorithm matched this")
+
+class DifferentialDiagnosisResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    consultation_id: str
+    provider_metadata: dict = Field(..., description="Metadata about the model/algorithm used")
+    top_candidates: List[DifferentialDiagnosisItem] = Field(default_factory=list)

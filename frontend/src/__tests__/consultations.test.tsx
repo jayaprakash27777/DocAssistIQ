@@ -82,14 +82,14 @@ const LABEL = "PLACEHOLDER DEVELOPMENT RESPONSE — NOT CLINICAL";
 
 function mockConsultation(overrides = {}): api.ConsultationResponse {
   return {
-    id: "test-uuid-1234",
-    user_id: "user-uuid-5678",
+    id: "test-id",
+    doctor_id: "test-doctor",
+    patient_session_id: null,
     input_text: "Patient presents with fever and chills lasting 3 days.",
     status: "completed",
-    placeholder_response: `${LABEL}\n\nInput received: 54 characters.`,
-    is_placeholder: true,
     created_at: "2026-09-06T10:00:00Z",
     updated_at: "2026-09-06T10:00:01Z",
+    findings: [],
     ...overrides,
   };
 }

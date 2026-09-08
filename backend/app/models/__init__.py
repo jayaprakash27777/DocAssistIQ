@@ -44,11 +44,12 @@ from app.models.doctor import Doctor  # noqa: F401
 # ── Patient ───────────────────────────────────────────────────
 from app.models.patient import PatientSession, ConsentRecord  # noqa: F401
 
-# ── Consultation (Phase 8, existing) ─────────────────────────
-from app.models.consultation import Consultation  # noqa: F401
+# ── Consultation ──────────────────────────────────────────────
+from app.models.consultation import Consultation, ConsultationAudit  # noqa: F401
 
 # ── Clinical ─────────────────────────────────────────────────
-from app.models.clinical import ClinicalNote, ClinicalFinding  # noqa: F401
+from app.models.clinical import ClinicalNote, ClinicalFinding, ManualIntake  # noqa: F401
+from app.models.transcript import Transcript, TranscriptSegment  # noqa: F401
 
 # ── Knowledge entities ────────────────────────────────────────
 from app.models.knowledge import (  # noqa: F401
@@ -63,6 +64,18 @@ from app.models.knowledge import (  # noqa: F401
 
 # ── Audit, Feedback, FileObject ───────────────────────────────
 from app.models.audit import AuditLog, Feedback, FileObject  # noqa: F401
+
+# ── Dataset ───────────────────────────────────────────────────
+from app.models.dataset import Dataset  # noqa: F401
+
+# ── Evaluation ────────────────────────────────────────────────
+from app.models.evaluation import EvaluationResult, EvaluationRun  # noqa: F401
+
+# ── Experiments ───────────────────────────────────────────────
+from app.models.experiment import MLExperiment  # noqa: F401
+
+# ── Ingestion ─────────────────────────────────────────────────
+from app.models.ingestion import IngestionJob  # noqa: F401
 
 __all__ = [
     # Provenance
@@ -86,9 +99,13 @@ __all__ = [
     "ConsentRecord",
     # Consultation
     "Consultation",
+    "ConsultationAudit",
     # Clinical
     "ClinicalNote",
     "ClinicalFinding",
+    "ManualIntake",
+    "Transcript",
+    "TranscriptSegment",
     # Knowledge
     "Symptom",
     "Disease",
@@ -97,8 +114,17 @@ __all__ = [
     "DiseaseSymptom",
     "DiseaseInvestigation",
     "DiseaseMedicine",
+    # Dataset
+    "Dataset",
     # Audit
     "AuditLog",
     "Feedback",
     "FileObject",
+    # Ingestion
+    "IngestionJob",
+    # Evaluation
+    "EvaluationRun",
+    "EvaluationResult",
+    # Experiments
+    "MLExperiment",
 ]

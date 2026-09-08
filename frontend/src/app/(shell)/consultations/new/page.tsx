@@ -50,7 +50,7 @@ export default function NewConsultationPage() {
     setSubmitError(null);
     setSubmitting(true);
 
-    const result = await createConsultation(text);
+    const result = await createConsultation({ input_text: text });
     setSubmitting(false);
 
     if (!result.ok) {

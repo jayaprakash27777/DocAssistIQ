@@ -18,7 +18,7 @@ import uuid
 
 from sqlalchemy import ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database import Base
 from app.infrastructure.models import TimestampMixin, UUIDPrimaryKeyMixin
@@ -30,16 +30,24 @@ class Consultation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "consultations"
 
     __table_args__ = (
-        # Primary query pattern: list a user's consultations newest-first
-        Index("ix_consultations_user_created", "user_id", "created_at"),
+        # Primary query pattern: list a doctor's consultations newest-first
+        Index("ix_consultations_doctor_created", "doctor_id", "created_at"),
     )
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
+    doctor_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("doctors.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
-        comment="FK to the submitting clinician (cascade delete)",
+        comment="FK to the submitting doctor",
+    )
+
+    patient_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("patient_sessions.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+        comment="FK to the patient session",
     )
 
     input_text: Mapped[str] = mapped_column(
@@ -49,10 +57,10 @@ class Consultation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     status: Mapped[str] = mapped_column(
-        String(20),
+        String(50),
         nullable=False,
-        server_default="pending",
-        comment="Lifecycle: 'pending' | 'completed' | 'failed'",
+        server_default="created",
+        comment="Lifecycle: created|recording|processing|draft|under_review|analysis_ready|finalized|amended",
     )
 
     placeholder_response: Mapped[str | None] = mapped_column(
@@ -64,7 +72,46 @@ class Consultation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
     )
 
+    # Relationships
+    audit_events: Mapped[list[ConsultationAudit]] = relationship(
+        "ConsultationAudit",
+        back_populates="consultation",
+        cascade="all, delete-orphan",
+        order_by="ConsultationAudit.created_at",
+    )
+
+    findings: Mapped[list["ClinicalFinding"]] = relationship(
+        "ClinicalFinding",
+        back_populates="consultation",
+        cascade="all, delete-orphan",
+        order_by="ClinicalFinding.created_at",
+    )
+
     def __repr__(self) -> str:
-        return (
-            f"<Consultation id={self.id} user_id={self.user_id} status={self.status!r}>"
-        )
+        return f"<Consultation id={self.id} status={self.status!r}>"
+
+
+class ConsultationAudit(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Audit log for consultation state transitions."""
+
+    __tablename__ = "consultation_audits"
+
+    consultation_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("consultations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    
+    from_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    to_status: Mapped[str] = mapped_column(String(50), nullable=False)
+    
+    actor_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+        comment="User who triggered the transition",
+    )
+
+    consultation: Mapped[Consultation] = relationship("Consultation", back_populates="audit_events")

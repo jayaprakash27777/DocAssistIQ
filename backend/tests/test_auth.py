@@ -215,10 +215,15 @@ class TestRegisterSchema:
 @pytest.mark.integration
 class TestRegisterEndpoint:
     def test_register_valid_returns_201(self, test_client: TestClient) -> None:
-        resp = test_client.post("/api/v1/auth/register", json=_make_register_payload())
+        # Use unique email per run to avoid 409 on repeated test runs against persistent DB
+        email = f"reg_valid_{uuid.uuid4().hex[:8]}@hospital.example.com"
+        resp = test_client.post(
+            "/api/v1/auth/register",
+            json=_make_register_payload(email=email),
+        )
         assert resp.status_code == 201
         body = resp.json()
-        assert body["email"] == _VALID_EMAIL
+        assert body["email"] == email
         assert body["full_name"] == _VALID_NAME
         assert "password_hash" not in body
         assert "password" not in body
@@ -226,7 +231,11 @@ class TestRegisterEndpoint:
     def test_register_response_never_contains_password_hash(
         self, test_client: TestClient
     ) -> None:
-        resp = test_client.post("/api/v1/auth/register", json=_make_register_payload())
+        email = f"reg_hash_{uuid.uuid4().hex[:8]}@hospital.example.com"
+        resp = test_client.post(
+            "/api/v1/auth/register",
+            json=_make_register_payload(email=email),
+        )
         text = resp.text
         assert "password_hash" not in text
         assert "$2b$" not in text  # bcrypt hash prefix must never appear

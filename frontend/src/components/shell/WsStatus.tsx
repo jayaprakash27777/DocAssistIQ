@@ -1,131 +1,95 @@
 /**
- * DocAssistIQ — WebSocket Connection Status Pill.
+ * DocAssistIQ — WebSocket Connection Status Pill (Phase 23).
  *
- * Shows the real-time connection state in the shell header:
- *   🟢 LIVE       — connected and receiving pings
- *   🟡 CONNECTING — initial connection attempt
- *   🟠 RECONNECTING — reconnect in progress (after disconnect)
- *   🔴 UNAVAILABLE — max retries exhausted
- *
- * Reconnect strategy: exponential back-off (1s → 2s → 4s → … → 30s cap).
- * Max 8 retries before entering UNAVAILABLE state.
- *
- * Respects prefers-reduced-motion (no pulsing animation).
+ * Shows the real-time connection state using the hardened WS client.
  */
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { getStoredToken } from "@/lib/api";
-
-type WsStatus = "connecting" | "live" | "reconnecting" | "unavailable";
-
-const WS_URL =
-  (process.env.NEXT_PUBLIC_API_URL?.replace(/^http/, "ws")?.replace(/\/api\/v1$/, "") ??
-    "ws://localhost:8000") + "/ws/v1/stream";
-
-const MAX_RETRIES = 8;
-const BASE_BACKOFF_MS = 1_000;
-const MAX_BACKOFF_MS = 30_000;
-
-const STATUS_CONFIG: Record<
-  WsStatus,
-  { label: string; dot: string; title: string }
-> = {
-  connecting:   { label: "CONNECTING",   dot: "🟡", title: "Establishing connection…" },
-  live:         { label: "LIVE",         dot: "🟢", title: "Connected — real-time updates active" },
-  reconnecting: { label: "RECONNECTING", dot: "🟠", title: "Connection lost — attempting to reconnect" },
-  unavailable:  { label: "UNAVAILABLE",  dot: "🔴", title: "Real-time connection unavailable" },
-};
+import { getSharedRealtimeClient, type WSConnectionState } from "@/lib/ws";
 
 export function WsStatus() {
-  const [status, setStatus] = useState<WsStatus>("connecting");
-  const wsRef = useRef<WebSocket | null>(null);
-  const retryCountRef = useRef(0);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const unmountedRef = useRef(false);
+  const [state, setState] = useState<WSConnectionState>('CONNECTING');
 
   useEffect(() => {
-    unmountedRef.current = false;
-
-    function connect() {
-      if (unmountedRef.current) return;
-
-      const token = getStoredToken();
-      if (!token) {
-        setStatus("unavailable");
-        return;
-      }
-
-      const ws = new WebSocket(`${WS_URL}?token=${token}`);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        if (unmountedRef.current) { ws.close(); return; }
-        // Wait for the "connected" message before setting LIVE
-      };
-
-      ws.onmessage = (event) => {
-        if (unmountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data as string);
-          if (data.type === "connected" || data.type === "ping") {
-            retryCountRef.current = 0;
-            setStatus("live");
-          }
-        } catch {
-          // Ignore malformed messages
-        }
-      };
-
-      ws.onclose = () => {
-        if (unmountedRef.current) return;
-        wsRef.current = null;
-
-        if (retryCountRef.current >= MAX_RETRIES) {
-          setStatus("unavailable");
-          return;
-        }
-
-        setStatus(retryCountRef.current === 0 ? "connecting" : "reconnecting");
-        const delay = Math.min(
-          BASE_BACKOFF_MS * 2 ** retryCountRef.current,
-          MAX_BACKOFF_MS,
-        );
-        retryCountRef.current += 1;
-        retryTimerRef.current = setTimeout(connect, delay);
-      };
-
-      ws.onerror = () => {
-        // onclose fires after onerror; no duplicate handling needed
-      };
+    const token = getStoredToken();
+    if (!token) {
+      setState('UNAVAILABLE');
+      return;
     }
+    
+    const client = getSharedRealtimeClient(token);
+    client.connect();
 
-    connect();
+    const unsubscribe = client.subscribeState((newState) => {
+      setState(newState);
+    });
 
     return () => {
-      unmountedRef.current = true;
-      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-      if (wsRef.current) {
-        wsRef.current.onclose = null; // prevent reconnect on intentional unmount
-        wsRef.current.close();
-      }
+      unsubscribe();
     };
   }, []);
 
-  const cfg = STATUS_CONFIG[status];
+  let color = "var(--text-secondary)";
+  let dotColor = "gray";
+  let label = "Unknown";
+  let showDot = true;
+  let pulse = false;
+
+  switch (state) {
+    case 'CONNECTING':
+      label = "CONNECTING";
+      dotColor = "var(--primary)";
+      pulse = true;
+      break;
+    case 'LIVE':
+      label = "LIVE";
+      dotColor = "var(--success)";
+      break;
+    case 'RECONNECTING':
+      label = "RECONNECTING";
+      dotColor = "var(--warning)";
+      pulse = true;
+      break;
+    case 'UNAVAILABLE':
+      label = "UNAVAILABLE";
+      dotColor = "var(--danger)";
+      break;
+  }
 
   return (
-    <div
-      className={`ws-status ws-status--${status}`}
-      title={cfg.title}
-      aria-label={`Connection: ${cfg.label}`}
-      role="status"
-    >
-      <span className="ws-status-dot" aria-hidden="true">
-        {cfg.dot}
-      </span>
-      <span className="ws-status-label">{cfg.label}</span>
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "0.5rem",
+      fontSize: "0.75rem",
+      fontWeight: 500,
+      color: color,
+      padding: "0.25rem 0.5rem",
+      background: "var(--surface-raised)",
+      borderRadius: "100px",
+      border: "1px solid var(--border-subtle)"
+    }}>
+      {showDot && (
+        <div style={{
+          width: "8px",
+          height: "8px",
+          borderRadius: "50%",
+          backgroundColor: dotColor,
+          boxShadow: pulse ? `0 0 0 2px ${dotColor}40` : 'none',
+          animation: pulse ? 'pulse 1.5s infinite' : 'none'
+        }} />
+      )}
+      {label}
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes pulse {
+          0% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.2); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+      `}} />
     </div>
   );
 }

@@ -82,3 +82,6 @@ ml/models/
 # --- Object storage / uploads ---
 uploads/
 storage/
+
+# --- Model Cache ---
+backend/model_cache/

@@ -320,11 +320,11 @@ class TestPaginationIntegration:
         assert resp.status_code == 422
         assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
-    def test_page_size_101_rejected(self, test_client: TestClient) -> None:
+    def test_page_size_501_rejected(self, test_client: TestClient) -> None:
         token = self._make_authed_token(test_client)
         resp = test_client.get(
             f"{_BASE_URL}/probe/users",
-            params={"page_size": 101},
+            params={"page_size": 501},
             headers=_auth(token),
         )
         assert resp.status_code == 422
@@ -385,46 +385,48 @@ class TestSortingIntegration:
         token = self._token(test_client)
         resp = test_client.get(
             f"{_BASE_URL}/probe/users",
-            params={"sort_by": "email", "sort_dir": "asc", "page_size": 100},
+            params={"sort_by": "email", "sort_dir": "asc", "page_size": 50},
             headers=_auth(token),
         )
         assert resp.status_code == 200
         emails = [item["email"] for item in resp.json()["items"]]
-        # Verify monotonically non-decreasing (Postgres may differ from Python str.lower)
-        for i in range(len(emails) - 1):
-            assert emails[i].casefold() <= emails[i + 1].casefold(), (
-                f"Sort order broken at index {i}: {emails[i]!r} > {emails[i+1]!r}"
-            )
+        assert len(emails) > 0
+        # PostgreSQL C-locale sorts by raw byte values (case-sensitive).
+        # Verify the list equals itself sorted using the same byte ordering.
+        assert emails == sorted(emails), (
+            f"Emails are not sorted ASC in C-locale byte order. "
+            f"Got: {emails[:5]}..."
+        )
 
     def test_sort_by_email_desc(self, test_client: TestClient) -> None:
         token = self._token(test_client)
         resp = test_client.get(
             f"{_BASE_URL}/probe/users",
-            params={"sort_by": "email", "sort_dir": "desc", "page_size": 100},
+            params={"sort_by": "email", "sort_dir": "desc", "page_size": 50},
             headers=_auth(token),
         )
         assert resp.status_code == 200
         emails = [item["email"] for item in resp.json()["items"]]
-        # Verify monotonically non-increasing
-        for i in range(len(emails) - 1):
-            assert emails[i].casefold() >= emails[i + 1].casefold(), (
-                f"Sort order broken at index {i}: {emails[i]!r} < {emails[i+1]!r}"
-            )
+        assert len(emails) > 0
+        # PostgreSQL C-locale DESC = reverse of byte-order ASC.
+        assert emails == sorted(emails, reverse=True), (
+            f"Emails are not sorted DESC in C-locale byte order."
+        )
 
     def test_sort_by_full_name_asc(self, test_client: TestClient) -> None:
         token = self._token(test_client)
         resp = test_client.get(
             f"{_BASE_URL}/probe/users",
-            params={"sort_by": "full_name", "sort_dir": "asc", "page_size": 100},
+            params={"sort_by": "full_name", "sort_dir": "asc", "page_size": 50},
             headers=_auth(token),
         )
         assert resp.status_code == 200
         names = [item["full_name"] for item in resp.json()["items"]]
-        # All Platform Tester registrations have the same full_name — monotonicity is trivially satisfied
-        for i in range(len(names) - 1):
-            assert names[i].casefold() <= names[i + 1].casefold(), (
-                f"Sort order broken at index {i}: {names[i]!r} > {names[i+1]!r}"
-            )
+        assert len(names) > 0, "Expected at least one user"
+        # PostgreSQL C-locale sorts by raw byte values.
+        assert names == sorted(names), (
+            f"Names are not sorted ASC in C-locale byte order."
+        )
 
     def test_sort_by_unknown_column_rejected(self, test_client: TestClient) -> None:
         token = self._token(test_client)

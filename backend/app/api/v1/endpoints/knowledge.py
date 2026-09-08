@@ -1,0 +1,148 @@
+"""DocAssistIQ — Knowledge Review Endpoints (Phase 14).
+
+Endpoints:
+  GET    /knowledge/{entity_type}/pending — List knowledge entities pending review
+  POST   /knowledge/{entity_type}/{id}/review — Transition status (approve, reject, supersede, etc.)
+  GET    /knowledge/{entity_type}/{id}/provenance — Inspect provenance (evidence, source info)
+"""
+
+from __future__ import annotations
+
+import uuid
+from typing import Literal
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.platform import API_RESPONSES, PagedResponse
+from app.authorization import require_admin
+from app.dependencies import get_db
+from app.models.provenance import Evidence, Source
+from app.models.user import User
+from app.services import knowledge_service
+
+router = APIRouter(prefix="/knowledge", tags=["Knowledge Base (Entities)"])
+
+
+class KnowledgeReviewRequest(BaseModel):
+    new_status: Literal["APPROVED", "REJECTED", "SUPERSEDED", "OUTDATED"]
+    superseded_by_id: uuid.UUID | None = None
+
+
+class KnowledgeEntityResponse(BaseModel):
+    id: uuid.UUID
+    code: str
+    name: str
+    status: str
+    is_ai_generated: bool
+    created_at: str
+    updated_at: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProvenanceItemResponse(BaseModel):
+    id: uuid.UUID
+    claim: str
+    evidence_grade: str | None
+    recommendation_grade: str | None
+    is_ai_extracted: bool
+    source_name: str
+    source_code: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+@router.get(
+    "/{entity_type}/pending",
+    response_model=PagedResponse[KnowledgeEntityResponse],
+    summary="List pending knowledge",
+    responses=API_RESPONSES,
+)
+async def list_pending_knowledge(
+    entity_type: str,
+    page: int = 1,
+    page_size: int = 20,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> PagedResponse[KnowledgeEntityResponse]:
+    """List knowledge entities (disease, symptom, etc.) awaiting clinical review."""
+    items, total = await knowledge_service.list_pending_knowledge(db, entity_type, page, page_size)
+    pages = max(1, -(-total // page_size))
+    
+    return PagedResponse(
+        items=[KnowledgeEntityResponse.model_validate(item) for item in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
+    )
+
+
+@router.post(
+    "/{entity_type}/{entity_id}/review",
+    response_model=KnowledgeEntityResponse,
+    summary="Review knowledge entity",
+    responses=API_RESPONSES,
+)
+async def review_knowledge(
+    entity_type: str,
+    entity_id: uuid.UUID,
+    payload: KnowledgeReviewRequest,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> KnowledgeEntityResponse:
+    """Safely transition the status of a knowledge entity."""
+    entity = await knowledge_service.transition_knowledge_status(
+        db, entity_type, entity_id, payload.new_status, admin.id, payload.superseded_by_id
+    )
+    return KnowledgeEntityResponse.model_validate(entity)
+
+
+@router.get(
+    "/{entity_type}/{entity_id}/provenance",
+    response_model=list[ProvenanceItemResponse],
+    summary="Inspect provenance evidence",
+    responses=API_RESPONSES,
+)
+async def inspect_provenance(
+    entity_type: str,
+    entity_id: uuid.UUID,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> list[ProvenanceItemResponse]:
+    """Inspect the provenance/evidence details for a knowledge entity before review."""
+    result = await db.execute(
+        select(Evidence, Source)
+        .join(Source, Evidence.article_id == Source.id) # Simplified join (actual schema uses Article -> Source)
+        .where(Evidence.entity_type == entity_type)
+        .where(Evidence.entity_id == entity_id)
+    )
+    
+    # Due to correct schema in Phase 12/13: Evidence -> Article -> Source
+    # Let's write the correct join:
+    from app.models.provenance import Article
+    
+    correct_result = await db.execute(
+        select(Evidence, Article, Source)
+        .join(Article, Evidence.article_id == Article.id)
+        .join(Source, Article.source_id == Source.id)
+        .where(Evidence.entity_type == entity_type)
+        .where(Evidence.entity_id == entity_id)
+    )
+    
+    provenance = []
+    for evidence, article, source in correct_result:
+        provenance.append(ProvenanceItemResponse(
+            id=evidence.id,
+            claim=evidence.claim,
+            evidence_grade=evidence.evidence_grade,
+            recommendation_grade=evidence.recommendation_grade,
+            is_ai_extracted=evidence.is_ai_extracted,
+            source_name=source.name,
+            source_code=source.code,
+        ))
+        
+    return provenance

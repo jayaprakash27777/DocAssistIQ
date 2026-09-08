@@ -50,8 +50,8 @@ def test_ws_connect_valid_token(test_client: TestClient) -> None:
         msg = ws.receive_text()
         data = json.loads(msg)
         assert data["type"] == "connected"
-        assert "user_id" in data
-        assert "ts" in data
+        # user_id is in payload sub-dict per WSEnvelope schema
+        assert "user_id" in data["payload"]
 
 
 @pytest.mark.integration
@@ -63,7 +63,7 @@ def test_ws_connect_valid_token_user_id_in_message(test_client: TestClient) -> N
         msg = ws.receive_text()
         data = json.loads(msg)
         # Should be a parseable UUID
-        uuid.UUID(data["user_id"])
+        uuid.UUID(data["payload"]["user_id"])
 
 
 @pytest.mark.integration

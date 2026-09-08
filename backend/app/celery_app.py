@@ -18,7 +18,7 @@ celery_app = Celery(
     "docassistiq",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=[],  # task modules registered here in later phases
+    include=["app.tasks.ingestion"],  # Phase 13 Ingestion Framework
 )
 
 celery_app.conf.update(

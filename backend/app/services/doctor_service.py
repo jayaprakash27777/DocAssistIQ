@@ -44,11 +44,10 @@ async def get_doctor_by_user(
     user_id: uuid.UUID,
 ) -> Doctor | None:
     """Return the Doctor profile for the given user, or None."""
-    async with db.begin():
-        result = await db.execute(
-            select(Doctor).where(Doctor.user_id == user_id)
-        )
-        return result.scalar_one_or_none()
+    result = await db.execute(
+        select(Doctor).where(Doctor.user_id == user_id)
+    )
+    return result.scalar_one_or_none()
 
 
 async def get_doctor_by_id(
@@ -56,13 +55,12 @@ async def get_doctor_by_id(
     doctor_id: uuid.UUID,
 ) -> Doctor:
     """Return Doctor by PK, raise NotFoundError if absent."""
-    async with db.begin():
-        result = await db.execute(
-            select(Doctor).where(Doctor.id == doctor_id)
-        )
-        doctor = result.scalar_one_or_none()
+    result = await db.execute(
+        select(Doctor).where(Doctor.id == doctor_id)
+    )
+    doctor = result.scalar_one_or_none()
     if doctor is None:
-        raise NotFoundError("DOCTOR_NOT_FOUND", "Doctor profile not found")
+        raise NotFoundError("Doctor profile not found", code="DOCTOR_NOT_FOUND")
     return doctor
 
 
@@ -75,10 +73,7 @@ async def create_doctor_profile(
     # Guard: one profile per user
     existing = await get_doctor_by_user(db, user_id)
     if existing is not None:
-        raise ValidationError(
-            "DOCTOR_PROFILE_EXISTS",
-            "A doctor profile already exists for this user",
-        )
+        raise ValidationError("A doctor profile already exists for this user", code="DOCTOR_PROFILE_EXISTS")
 
     doctor = Doctor(
         user_id=user_id,
@@ -89,11 +84,10 @@ async def create_doctor_profile(
         verification_status="pending",
     )
 
-    async with db.begin():
-        db.add(doctor)
-        await db.flush()
-        await db.refresh(doctor)
-        _audit(db, actor_id=user_id, action="doctor.profile_created", entity=doctor)
+    db.add(doctor)
+    await db.commit()
+    await db.refresh(doctor)
+    _audit(db, actor_id=user_id, action="doctor.profile_created", entity=doctor)
 
     log.info("doctor_profile_created", user_id=str(user_id), doctor_id=str(doctor.id))
     return doctor
@@ -112,28 +106,27 @@ async def update_doctor_profile(
     """
     doctor = await get_doctor_by_user(db, user_id)
     if doctor is None:
-        raise NotFoundError("DOCTOR_NOT_FOUND", "Doctor profile not found")
+        raise NotFoundError("Doctor profile not found", code="DOCTOR_NOT_FOUND")
 
     changes = payload.model_dump(exclude_unset=True)
     credential_changed = bool(_CREDENTIAL_FIELDS & set(changes.keys()))
 
-    async with db.begin():
-        for field, value in changes.items():
-            setattr(doctor, field, value)
+    for field, value in changes.items():
+        setattr(doctor, field, value)
 
-        if credential_changed and doctor.verification_status == "verified":
-            doctor.verification_status = "pending"
-            doctor.verified_by_id = None
-            doctor.rejection_reason = None
-            log.info(
-                "doctor_reverified_to_pending",
-                doctor_id=str(doctor.id),
-                reason="credential_fields_changed",
-            )
+    if credential_changed and doctor.verification_status == "verified":
+        doctor.verification_status = "pending"
+        doctor.verified_by_id = None
+        doctor.rejection_reason = None
+        log.info(
+            "doctor_reverified_to_pending",
+            doctor_id=str(doctor.id),
+            reason="credential_fields_changed",
+        )
 
-        _audit(db, actor_id=user_id, action="doctor.profile_updated", entity=doctor)
-        await db.flush()
-        await db.refresh(doctor)
+    _audit(db, actor_id=user_id, action="doctor.profile_updated", entity=doctor)
+    await db.commit()
+    await db.refresh(doctor)
 
     return doctor
 
@@ -155,37 +148,34 @@ async def admin_verify_doctor(
       NotFoundError if doctor not found.
       ValidationError if doctor is not in 'pending' state.
     """
-    async with db.begin():
-        result = await db.execute(
-            select(Doctor).where(Doctor.id == doctor_id)
-        )
-        doctor = result.scalar_one_or_none()
+    result = await db.execute(
+        select(Doctor).where(Doctor.id == doctor_id)
+    )
+    doctor = result.scalar_one_or_none()
 
     if doctor is None:
-        raise NotFoundError("DOCTOR_NOT_FOUND", "Doctor profile not found")
+        raise NotFoundError("Doctor profile not found", code="DOCTOR_NOT_FOUND")
 
     if doctor.verification_status != "pending":
         raise ValidationError(
-            "DOCTOR_NOT_PENDING",
             f"Cannot act on a doctor whose status is '{doctor.verification_status}'. "
-            "Only pending doctors can be reviewed.",
+            "Only pending doctors can be reviewed.", code="DOCTOR_NOT_PENDING"
         )
 
-    async with db.begin():
-        if payload.action == "verify":
-            doctor.verification_status = "verified"
-            doctor.verified_by_id = admin_user.id
-            doctor.rejection_reason = None
-            action = "doctor.verified"
-        else:
-            doctor.verification_status = "rejected"
-            doctor.verified_by_id = admin_user.id
-            doctor.rejection_reason = payload.rejection_reason
-            action = "doctor.rejected"
+    if payload.action == "verify":
+        doctor.verification_status = "verified"
+        doctor.verified_by_id = admin_user.id
+        doctor.rejection_reason = None
+        action = "doctor.verified"
+    else:
+        doctor.verification_status = "rejected"
+        doctor.verified_by_id = admin_user.id
+        doctor.rejection_reason = payload.rejection_reason
+        action = "doctor.rejected"
 
-        _audit(db, actor_id=admin_user.id, action=action, entity=doctor)
-        await db.flush()
-        await db.refresh(doctor)
+    _audit(db, actor_id=admin_user.id, action=action, entity=doctor)
+    await db.commit()
+    await db.refresh(doctor)
 
     log.info(
         action,

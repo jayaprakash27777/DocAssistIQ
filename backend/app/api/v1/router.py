@@ -12,9 +12,19 @@ from fastapi import APIRouter, Depends
 
 from app.api.v1.endpoints.admin import router as admin_router
 from app.api.v1.endpoints.auth import router as auth_router
+from app.api.v1.endpoints.consent import router as consent_router
 from app.api.v1.endpoints.consultations import router as consultations_router
+from app.api.v1.endpoints.intake import router as intake_router
+from app.api.v1.endpoints.transcript import router as transcript_router
 from app.api.v1.endpoints.doctors import router as doctors_router
+from app.api.v1.endpoints.files import router as files_router
+from app.api.v1.endpoints.ingestion import router as ingestion_router
+from app.api.v1.endpoints.knowledge import router as knowledge_router
+from app.api.v1.endpoints.datasets import router as datasets_router
+from app.api.v1.endpoints.evaluation import router as evaluation_router
+from app.api.v1.endpoints.experiments import router as experiments_router
 from app.api.v1.endpoints.platform_probe import router as probe_router
+from app.api.v1.endpoints.sources import router as sources_router
 from app.api.v1.endpoints.ws import router as ws_router
 from app.config import Settings
 from app.dependencies import get_request_id_dep, get_settings_dep
@@ -35,6 +45,30 @@ api_v1_router.include_router(consultations_router)
 
 # Phase 10 — Doctor Profile and Verification
 api_v1_router.include_router(doctors_router)
+
+# Phase 11 — Secure File Storage
+api_v1_router.include_router(files_router)
+
+# Phase 12 — Medical Source Registry
+api_v1_router.include_router(sources_router)
+
+# Phase 13 — Knowledge Ingestion Framework
+api_v1_router.include_router(ingestion_router)
+
+# Phase 14 — Knowledge Review and Publication
+api_v1_router.include_router(knowledge_router)
+
+# Phase 17 — Dataset Registry and Governance
+api_v1_router.include_router(consent_router)
+api_v1_router.include_router(intake_router)
+api_v1_router.include_router(transcript_router)
+api_v1_router.include_router(datasets_router)
+
+# Phase 18 — Evaluation Harness
+api_v1_router.include_router(evaluation_router)
+
+# Phase 19 — Experiment Tracking Foundation
+api_v1_router.include_router(experiments_router)
 
 # Phase 8 — WebSocket stream (mounted at app level — see main.py)
 # ws_router is imported here and exported for main.py to include directly

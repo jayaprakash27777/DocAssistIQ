@@ -1,0 +1,1 @@
+"""DocAssistIQ — Celery tasks module."""

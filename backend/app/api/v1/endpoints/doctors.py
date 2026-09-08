@@ -68,7 +68,7 @@ async def get_my_profile(
 
     doctor = await doctor_service.get_doctor_by_user(db, user.id)
     if doctor is None:
-        raise NotFoundError("DOCTOR_NOT_FOUND", "No doctor profile found for this account")
+        raise NotFoundError("No doctor profile found for this account", code="DOCTOR_NOT_FOUND")
     return DoctorResponse.model_validate(doctor)
 
 
