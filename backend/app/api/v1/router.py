@@ -28,6 +28,7 @@ from app.api.v1.endpoints.sources import router as sources_router
 from app.api.v1.endpoints.ws import router as ws_router
 from app.api.v1.endpoints.rag import router as rag_router
 from app.api.v1.endpoints.verification import router as verification_router
+from app.api.v1.endpoints.explanation import router as explanation_router
 from app.config import Settings
 from app.dependencies import get_request_id_dep, get_settings_dep
 
@@ -77,6 +78,9 @@ api_v1_router.include_router(rag_router)
 
 # Phase 38 — Claim-Level Citation Verification
 api_v1_router.include_router(verification_router)
+
+# Phase 39 — Clinical Explanation / Why?
+api_v1_router.include_router(explanation_router)
 
 # Phase 8 — WebSocket stream (mounted at app level — see main.py)
 # ws_router is imported here and exported for main.py to include directly

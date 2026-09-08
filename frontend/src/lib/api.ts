@@ -887,6 +887,37 @@ export async function verifyCitation(request: ClaimVerificationRequest): Promise
   });
 }
 
+// -- Clinical Explanation / Why? (Phase 39) ----------------------------
+
+export interface ExplanationEvidenceItem {
+  evidence_id: string;
+  source_name: string;
+  source_status: string;
+  is_production_suitable: boolean;
+  evidence_grade?: string | null;
+  claim: string;
+}
+
+export interface ExplanationResponse {
+  finding_id: string;
+  supporting_findings: string[];
+  contradicting_findings: string[];
+  missing_information: string[];
+  linked_investigations: string[];
+  supporting_evidence: ExplanationEvidenceItem[];
+  safety_flags: string[];
+  model_version: string;
+  knowledge_version: string;
+}
+
+export async function getFindingExplanation(findingId: string): Promise<ApiResult<ExplanationResponse>> {
+  return authedFetch<ExplanationResponse>(`${BASE_URL}/api/v1/explanation/${findingId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+
 
 // -- Dataset Registry (Phase 17) ----------------------------
 

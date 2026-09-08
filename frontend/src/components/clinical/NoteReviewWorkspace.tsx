@@ -6,6 +6,7 @@ import type { ConsultationResponse, TranscriptResponse, ClinicalFindingResponse 
 import ClinicalNoteEditor from "@/components/clinical/ClinicalNoteEditor";
 import RAGAssistant from "@/components/clinical/RAGAssistant";
 import CitationVerifier from "@/components/clinical/CitationVerifier";
+import ExplanationPanel from "@/components/clinical/ExplanationPanel";
 
 export default function NoteReviewWorkspace({ consultationId }: { consultationId: string }) {
   const [consultation, setConsultation] = useState<ConsultationResponse | null>(null);
@@ -13,7 +14,8 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
-  const [rightPanel, setRightPanel] = useState<"none" | "rag" | "verify">("none");
+  const [rightPanel, setRightPanel] = useState<"none" | "rag" | "verify" | "explain">("none");
+  const [explainFindingId, setExplainFindingId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -78,6 +80,16 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
                       )}
                     </div>
                     <div className="flex gap-2 shrink-0 ml-4">
+                      <button
+                        onClick={() => {
+                          setExplainFindingId(finding.id);
+                          setRightPanel("explain");
+                        }}
+                        className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition-colors mr-2"
+                        title="Why was this finding suggested?"
+                      >
+                        🧠 Why?
+                      </button>
                       {finding.status === 'suggested' && (
                         <>
                           <button 
@@ -166,6 +178,18 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
           {rightPanel === "verify" && (
             <div className="w-1/2 transition-all duration-300 bg-gray-50">
               <CitationVerifier />
+            </div>
+          )}
+
+          {rightPanel === "explain" && explainFindingId && (
+            <div className="w-1/2 transition-all duration-300 bg-gray-50">
+              <ExplanationPanel 
+                findingId={explainFindingId} 
+                onClose={() => {
+                  setRightPanel("none");
+                  setExplainFindingId(null);
+                }} 
+              />
             </div>
           )}
         </div>
