@@ -4,10 +4,12 @@ from typing import List
 from app.schemas.representation import ClinicalRepresentationResponse
 from app.schemas.diagnosis import DifferentialDiagnosisResponse, DifferentialDiagnosisItem
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 class DiagnosisProvider(ABC):
     """Stable interface for diagnosis providers (Phase 34)."""
     @abstractmethod
-    async def generate_differential(self, representation: ClinicalRepresentationResponse) -> DifferentialDiagnosisResponse:
+    async def generate_differential(self, db: AsyncSession, representation: ClinicalRepresentationResponse) -> DifferentialDiagnosisResponse:
         pass
 
 import json
@@ -18,7 +20,7 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
     Live LLM differential diagnosis engine.
     Uses the local Ollama LLM to generate differential diagnosis based on clinical representation.
     """
-    async def generate_differential(self, representation: ClinicalRepresentationResponse) -> DifferentialDiagnosisResponse:
+    async def generate_differential(self, db: AsyncSession, representation: ClinicalRepresentationResponse) -> DifferentialDiagnosisResponse:
         missing_critical_info = []
         
         if not representation.symptoms:
@@ -50,8 +52,20 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
         history_str = ", ".join([item.value for item in representation.history]) if representation.history else "None"
         vitals_str = ", ".join([item.value for item in representation.vitals]) if representation.vitals else "None"
 
-        system_prompt = """You are an expert clinical diagnostic AI.
+        # PHASE 2: Retrieve RAG Context
+        from app.services.rag_service import retrieve_medical_context
+        
+        # Build query from symptoms
+        symptoms_str = ", ".join([f"{item.value} ({item.status})" for item in representation.symptoms])
+        rag_context = await retrieve_medical_context(db, symptoms_str, top_k=3)
+        system_prompt = f"""You are an expert clinical diagnostic AI.
 Your task is to analyze the provided clinical representation and return a JSON list of the top 3-5 differential diagnoses.
+
+You MUST use the following retrieved FDA medication contexts (if any) to ground your analysis. If the patient's symptoms match known side effects or contraindications of these retrieved drugs, prioritize those in your diagnosis.
+
+Retrieved Context:
+{rag_context}
+
 Return ONLY valid JSON matching this schema exactly:
 {
   "candidates": [
@@ -123,7 +137,7 @@ Analyze this data and return the JSON.
             from structlog import get_logger
             get_logger(__name__).error("llm_diagnosis_failed", error=str(e))
             fallback_provider = BaselineDiagnosisProvider()
-            return await fallback_provider.generate_differential(representation)
+            return await fallback_provider.generate_differential(db, representation)
 
 
 
@@ -146,7 +160,7 @@ class BaselineDiagnosisProvider(DiagnosisProvider):
         "Influenza": ["fever", "chills", "muscle aches", "cough", "congestion", "runny nose", "headache", "fatigue"]
     }
 
-    async def generate_differential(self, representation: ClinicalRepresentationResponse) -> DifferentialDiagnosisResponse:
+    async def generate_differential(self, db: AsyncSession, representation: ClinicalRepresentationResponse) -> DifferentialDiagnosisResponse:
         missing_critical_info = []
         
         if not representation.symptoms:

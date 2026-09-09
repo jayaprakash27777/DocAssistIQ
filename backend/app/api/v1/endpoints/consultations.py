@@ -279,7 +279,7 @@ async def get_differential_diagnosis(
     rep = await build_clinical_representation(db, consultation_id)
     
     provider = OllamaDiagnosisProvider()
-    response = await provider.generate_differential(rep)
+    response = await provider.generate_differential(db, rep)
     
     # Phase 41: Evaluate safety for each differential candidate
     for item in response.top_candidates:
@@ -322,4 +322,4 @@ async def get_medications_for_disease(
     if not consultation or consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
-    return medication_provider.get_medications(disease)
+    return await medication_provider.get_medications(db, disease)

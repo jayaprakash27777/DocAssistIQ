@@ -134,3 +134,49 @@ async def retrieve_evidence(
         insufficient_evidence=insufficient,
         citations=citations
     )
+
+async def retrieve_medical_context(db: AsyncSession, query: str, top_k: int = 3) -> str:
+    """
+    RAG utility for the backend services.
+    Embeds the clinical query (e.g. patient symptoms or medication list)
+    and retrieves the most relevant `Medicine` embedding texts from the Vector DB.
+    Returns a formatted string of the retrieved medical knowledge.
+    """
+    provider = get_embedding_provider()
+    
+    try:
+        query_vector = await provider.generate_embedding(query)
+    except Exception as e:
+        logger.error(f"Failed to embed query for context retrieval: {e}")
+        return ""
+
+    distance_col = EmbeddingRecord.embedding.cosine_distance(query_vector).label("distance")
+    
+    # Search for Medicine embeddings specifically
+    stmt = (
+        select(EmbeddingRecord, distance_col)
+        .where(
+            and_(
+                EmbeddingRecord.embedding_model == provider.model_name,
+                EmbeddingRecord.source_record_type == "medicine"
+            )
+        )
+        .order_by(distance_col)
+        .limit(top_k)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    context = ""
+    for emb_record, dist in rows:
+        med_id = emb_record.source_record_id
+        medicine = await db.scalar(
+            select(Medicine).where(cast(Medicine.id, String) == str(med_id))
+        )
+        if medicine:
+            context += f"Relevant FDA Approved Medication: {medicine.name.upper()}\n"
+            if medicine.brand_names:
+                context += f"Brand Names: {medicine.brand_names}\n"
+                
+    return context
