@@ -1425,9 +1425,12 @@ export interface InvestigationResponse {
   disease: string;
   suggestions: InvestigationSuggestion[];
 }
+
+export interface TranscriptResponse {
+  id?: string;
   consultation_id: string;
   status: string;
-  segments: TranscriptSegmentResponse[];
+  segments: any[];
 }
 
 export async function getTranscript(

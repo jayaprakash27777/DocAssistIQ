@@ -9,18 +9,18 @@
 
 /* --- Color Palette (Light Mode) --- */
 @theme {
-  /* Primary brand */
-  --color-primary-50: #eef4ff;
-  --color-primary-100: #d9e5ff;
-  --color-primary-200: #bcd2ff;
-  --color-primary-300: #8eb8ff;
-  --color-primary-400: #5994ff;
-  --color-primary-500: #336dfc;
-  --color-primary-600: #1d4df1;
-  --color-primary-700: #1539de;
-  --color-primary-800: #1830b4;
-  --color-primary-900: #192d8e;
-  --color-primary-950: #141e56;
+  /* Primary brand - Premium Deep Ocean */
+  --color-primary-50: #f0f7ff;
+  --color-primary-100: #e0effe;
+  --color-primary-200: #bae6fd;
+  --color-primary-300: #7dd3fc;
+  --color-primary-400: #38bdf8;
+  --color-primary-500: #0ea5e9;
+  --color-primary-600: #0284c7;
+  --color-primary-700: #0369a1;
+  --color-primary-800: #075985;
+  --color-primary-900: #0c4a6e;
+  --color-primary-950: #082f49;
 
   /* Neutral / Gray */
   --color-neutral-50: #f8f9fb;
@@ -59,6 +59,12 @@
   --surface-secondary: #ffffff;
   --surface-elevated: #ffffff;
   --surface-overlay: rgba(17, 19, 24, 0.5);
+  
+  /* --- Premium Glassmorphism --- */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 8px 32px 0 rgba(14, 165, 233, 0.1);
+  --glass-blur: blur(12px);
 
   /* --- Semantic Text Tokens --- */
   --text-primary: var(--color-neutral-900);

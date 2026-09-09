@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { getMedicationsForDisease, MedicationResponse } from "@/lib/api";
+import { motion } from "framer-motion";
+import { Pill, AlertCircle, AlertTriangle, ShieldCheck, FileText } from "lucide-react";
 
 export default function MedicationPanel({ consultationId, disease }: { consultationId: string, disease: string }) {
   const [data, setData] = useState<MedicationResponse | null>(null);
@@ -26,68 +28,100 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
 
   if (loading) {
     return (
-      <div className="mt-4 p-4 border border-teal-100 rounded bg-teal-50/50 animate-pulse">
-        <div className="h-4 bg-teal-200 rounded w-1/4 mb-4"></div>
-        <div className="h-10 bg-teal-100 rounded w-full mb-2"></div>
-        <div className="h-10 bg-teal-100 rounded w-full"></div>
+      <div className="mt-4 p-4 border border-emerald-100 rounded-2xl bg-emerald-50/50 animate-pulse">
+        <div className="h-4 bg-emerald-200 rounded w-1/4 mb-4"></div>
+        <div className="h-10 bg-emerald-100 rounded-xl w-full mb-3"></div>
+        <div className="h-10 bg-emerald-100 rounded-xl w-full"></div>
       </div>
     );
   }
 
   if (error) {
-    return <div className="mt-4 p-3 text-xs text-red-600 bg-red-50 rounded border border-red-100">{error}</div>;
+    return (
+      <motion.div initial={{opacity:0}} animate={{opacity:1}} className="mt-4 p-4 text-xs text-rose-600 bg-rose-50/80 rounded-2xl border border-rose-200 flex items-center gap-2">
+        <AlertCircle className="w-4 h-4"/> {error}
+      </motion.div>
+    );
   }
 
   if (!data || data.suggestions.length === 0) {
     return (
-      <div className="mt-4 p-3 text-xs text-gray-500 bg-gray-50 rounded border border-gray-100 italic">
+      <motion.div initial={{opacity:0}} animate={{opacity:1}} className="mt-4 p-4 text-xs text-gray-500 bg-gray-50/80 rounded-2xl border border-[var(--border-default)] italic">
         No reference medications available for {disease}.
-      </div>
+      </motion.div>
     );
   }
 
+  const containerVars = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVars = {
+    hidden: { opacity: 0, x: -20 },
+    show: { opacity: 1, x: 0 }
+  };
+
   return (
-    <div className="mt-4 p-4 border border-teal-200 bg-teal-50/30 rounded-lg">
-      <div className="flex items-center gap-2 mb-3 border-b border-teal-100 pb-2">
-        <span className="text-teal-500 text-lg">💊</span>
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-4 p-5 border border-emerald-200/60 bg-emerald-50/30 rounded-2xl shadow-sm backdrop-blur-md"
+    >
+      <div className="flex items-center gap-3 mb-4 border-b border-emerald-100/50 pb-3">
+        <div className="p-2 bg-white rounded-xl shadow-sm border border-emerald-100">
+          <Pill className="w-5 h-5 text-emerald-500" />
+        </div>
         <div>
-          <h5 className="font-bold text-teal-900 text-sm">Reference Medications</h5>
-          <p className="text-[9px] text-teal-600 font-bold bg-teal-100 inline-block px-1 rounded">
-            REFERENCE INFORMATION - CLINICIAN REVIEW REQUIRED
+          <h5 className="font-bold text-emerald-950 text-base">Reference Medications</h5>
+          <p className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 inline-flex items-center gap-1 px-1.5 py-0.5 rounded shadow-sm">
+            <ShieldCheck className="w-3 h-3"/> REFERENCE INFORMATION - CLINICIAN REVIEW REQUIRED
           </p>
         </div>
       </div>
 
-      <div className="space-y-4">
+      <motion.div variants={containerVars} initial="hidden" animate="show" className="space-y-4">
         {data.suggestions.map((med, idx) => (
-          <div key={idx} className="bg-white border border-gray-200 rounded p-4 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 px-2 py-1 bg-gray-100 text-gray-500 text-[9px] font-mono border-l border-b border-gray-200 rounded-bl">
-              Source: {med.source_evidence}
+          <motion.div 
+            variants={itemVars}
+            key={idx} 
+            className="bg-white/80 border border-[var(--glass-border)] rounded-xl p-5 shadow-sm relative overflow-hidden backdrop-blur-sm"
+          >
+            <div className="absolute top-0 right-0 px-3 py-1 bg-[var(--color-primary-50)] text-[var(--color-primary-700)] text-[9px] font-mono border-l border-b border-[var(--color-primary-100)] rounded-bl-xl shadow-sm flex items-center gap-1">
+              <FileText className="w-3 h-3"/> {med.source_evidence}
             </div>
             
-            <h6 className="font-bold text-gray-800 text-base mb-1">{med.generic_name}</h6>
-            <div className="text-[11px] text-gray-500 mb-3 flex gap-2">
-              <span className="bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{med.formulation}</span>
-              <span className="bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{med.route}</span>
+            <h6 className="font-bold text-gray-900 text-lg mb-2 tracking-tight">{med.generic_name}</h6>
+            <div className="text-[11px] text-gray-500 mb-4 flex gap-2">
+              <span className="bg-gray-100/80 px-2 py-1 rounded-md border border-[var(--border-default)] shadow-sm">{med.formulation}</span>
+              <span className="bg-gray-100/80 px-2 py-1 rounded-md border border-[var(--border-default)] shadow-sm">{med.route}</span>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-4 gap-y-3 text-xs">
-              <div>
-                <span className="block text-[10px] uppercase font-semibold text-gray-500 mb-0.5">Indication</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4 text-xs">
+              <div className="bg-white p-3 rounded-lg border border-[var(--glass-border)] shadow-sm">
+                <span className="block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider">Indication</span>
                 <p className="text-gray-800">{med.indication}</p>
               </div>
 
-              <div>
-                <span className="block text-[10px] uppercase font-semibold text-gray-500 mb-0.5">Standard Reference Dosing</span>
-                <p className="text-gray-800 bg-teal-50 border border-teal-100 px-2 py-1 rounded inline-block font-mono text-[10px]">
+              <div className="bg-white p-3 rounded-lg border border-[var(--glass-border)] shadow-sm">
+                <span className="block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider">Standard Reference Dosing</span>
+                <p className="text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded inline-block font-mono text-[11px] shadow-sm">
                   {med.standard_reference_dosing}
                 </p>
               </div>
 
-              <div>
-                <span className="block text-[10px] uppercase font-semibold text-gray-500 mb-0.5">Contraindications</span>
+              <div className="bg-white p-3 rounded-lg border border-rose-100 shadow-sm relative overflow-hidden">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500"></div>
+                <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-rose-500 mb-2 tracking-wider">
+                  <AlertTriangle className="w-3 h-3"/> Contraindications
+                </span>
                 {med.contraindications.length > 0 ? (
-                  <ul className="list-disc pl-4 text-red-700">
+                  <ul className="list-disc pl-5 text-rose-700 space-y-1 font-medium">
                     {med.contraindications.map((c, i) => <li key={i}>{c}</li>)}
                   </ul>
                 ) : (
@@ -95,10 +129,13 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
                 )}
               </div>
 
-              <div>
-                <span className="block text-[10px] uppercase font-semibold text-gray-500 mb-0.5">Interactions</span>
+              <div className="bg-white p-3 rounded-lg border border-amber-100 shadow-sm relative overflow-hidden">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>
+                <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-amber-500 mb-2 tracking-wider">
+                  <AlertTriangle className="w-3 h-3"/> Interactions
+                </span>
                 {med.interactions.length > 0 ? (
-                  <ul className="list-disc pl-4 text-orange-700">
+                  <ul className="list-disc pl-5 text-amber-700 space-y-1 font-medium">
                     {med.interactions.map((i, k) => <li key={k}>{i}</li>)}
                   </ul>
                 ) : (
@@ -107,36 +144,36 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
               </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 lg:grid-cols-4 gap-3 text-[10px]">
-              <div>
-                <span className="block font-semibold text-gray-600">Allergy</span>
-                <span className={med.allergy_considerations === "Unavailable" ? "text-gray-400 italic" : "text-gray-800"}>{med.allergy_considerations}</span>
+            <div className="mt-4 pt-4 border-t border-[var(--border-default)] grid grid-cols-2 lg:grid-cols-4 gap-4 text-[10px]">
+              <div className="bg-gray-50/50 p-2 rounded-md border border-[var(--border-default)]">
+                <span className="block font-bold text-gray-500 mb-0.5">Allergy</span>
+                <span className={med.allergy_considerations === "Unavailable" ? "text-gray-400 italic" : "text-gray-800 font-medium"}>{med.allergy_considerations}</span>
               </div>
-              <div>
-                <span className="block font-semibold text-gray-600">Renal</span>
-                <span className={med.renal_considerations === "Unavailable" ? "text-gray-400 italic" : "text-gray-800"}>{med.renal_considerations}</span>
+              <div className="bg-gray-50/50 p-2 rounded-md border border-[var(--border-default)]">
+                <span className="block font-bold text-gray-500 mb-0.5">Renal</span>
+                <span className={med.renal_considerations === "Unavailable" ? "text-gray-400 italic" : "text-gray-800 font-medium"}>{med.renal_considerations}</span>
               </div>
-              <div>
-                <span className="block font-semibold text-gray-600">Hepatic</span>
-                <span className={med.hepatic_considerations === "Unavailable" ? "text-gray-400 italic" : "text-gray-800"}>{med.hepatic_considerations}</span>
+              <div className="bg-gray-50/50 p-2 rounded-md border border-[var(--border-default)]">
+                <span className="block font-bold text-gray-500 mb-0.5">Hepatic</span>
+                <span className={med.hepatic_considerations === "Unavailable" ? "text-gray-400 italic" : "text-gray-800 font-medium"}>{med.hepatic_considerations}</span>
               </div>
-              <div>
-                <span className="block font-semibold text-gray-600">Pregnancy/Lactation</span>
-                <span className={med.pregnancy_lactation_considerations === "Unavailable" ? "text-gray-400 italic" : "text-gray-800"}>{med.pregnancy_lactation_considerations}</span>
+              <div className="bg-gray-50/50 p-2 rounded-md border border-[var(--border-default)]">
+                <span className="block font-bold text-gray-500 mb-0.5">Pregnancy</span>
+                <span className={med.pregnancy_lactation_considerations === "Unavailable" ? "text-gray-400 italic" : "text-gray-800 font-medium"}>{med.pregnancy_lactation_considerations}</span>
               </div>
-              <div>
-                <span className="block font-semibold text-gray-600">Age</span>
-                <span className={med.age_considerations === "Unavailable" ? "text-gray-400 italic" : "text-gray-800"}>{med.age_considerations}</span>
+              <div className="bg-gray-50/50 p-2 rounded-md border border-[var(--border-default)]">
+                <span className="block font-bold text-gray-500 mb-0.5">Age</span>
+                <span className={med.age_considerations === "Unavailable" ? "text-gray-400 italic" : "text-gray-800 font-medium"}>{med.age_considerations}</span>
               </div>
-              <div className="col-span-2 lg:col-span-3">
-                <span className="block font-semibold text-gray-600">Monitoring</span>
-                <span className={med.monitoring_reference_information === "Unavailable" ? "text-gray-400 italic" : "text-gray-800"}>{med.monitoring_reference_information}</span>
+              <div className="col-span-2 lg:col-span-3 bg-[var(--color-primary-50)]/50 p-2 rounded-md border border-[var(--color-primary-100)]">
+                <span className="block font-bold text-[var(--color-primary-700)] mb-0.5">Monitoring</span>
+                <span className={med.monitoring_reference_information === "Unavailable" ? "text-gray-400 italic" : "text-gray-800 font-medium"}>{med.monitoring_reference_information}</span>
               </div>
             </div>
 
-          </div>
+          </motion.div>
         ))}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
