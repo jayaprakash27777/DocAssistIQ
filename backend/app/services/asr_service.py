@@ -24,7 +24,7 @@ except ImportError:
 log = structlog.get_logger(__name__)
 
 class ASRService:
-    def __init__(self, model_size="tiny", device="cpu", compute_type="int8"):
+    def __init__(self, model_size="base.en", device="cuda", compute_type="float16"):
         self.model_size = model_size
         self.device = device
         self.compute_type = compute_type
@@ -38,14 +38,25 @@ class ASRService:
                 if self.model is None:
                     log.info("asr_loading_model", size=self.model_size)
                     # We run blocking load in an executor to avoid stalling the event loop
-                    self.model = await asyncio.to_thread(
-                        WhisperModel,
-                        self.model_size,
-                        device=self.device,
-                        compute_type=self.compute_type,
-                        download_root="./model_cache"
-                    )
-                    log.info("asr_model_loaded")
+                    try:
+                        self.model = await asyncio.to_thread(
+                            WhisperModel,
+                            self.model_size,
+                            device=self.device,
+                            compute_type=self.compute_type,
+                            download_root="./model_cache"
+                        )
+                        log.info("asr_model_loaded_gpu")
+                    except Exception as e:
+                        log.warning(f"Failed to load whisper on GPU: {e}. Falling back to CPU int8.")
+                        self.model = await asyncio.to_thread(
+                            WhisperModel,
+                            self.model_size,
+                            device="cpu",
+                            compute_type="int8",
+                            download_root="./model_cache"
+                        )
+                        log.info("asr_model_loaded_cpu")
 
     def _decode_audio_chunk(self, audio_data: bytes) -> np.ndarray:
         """Decode WebM/Opus or MP4 to 16kHz mono float32 numpy array."""

@@ -10,6 +10,122 @@ class DiagnosisProvider(ABC):
     async def generate_differential(self, representation: ClinicalRepresentationResponse) -> DifferentialDiagnosisResponse:
         pass
 
+import json
+from app.services.llm_service import llm_service
+
+class OllamaDiagnosisProvider(DiagnosisProvider):
+    """
+    Live LLM differential diagnosis engine.
+    Uses the local Ollama LLM to generate differential diagnosis based on clinical representation.
+    """
+    async def generate_differential(self, representation: ClinicalRepresentationResponse) -> DifferentialDiagnosisResponse:
+        missing_critical_info = []
+        
+        if not representation.symptoms:
+            missing_critical_info.append("At least one reported symptom is required.")
+            
+        if not representation.duration:
+            missing_critical_info.append("Duration of symptoms is missing.")
+            
+        if not representation.severity:
+            missing_critical_info.append("Severity of symptoms is missing.")
+            
+        if not representation.symptoms:
+            return DifferentialDiagnosisResponse(
+                consultation_id=str(representation.consultation_id),
+                status="INSUFFICIENT_INFO",
+                message="Insufficient clinical information to generate a safe and meaningful differential diagnosis.",
+                missing_critical_info=missing_critical_info,
+                provider_metadata={
+                    "provider": "OllamaDiagnosisProvider",
+                    "version": "1.0"
+                },
+                top_candidates=[]
+            )
+
+        # Prepare prompt
+        symptoms_str = ", ".join([f"{item.value} ({item.status})" for item in representation.symptoms])
+        duration_str = ", ".join([item.value for item in representation.duration]) if representation.duration else "Unknown"
+        severity_str = ", ".join([item.value for item in representation.severity]) if representation.severity else "Unknown"
+        history_str = ", ".join([item.value for item in representation.history]) if representation.history else "None"
+        vitals_str = ", ".join([item.value for item in representation.vitals]) if representation.vitals else "None"
+
+        system_prompt = """You are an expert clinical diagnostic AI.
+Your task is to analyze the provided clinical representation and return a JSON list of the top 3-5 differential diagnoses.
+Return ONLY valid JSON matching this schema exactly:
+{
+  "candidates": [
+    {
+      "disease": "string (name of disease)",
+      "score": float (0.0 to 1.0 confidence),
+      "supporting_findings": ["string"],
+      "missing_expected_findings": ["string"],
+      "contradicting_information": ["string"],
+      "uncertainty": "string (Low, Moderate, High)",
+      "explanation_reference": "string (1 sentence clinical rationale)"
+    }
+  ]
+}
+"""
+        user_prompt = f"""Clinical Representation:
+- Symptoms: {symptoms_str}
+- Duration: {duration_str}
+- Severity: {severity_str}
+- Past Medical History: {history_str}
+- Vitals: {vitals_str}
+
+Analyze this data and return the JSON.
+"""
+        
+        try:
+            response_json = await llm_service.generate_json(user_prompt, system=system_prompt)
+            candidates_data = response_json.get("candidates", [])
+            
+            top_candidates = []
+            for c in candidates_data:
+                # Apply uncertainty penalty for missing severity or duration
+                uncertainty = c.get("uncertainty", "Moderate")
+                score = float(c.get("score", 0.0))
+                explanation = c.get("explanation_reference", "")
+                
+                if missing_critical_info:
+                    score *= 0.8  # Penalty for missing core info
+                    uncertainty = "High"
+                    explanation += " Confidence reduced due to missing clinical context (duration/severity)."
+                
+                top_candidates.append(DifferentialDiagnosisItem(
+                    disease=c.get("disease", "Unknown"),
+                    score=round(score, 3),
+                    supporting_findings=c.get("supporting_findings", []),
+                    missing_expected_findings=c.get("missing_expected_findings", []),
+                    contradicting_information=c.get("contradicting_information", []),
+                    uncertainty=uncertainty,
+                    explanation_reference=explanation
+                ))
+            
+            top_candidates.sort(key=lambda x: x.score, reverse=True)
+            
+            return DifferentialDiagnosisResponse(
+                consultation_id=str(representation.consultation_id),
+                status="SUCCESS",
+                message=None,
+                missing_critical_info=missing_critical_info,
+                provider_metadata={
+                    "provider": "OllamaDiagnosisProvider",
+                    "version": "1.0",
+                    "model": llm_service.default_model
+                },
+                top_candidates=top_candidates[:5]
+            )
+            
+        except Exception as e:
+            # Fallback to Baseline if LLM fails
+            from structlog import get_logger
+            get_logger(__name__).error("llm_diagnosis_failed", error=str(e))
+            fallback_provider = BaselineDiagnosisProvider()
+            return await fallback_provider.generate_differential(representation)
+
+
 
 class BaselineDiagnosisProvider(DiagnosisProvider):
     """

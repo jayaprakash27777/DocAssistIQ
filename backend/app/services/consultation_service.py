@@ -163,7 +163,7 @@ async def update_consultation_state(
     # Phase 28: Clinical NLP Extraction on transition to draft
     if new_state == "draft":
         # Extract from manual intake
-        findings = extractor.extract(consultation.input_text, source_context="manual_intake")
+        findings = await extractor.extract(consultation.input_text, source_context="manual_intake")
         
         # Extract from transcript
         transcript = await db.scalar(

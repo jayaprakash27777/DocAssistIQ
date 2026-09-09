@@ -268,7 +268,7 @@ async def get_differential_diagnosis(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.representation_service import build_clinical_representation
-    from app.services.diagnosis_provider import BaselineDiagnosisProvider
+    from app.services.diagnosis_provider import OllamaDiagnosisProvider
     
     from app.services.safety_engine import safety_engine
     
@@ -278,7 +278,7 @@ async def get_differential_diagnosis(
         
     rep = await build_clinical_representation(db, consultation_id)
     
-    provider = BaselineDiagnosisProvider()
+    provider = OllamaDiagnosisProvider()
     response = await provider.generate_differential(rep)
     
     # Phase 41: Evaluate safety for each differential candidate
