@@ -11,6 +11,7 @@ This module deliberately stays thin — it is a registry, not a handler.
 from fastapi import APIRouter, Depends
 
 from app.api.v1.endpoints.admin import router as admin_router
+from app.api.v1.endpoints.admin_ingestion import router as admin_ingestion_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.consent import router as consent_router
 from app.api.v1.endpoints.consultations import router as consultations_router
@@ -39,6 +40,7 @@ api_v1_router.include_router(auth_router)
 
 # Phase 5 — Authorization (admin probe endpoints)
 api_v1_router.include_router(admin_router)
+api_v1_router.include_router(admin_ingestion_router, prefix="/admin/ingest", tags=["Admin Ingestion"])
 
 # Phase 6 — Core API Platform (probe endpoint exercises platform primitives)
 api_v1_router.include_router(probe_router)
