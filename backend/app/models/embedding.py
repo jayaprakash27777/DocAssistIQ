@@ -25,7 +25,7 @@ class EmbeddingRecord(Base):
     dimensions = Column(Integer, nullable=False)
     
     # The actual embedding
-    embedding = Column(Vector(1536), nullable=False)  # 1536 dimensions is standard for text-embedding-3-small
+    embedding = Column(Vector(768), nullable=False)  # 768 dimensions for nomic-embed-text
     
     # Metadata
     generated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

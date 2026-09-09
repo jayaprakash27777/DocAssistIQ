@@ -24,31 +24,39 @@ class EmbeddingProvider(Protocol):
         ...
 
 
-class BaselineEmbeddingProvider:
+import httpx
+
+class OllamaEmbeddingProvider:
     """
-    A mock baseline embedding provider that generates pseudo-random 
-    (but deterministic-looking) vectors.
-    In a real environment, this would integrate with OpenAI or a local model.
+    Real embedding provider using local Ollama model (nomic-embed-text).
     """
     
     @property
     def model_name(self) -> str:
-        return "text-embedding-3-small-mock"
+        return "nomic-embed-text"
         
     @property
     def dimensions(self) -> int:
-        return 1536
+        return 768
         
-    def _deterministic_mock_vector(self, text: str) -> List[float]:
-        # Seed random to ensure the same text yields the same mock vector
-        random.seed(hash(text))
-        return [random.uniform(-1.0, 1.0) for _ in range(self.dimensions)]
-
     async def generate_embedding(self, text: str) -> List[float]:
-        return self._deterministic_mock_vector(text)
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                "http://localhost:11434/api/embeddings",
+                json={"model": self.model_name, "prompt": text}
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("embedding", [])
 
     async def generate_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
-        return [self._deterministic_mock_vector(t) for t in texts]
+        # For simplicity, we process them sequentially or concurrently.
+        # Ollama supports sequential requests.
+        embeddings = []
+        for text in texts:
+            emb = await self.generate_embedding(text)
+            embeddings.append(emb)
+        return embeddings
 
 # Singleton instance
 _provider: EmbeddingProvider | None = None
@@ -56,5 +64,5 @@ _provider: EmbeddingProvider | None = None
 def get_embedding_provider() -> EmbeddingProvider:
     global _provider
     if _provider is None:
-        _provider = BaselineEmbeddingProvider()
+        _provider = OllamaEmbeddingProvider()
     return _provider
