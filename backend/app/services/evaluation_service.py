@@ -15,9 +15,9 @@ from app.exceptions import NotFoundError, ValidationError
 from app.infrastructure.ai.interfaces import GenerationRequest
 from app.infrastructure.ai.providers.baseline import (
     BaselineDiagnosisProvider,
-    BaselineGenerationProvider,
     BaselineMedicalNLPProvider,
 )
+from app.infrastructure.ai.factory import get_generation_provider
 from app.models.dataset import Dataset
 from app.models.evaluation import EvaluationResult, EvaluationRun
 
@@ -26,7 +26,7 @@ log = structlog.get_logger(__name__)
 # Providers
 nlp_provider = BaselineMedicalNLPProvider()
 diag_provider = BaselineDiagnosisProvider()
-gen_provider = BaselineGenerationProvider()
+gen_provider = get_generation_provider()
 
 
 async def get_evaluation_run(db: AsyncSession, run_id: uuid.UUID) -> EvaluationRun:

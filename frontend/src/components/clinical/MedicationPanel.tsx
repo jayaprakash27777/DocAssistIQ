@@ -96,7 +96,30 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
               <FileText className="w-3 h-3"/> {med.source_evidence}
             </div>
             
-            <h6 className="font-bold text-gray-900 text-lg mb-2 tracking-tight">{med.generic_name}</h6>
+            <div className="flex items-center gap-3 mb-2">
+              <h6 className="font-bold text-gray-900 text-lg tracking-tight">{med.generic_name}</h6>
+              {med.safety_decision && med.safety_decision.decision !== 'ALLOW' && (
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 ${med.safety_decision.decision === 'ABSTAIN' ? 'bg-rose-100 text-rose-700 border border-rose-200' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>
+                  {med.safety_decision.decision === 'ABSTAIN' ? <AlertCircle className="w-3 h-3"/> : <AlertTriangle className="w-3 h-3"/>}
+                  {med.safety_decision.decision === 'ABSTAIN' ? 'CONTRAINDICATED' : 'WARNING'}
+                </span>
+              )}
+            </div>
+            
+            {med.safety_decision && med.safety_decision.flags.length > 0 && (
+              <div className="mb-4 space-y-2">
+                {med.safety_decision.flags.map((flag, fidx) => (
+                  <div key={fidx} className={`p-2 rounded-lg border text-xs flex gap-2 items-start ${flag.severity === 'CRITICAL' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                    <AlertTriangle className={`w-4 h-4 shrink-0 ${flag.severity === 'CRITICAL' ? 'text-rose-500' : 'text-amber-500'}`} />
+                    <div>
+                      <span className="font-bold block uppercase tracking-wide text-[9px] opacity-80 mb-0.5">{flag.category}</span>
+                      <p>{flag.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
             <div className="text-[11px] text-gray-500 mb-4 flex gap-2">
               <span className="bg-gray-100/80 px-2 py-1 rounded-md border border-[var(--border-default)] shadow-sm">{med.formulation}</span>
               <span className="bg-gray-100/80 px-2 py-1 rounded-md border border-[var(--border-default)] shadow-sm">{med.route}</span>

@@ -11,7 +11,8 @@ from app.models.embedding import EmbeddingRecord
 from app.models.provenance import Evidence, Article, Source
 from app.models.knowledge import Disease, Symptom, Investigation, Medicine
 from app.schemas.rag import RAGQueryRequest, RAGCitation, RAGResponse
-from app.infrastructure.ai.embeddings import get_embedding_provider
+from app.infrastructure.ai.factory import get_embedding_provider, get_generation_provider
+from app.infrastructure.ai.interfaces import GenerationRequest
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ async def retrieve_evidence(
     
     # 1. Embed query
     try:
-        query_vector = await provider.generate_embedding(request.query)
+        query_vector = await provider.embed(request.query)
     except Exception as e:
         logger.error(f"Failed to embed query: {e}")
         return RAGResponse(
@@ -71,7 +72,7 @@ async def retrieve_evidence(
         )
         .join(Article, Evidence.article_id == Article.id)
         .join(Source, Article.source_id == Source.id)
-        .where(EmbeddingRecord.embedding_model == provider.model_name)
+        .where(EmbeddingRecord.embedding_model == provider.metadata.model_name)
     )
 
     # 3. Apply Metadata Filters
@@ -126,7 +127,22 @@ async def retrieve_evidence(
 
     # 5. Citation validation and generative response
     insufficient = len(citations) == 0
-    answer = "I'm sorry, but there is insufficient clinical evidence in the approved knowledge base to answer this query safely." if insufficient else _generate_mock_answer(request.query, citations)
+    
+    if insufficient:
+        answer = "I'm sorry, but there is insufficient clinical evidence in the approved knowledge base to answer this query safely."
+    else:
+        # Use the real generation provider!
+        gen_provider = get_generation_provider()
+        context_str = "\n".join([f"[{i+1}] {c.claim} (Grade: {c.evidence_grade or 'N/A'})" for i, c in enumerate(citations)])
+        prompt = f"Answer the following clinical query strictly using the provided evidence citations. Do not make up information.\n\nQuery: {request.query}\n\nEvidence:\n{context_str}\n\nAnswer:"
+        
+        gen_req = GenerationRequest(prompt=prompt)
+        try:
+            res = await gen_provider.generate(gen_req)
+            answer = res.text
+        except Exception as e:
+            logger.error(f"Failed to generate answer: {e}")
+            answer = "System error: The AI provider failed to generate a response. Ensure your local models are running."
 
     return RAGResponse(
         query=request.query,
@@ -139,26 +155,26 @@ async def retrieve_medical_context(db: AsyncSession, query: str, top_k: int = 3)
     """
     RAG utility for the backend services.
     Embeds the clinical query (e.g. patient symptoms or medication list)
-    and retrieves the most relevant `Medicine` embedding texts from the Vector DB.
+    and retrieves the most relevant `Evidence` embedding texts from the Vector DB.
     Returns a formatted string of the retrieved medical knowledge.
     """
     provider = get_embedding_provider()
     
     try:
-        query_vector = await provider.generate_embedding(query)
+        query_vector = await provider.embed(query)
     except Exception as e:
         logger.error(f"Failed to embed query for context retrieval: {e}")
         return ""
 
     distance_col = EmbeddingRecord.embedding.cosine_distance(query_vector).label("distance")
     
-    # Search for Medicine embeddings specifically
+    # Search for generic 'evidence' embeddings specifically
     stmt = (
         select(EmbeddingRecord, distance_col)
         .where(
             and_(
-                EmbeddingRecord.embedding_model == provider.model_name,
-                EmbeddingRecord.source_record_type == "medicine"
+                EmbeddingRecord.embedding_model == provider.metadata.model_name,
+                EmbeddingRecord.source_record_type == "evidence"
             )
         )
         .order_by(distance_col)
@@ -170,13 +186,14 @@ async def retrieve_medical_context(db: AsyncSession, query: str, top_k: int = 3)
     
     context = ""
     for emb_record, dist in rows:
-        med_id = emb_record.source_record_id
-        medicine = await db.scalar(
-            select(Medicine).where(cast(Medicine.id, String) == str(med_id))
+        ev_id = emb_record.source_record_id
+        ev = await db.scalar(
+            select(Evidence).where(cast(Evidence.id, String) == str(ev_id))
         )
-        if medicine:
-            context += f"Relevant FDA Approved Medication: {medicine.name.upper()}\n"
-            if medicine.brand_names:
-                context += f"Brand Names: {medicine.brand_names}\n"
+        if ev:
+            context += f"Relevant Medical Evidence:\n"
+            if ev.context:
+                context += f"Context: {ev.context}\n"
+            context += f"Findings: {ev.claim}\n\n"
                 
     return context

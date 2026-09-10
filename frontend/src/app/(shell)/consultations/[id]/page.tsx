@@ -29,6 +29,8 @@ import {
 } from "@/lib/api";
 import ClinicalNoteEditor from "@/components/clinical/ClinicalNoteEditor";
 import DifferentialDiagnosis from "@/components/clinical/DifferentialDiagnosis";
+import LiveTranscriptionPanel from "@/components/clinical/LiveTranscriptionPanel";
+import TranscriptEditorPanel from "@/components/clinical/TranscriptEditorPanel";
 import { useAudioCapture, formatElapsed } from "@/hooks/useAudioCapture";
 import { getStoredToken } from "@/lib/api";
 import { getSharedRealtimeClient } from "@/lib/ws";
@@ -517,33 +519,20 @@ export default function ConsultationDetailPage() {
             </Link>
           </label>
           
-          {(asrText || partialAsr) && currentStatus === "recording" && (
-            <div style={{ marginBottom: "1rem", padding: "1rem", background: "var(--surface-raised)", border: "1px solid var(--border-subtle)", borderRadius: "8px" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--primary)", fontWeight: 600, marginBottom: "0.5rem" }}>
-                LIVE TRANSCRIPT (DIARIZED)
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                {diarizedSegments.map((seg, idx) => (
-                  <div key={idx} style={{ padding: "0.5rem", background: "var(--surface-base)", borderRadius: "4px" }}>
-                    <div style={{ fontSize: "0.75rem", color: seg.confidence < 0.5 ? "var(--warning)" : "var(--text-secondary)", fontWeight: 600, marginBottom: "0.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <span>{seg.speaker || "Unknown Speaker"}</span>
-                      <span style={{ opacity: 0.5 }}>{seg.start.toFixed(1)}s - {seg.end.toFixed(1)}s</span>
-                      {seg.confidence < 0.5 && <span style={{ background: "rgba(245, 158, 11, 0.1)", padding: "2px 6px", borderRadius: "100px", fontSize: "0.65rem" }}>Low Confidence (Heuristic)</span>}
-                    </div>
-                    <div style={{ lineHeight: 1.5, color: "var(--text-primary)" }}>{seg.text}</div>
-                  </div>
-                ))}
-                
-                {(partialAsr || (asrText && diarizedSegments.length === 0)) && (
-                  <div style={{ padding: "0.5rem" }}>
-                    {diarizedSegments.length === 0 && <span style={{ lineHeight: 1.5 }}>{asrText}</span>}
-                    <span style={{ opacity: 0.5, lineHeight: 1.5 }}> {partialAsr}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
+          {/* Live Transcription Panel (Phase 25) */}
+          <div className="mb-6">
+            <LiveTranscriptionPanel
+              audioState={audio.state}
+              audioStream={audio.stream}
+              asrText={asrText}
+              partialAsr={partialAsr}
+              diarizedSegments={diarizedSegments}
+              elapsedMs={audio.elapsedMs}
+              onStart={() => handleTransition("recording")}
+              onPause={() => audio.pause()}
+              onStop={() => handleTransition("processing")}
+            />
+          </div>
           {/* Clinical Findings (NLP Extracted) */}
           {consultation?.findings && consultation.findings.length > 0 && (
             <div style={{ marginBottom: "1rem", padding: "1rem", background: "var(--surface-raised)", border: "1px solid var(--border-subtle)", borderRadius: "8px" }}>
@@ -623,69 +612,12 @@ export default function ConsultationDetailPage() {
 
           {/* Transcript Editor */}
           {savedTranscript && ["draft", "under_review", "finalized"].includes(currentStatus) && (
-            <div style={{ marginBottom: "1rem", padding: "1rem", background: "var(--surface-raised)", border: "1px solid var(--border-subtle)", borderRadius: "8px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 600 }}>
-                  TRANSCRIPT EDITOR (AUDITED)
-                </div>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>
-                  Click any segment to correct it. Edits are versioned.
-                </div>
-              </div>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxHeight: "400px", overflowY: "auto" }}>
-                {savedTranscript.segments.map(seg => (
-                  <div 
-                    key={seg.id} 
-                    style={{ 
-                      padding: "0.75rem", 
-                      background: "var(--surface-base)", 
-                      borderRadius: "6px",
-                      border: "1px solid var(--border-subtle)",
-                      cursor: currentStatus !== "finalized" ? "pointer" : "default"
-                    }}
-                    onClick={() => {
-                      if (currentStatus !== "finalized" && editingSegment !== seg.id) {
-                        setEditingSegment(seg.id);
-                        setEditText(seg.clinician_corrected_text || seg.processed_text);
-                      }
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                      <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <span>{seg.speaker_label || "Unknown"}</span>
-                        <span style={{ opacity: 0.5 }}>{seg.start_time.toFixed(1)}s - {seg.end_time.toFixed(1)}s</span>
-                      </div>
-                      {seg.is_corrected && (
-                        <div style={{ fontSize: "0.65rem", padding: "2px 6px", background: "rgba(16, 185, 129, 0.1)", color: "var(--success)", borderRadius: "100px", fontWeight: 600 }}>
-                          Clinician Corrected
-                        </div>
-                      )}
-                    </div>
-                    
-                    {editingSegment === seg.id ? (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <textarea
-                          autoFocus
-                          className="input-field"
-                          rows={3}
-                          value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          style={{ marginBottom: "0.5rem" }}
-                        />
-                        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                          <button className="btn-secondary btn-sm" onClick={() => setEditingSegment(null)}>Cancel</button>
-                          <button className="btn-primary btn-sm" onClick={() => handleSaveSegment(seg.id)}>Save Correction</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ lineHeight: 1.5, color: seg.is_corrected ? "var(--text-primary)" : "var(--text-secondary)" }}>
-                        {seg.clinician_corrected_text || seg.processed_text}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+            <div style={{ marginBottom: "1rem" }}>
+              <TranscriptEditorPanel
+                transcript={savedTranscript}
+                currentStatus={currentStatus}
+                onSaveSegment={handleSaveSegment}
+              />
             </div>
           )}
           

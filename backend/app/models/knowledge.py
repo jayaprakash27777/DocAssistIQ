@@ -72,14 +72,14 @@ class Symptom(KnowledgeVersioningMixin, UUIDPrimaryKeyMixin, TimestampMixin, Bas
     )
 
     code: Mapped[str] = mapped_column(
-        String(80),
+        Text,
         nullable=False,
         unique=True,
         comment="Canonical code (e.g. SNOMED CT concept ID or internal slug)",
     )
 
     name: Mapped[str] = mapped_column(
-        String(200),
+        Text,
         nullable=False,
         comment="Human-readable symptom name",
     )
@@ -141,14 +141,14 @@ class Disease(KnowledgeVersioningMixin, UUIDPrimaryKeyMixin, TimestampMixin, Bas
     )
 
     code: Mapped[str] = mapped_column(
-        String(80),
+        Text,
         nullable=False,
         unique=True,
         comment="Canonical code (internal slug or ICD-10)",
     )
 
     name: Mapped[str] = mapped_column(
-        String(200),
+        Text,
         nullable=False,
         comment="Human-readable disease name",
     )
@@ -178,7 +178,7 @@ class Disease(KnowledgeVersioningMixin, UUIDPrimaryKeyMixin, TimestampMixin, Bas
     )
 
     category: Mapped[str | None] = mapped_column(
-        String(80),
+        Text,
         nullable=True,
         comment="Clinical category (e.g. 'infectious', 'cardiovascular')",
     )
@@ -219,14 +219,14 @@ class Investigation(KnowledgeVersioningMixin, UUIDPrimaryKeyMixin, TimestampMixi
     )
 
     code: Mapped[str] = mapped_column(
-        String(80),
+        Text,
         nullable=False,
         unique=True,
         comment="Canonical code (LOINC, SNOMED, or internal slug)",
     )
 
     name: Mapped[str] = mapped_column(
-        String(200),
+        Text,
         nullable=False,
         comment="Human-readable name",
     )
@@ -293,14 +293,14 @@ class Medicine(KnowledgeVersioningMixin, UUIDPrimaryKeyMixin, TimestampMixin, Ba
     )
 
     code: Mapped[str] = mapped_column(
-        String(80),
+        Text,
         nullable=False,
         unique=True,
         comment="Internal slug or RxNorm CUI",
     )
 
     name: Mapped[str] = mapped_column(
-        String(200),
+        Text,
         nullable=False,
         comment="Generic (INN) name",
     )
@@ -324,7 +324,7 @@ class Medicine(KnowledgeVersioningMixin, UUIDPrimaryKeyMixin, TimestampMixin, Ba
     )
 
     drug_class: Mapped[str | None] = mapped_column(
-        String(120),
+        Text,
         nullable=True,
         comment="Pharmacological class",
     )

@@ -317,9 +317,19 @@ async def get_medications_for_disease(
 ):
     """Phase 45: Returns reference intelligence for medications."""
     from app.services.medication_service import medication_provider
+    from app.services.representation_service import build_clinical_representation
+    from app.services.safety_engine import safety_engine
     
     consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
     if not consultation or consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
-    return await medication_provider.get_medications(db, disease)
+    response = await medication_provider.get_medications(db, disease)
+    rep = await build_clinical_representation(db, consultation_id)
+    
+    # Phase 46: Evaluate safety for each medication candidate
+    for item in response.suggestions:
+        safety_decision = await safety_engine.evaluate_medication(item, rep)
+        item.safety_decision = safety_decision
+        
+    return response

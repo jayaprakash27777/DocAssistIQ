@@ -12,9 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.clinical import ClinicalFinding, ClinicalNote
-from app.infrastructure.ai.providers.baseline import BaselineGenerationProvider
+from app.infrastructure.ai.factory import get_generation_provider
 
-baseline_generation_provider = BaselineGenerationProvider()
+baseline_generation_provider = get_generation_provider()
 
 log = structlog.get_logger(__name__)
 

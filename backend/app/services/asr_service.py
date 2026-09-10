@@ -136,14 +136,18 @@ class ASRService:
                     accumulated_text += " " + text
                     
                     # Phase 26: Diarize the final segment
-                    segment_start = time.time() - start_time - (len(buffer) / self.sample_rate)
-                    segment_end = time.time() - start_time
-                    diarized_segments = default_diarization_provider.diarize_segment(
-                        text.strip(), 
-                        max(0.0, segment_start), 
-                        segment_end
-                    )
+                    global_start_time = max(0.0, time.time() - start_time - (len(buffer) / self.sample_rate))
+                    whisper_segments_dicts = [
+                        {"start": s.start, "end": s.end, "text": s.text} 
+                        for s in segments
+                    ]
                     
+                    diarized_segments = default_diarization_provider.diarize(
+                        audio_buffer=buffer,
+                        sample_rate=self.sample_rate,
+                        whisper_segments=whisper_segments_dicts,
+                        global_start_time=global_start_time
+                    )                    
                     yield {
                         "type": "asr_final",
                         "text": accumulated_text.strip(),

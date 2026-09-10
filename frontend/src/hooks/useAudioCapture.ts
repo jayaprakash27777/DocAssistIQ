@@ -202,6 +202,7 @@ export function useAudioCapture() {
     resume,
     stop,
     reset,
+    stream: streamRef.current,
   };
 }
 

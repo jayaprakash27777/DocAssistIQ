@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
 
+    # Hugging Face (Phase 26)
+    hf_token: str | None = None
+
     # --------------------------------------------------------
     # Startup validation
     # --------------------------------------------------------

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from app.models.knowledge import Disease
 from app.schemas.safety import SafetyDecision, SafetyFlag
 from app.schemas.diagnosis import DifferentialDiagnosisItem
+from app.schemas.medication import MedicationSuggestion
 from app.schemas.representation import ClinicalRepresentationResponse
 from app.services.graph_service import get_disease_knowledge_graph
 from app.services.red_flag_rules import RED_FLAG_RULES
@@ -136,6 +137,106 @@ class SafetyEngine:
         if any(f.severity == "CRITICAL" for f in flags):
             decision = "ABSTAIN"
         elif any(f.severity in ["HIGH", "MEDIUM"] for f in flags):
+            decision = "WARN"
+
+        return SafetyDecision(decision=decision, flags=flags)
+
+    async def evaluate_medication(
+        self,
+        suggestion: MedicationSuggestion,
+        representation: ClinicalRepresentationResponse
+    ) -> SafetyDecision:
+        """Evaluate a medication suggestion against the patient's clinical representation."""
+        flags: List[SafetyFlag] = []
+        med_name = suggestion.generic_name.lower()
+
+        # 1. Allergy Check
+        patient_allergies = [a.value.lower() for a in representation.allergies]
+        if any(med_name in pa or pa in med_name for pa in patient_allergies):
+            flags.append(SafetyFlag(
+                rule_id="SE-MED-001",
+                rule_version=self.VERSION,
+                category="ALLERGY",
+                severity="CRITICAL",
+                message=f"Medication '{suggestion.generic_name}' directly conflicts with patient allergy.",
+                source="SafetyEngine",
+                related_entity=suggestion.generic_name
+            ))
+
+        # 2. Duplicate Therapy Check
+        patient_meds = [m.value.lower() for m in representation.medications]
+        if any(med_name in pm or pm in med_name for pm in patient_meds):
+            flags.append(SafetyFlag(
+                rule_id="SE-MED-002",
+                rule_version=self.VERSION,
+                category="RED_FLAG",
+                severity="WARN",
+                message=f"Patient is already taking '{suggestion.generic_name}' or a similar medication.",
+                source="SafetyEngine",
+                related_entity=suggestion.generic_name
+            ))
+
+        # 3. Drug-Drug Interaction Check (Mock deterministic logic)
+        for interaction in suggestion.interactions:
+            interaction_lower = interaction.lower()
+            if any(pm in interaction_lower for pm in patient_meds):
+                flags.append(SafetyFlag(
+                    rule_id="SE-MED-003",
+                    rule_version=self.VERSION,
+                    category="DRUG_INTERACTION",
+                    severity="HIGH",
+                    message=f"Potential interaction between '{suggestion.generic_name}' and patient's current medication.",
+                    source="SafetyEngine",
+                    related_entity=suggestion.generic_name
+                ))
+
+        # 4. Drug-Disease Contraindication
+        patient_conditions = [c.value.lower() for c in representation.history]
+        for contra in suggestion.contraindications:
+            contra_lower = contra.lower()
+            if any(pc in contra_lower for pc in patient_conditions):
+                flags.append(SafetyFlag(
+                    rule_id="SE-MED-004",
+                    rule_version=self.VERSION,
+                    category="CONTRAINDICATION",
+                    severity="CRITICAL",
+                    message=f"Medication '{suggestion.generic_name}' is contraindicated due to patient history.",
+                    source="SafetyEngine",
+                    related_entity=suggestion.generic_name
+                ))
+
+        # 5. Context Checks (Age, Renal, Hepatic, Pregnancy)
+        # In a real system, we would parse structured demographics. Here we look for keywords in patient_context.
+        demographics = (representation.patient_context.demographics or "").lower()
+        
+        # Pregnancy
+        if "pregnant" in demographics or "pregnancy" in demographics:
+            if "contraindicated" in suggestion.pregnancy_lactation_considerations.lower():
+                flags.append(SafetyFlag(
+                    rule_id="SE-MED-005",
+                    rule_version=self.VERSION,
+                    category="CONTRAINDICATION",
+                    severity="CRITICAL",
+                    message=f"Medication '{suggestion.generic_name}' is contraindicated in pregnancy.",
+                    source="SafetyEngine",
+                    related_entity=suggestion.generic_name
+                ))
+            elif "warning" in suggestion.pregnancy_lactation_considerations.lower():
+                flags.append(SafetyFlag(
+                    rule_id="SE-MED-006",
+                    rule_version=self.VERSION,
+                    category="RED_FLAG",
+                    severity="WARN",
+                    message=f"Pregnancy consideration: {suggestion.pregnancy_lactation_considerations}",
+                    source="SafetyEngine",
+                    related_entity=suggestion.generic_name
+                ))
+
+        # Determine overall decision
+        decision = "ALLOW"
+        if any(f.severity == "CRITICAL" for f in flags):
+            decision = "ABSTAIN"
+        elif any(f.severity in ["HIGH", "MEDIUM", "WARN"] for f in flags):
             decision = "WARN"
 
         return SafetyDecision(decision=decision, flags=flags)

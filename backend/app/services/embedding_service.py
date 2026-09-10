@@ -36,7 +36,7 @@ async def generate_and_store_embedding(
             EmbeddingRecord.source_record_id == source_record_id,
             EmbeddingRecord.source_record_type == source_record_type,
             EmbeddingRecord.content_hash == content_hash,
-            EmbeddingRecord.embedding_model == provider.model_name
+            EmbeddingRecord.embedding_model == provider.metadata.model_name
         )
     )
     if existing:
@@ -55,9 +55,9 @@ async def generate_and_store_embedding(
         source_record_id=source_record_id,
         source_record_type=source_record_type,
         content_hash=content_hash,
-        embedding_model=provider.model_name,
+        embedding_model=provider.metadata.model_name,
         model_version="1.0",  # baseline version
-        dimensions=provider.dimensions,
+        dimensions=len(vector),
         embedding=vector
     )
     

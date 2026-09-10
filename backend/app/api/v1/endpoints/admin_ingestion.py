@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any
 
-from app.api.deps import get_db
+from app.dependencies import get_db
 from app.services.ingestion.medication_ingester import medication_ingester
 
 router = APIRouter()

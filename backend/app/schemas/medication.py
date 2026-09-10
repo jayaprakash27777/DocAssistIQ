@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
+from app.schemas.safety import SafetyDecision
 
 class MedicationSuggestion(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -18,6 +19,7 @@ class MedicationSuggestion(BaseModel):
     age_considerations: str = Field(..., description="Age-related considerations (e.g., pediatric or geriatric)")
     monitoring_reference_information: str = Field(..., description="Monitoring parameters")
     source_evidence: str = Field(..., description="Reference source")
+    safety_decision: Optional[SafetyDecision] = Field(None, description="Deterministic safety evaluation result")
 
 class MedicationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
