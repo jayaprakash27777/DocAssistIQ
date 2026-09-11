@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Bot, ChevronDown, ChevronUp, AlertTriangle, ShieldAlert } from "lucide-react";
 import InvestigationPanel from "./InvestigationPanel";
 import MedicationPanel from "./MedicationPanel";
+import FeedbackButtons from "./FeedbackButtons";
 
 export default function DifferentialDiagnosis({ consultationId }: { consultationId: string }) {
   const [data, setData] = useState<DifferentialDiagnosisResponse | null>(null);
@@ -106,9 +107,18 @@ export default function DifferentialDiagnosis({ consultationId }: { consultation
         </span>
       </div>
       
-      <div className="px-5 py-3 bg-[var(--clinical-warning-bg)] text-[var(--clinical-warning-text)] text-[11px] border-b border-[var(--clinical-warning-border)] flex items-start gap-3 backdrop-blur-sm">
-        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-        <p className="font-medium leading-relaxed">This ranking is a decision-support algorithmic suggestion grounded in FDA data. Independent clinician review is strictly required.</p>
+      <div className="px-5 py-3 bg-[var(--clinical-warning-bg)] text-[var(--clinical-warning-text)] text-[11px] border-b border-[var(--clinical-warning-border)] flex justify-between items-start gap-3 backdrop-blur-sm">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <p className="font-medium leading-relaxed">This ranking is a decision-support algorithmic suggestion grounded in FDA data. Independent clinician review is strictly required.</p>
+        </div>
+        <div className="shrink-0 pt-0.5 pr-2">
+           <FeedbackButtons 
+             suggestionId={`diff-${data.consultation_id}-${Date.now()}`} 
+             suggestionType="diagnosis" 
+             suggestionContext={data} 
+           />
+        </div>
       </div>
 
       <div className="divide-y divide-[var(--border-default)]">
@@ -167,46 +177,62 @@ export default function DifferentialDiagnosis({ consultationId }: { consultation
                 className="px-16 pb-6 pt-2 space-y-6 overflow-hidden"
               >
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Supporting Findings */}
-                  <div className="bg-white/50 p-4 rounded-xl border border-[var(--glass-border)] shadow-sm">
-                    <h5 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Supporting Findings</h5>
-                    {candidate.supporting_findings.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {candidate.supporting_findings.map((f, i) => (
-                          <span key={i} className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md text-[11px] font-medium border border-emerald-100 shadow-sm">{f}</span>
-                        ))}
+                <div className="relative pl-2 md:pl-4 space-y-8 before:absolute before:inset-y-0 before:left-[15px] md:before:left-[23px] before:w-[2px] before:bg-gray-200">
+                  
+                  {/* Step 1: Patient Symptoms */}
+                  <div className="relative pl-8 md:pl-10">
+                    <div className="absolute left-[-3px] md:left-[5px] top-1 w-4 h-4 rounded-full bg-emerald-500 border-4 border-white shadow-sm z-10" />
+                    <h5 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">1. Patient Symptoms</h5>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Supporting Findings */}
+                      <div className="bg-white/50 p-4 rounded-xl border border-[var(--glass-border)] shadow-sm">
+                        <h6 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Present & Supporting</h6>
+                        {candidate.supporting_findings.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {candidate.supporting_findings.map((f, i) => (
+                              <span key={i} className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md text-[11px] font-medium border border-emerald-100 shadow-sm">{f}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs italic">None documented</span>
+                        )}
                       </div>
-                    ) : (
-                      <span className="text-gray-400 text-xs italic">None documented</span>
-                    )}
+
+                      {/* Missing/Contradicting */}
+                      <div className="bg-white/50 p-4 rounded-xl border border-[var(--glass-border)] shadow-sm">
+                        <h6 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Missing / Contradicting</h6>
+                        {candidate.missing_expected_findings.length > 0 || candidate.contradicting_information.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {candidate.missing_expected_findings.map((f, i) => (
+                              <span key={`m-${i}`} className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md text-[11px] font-medium border border-gray-200 shadow-sm flex items-center gap-1"><span className="text-gray-400 line-through text-[9px]">EXPECTED</span> {f}</span>
+                            ))}
+                            {candidate.contradicting_information.map((f, i) => (
+                              <span key={`c-${i}`} className="bg-rose-50 text-rose-700 px-2.5 py-1 rounded-md text-[11px] font-medium border border-rose-100 shadow-sm flex items-center gap-1"><span className="text-rose-400 font-bold text-[9px]">CONTRADICTS</span> {f}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs italic">None identified</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Missing/Contradicting */}
-                  <div className="bg-white/50 p-4 rounded-xl border border-[var(--glass-border)] shadow-sm">
-                    <h5 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Missing / Contradicting</h5>
-                    {candidate.missing_expected_findings.length > 0 || candidate.contradicting_information.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {candidate.missing_expected_findings.map((f, i) => (
-                          <span key={`m-${i}`} className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md text-[11px] font-medium border border-gray-200 shadow-sm flex items-center gap-1"><span className="text-gray-400 line-through text-[9px]">EXPECTED</span> {f}</span>
-                        ))}
-                        {candidate.contradicting_information.map((f, i) => (
-                          <span key={`c-${i}`} className="bg-rose-50 text-rose-700 px-2.5 py-1 rounded-md text-[11px] font-medium border border-rose-100 shadow-sm flex items-center gap-1"><span className="text-rose-400 font-bold text-[9px]">CONTRADICTS</span> {f}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 text-xs italic">None identified</span>
-                    )}
+                  {/* Step 2: FDA Rationale */}
+                  <div className="relative pl-8 md:pl-10">
+                    <div className="absolute left-[-3px] md:left-[5px] top-1 w-4 h-4 rounded-full bg-blue-500 border-4 border-white shadow-sm z-10" />
+                    <h5 className="text-[10px] font-bold text-[var(--color-primary-700)] uppercase tracking-widest mb-3">2. FDA Evidence Base</h5>
+                    <div className="bg-[var(--color-primary-50)]/50 p-4 rounded-xl border border-[var(--color-primary-100)] shadow-sm">
+                      <p className="text-xs text-gray-700 leading-relaxed">{candidate.explanation_reference}</p>
+                    </div>
                   </div>
-                </div>
 
-                {/* Explanation Reference */}
-                <div className="bg-[var(--color-primary-50)]/50 p-4 rounded-xl border border-[var(--color-primary-100)] shadow-sm">
-                  <h5 className="text-[10px] font-bold text-[var(--color-primary-700)] uppercase tracking-widest mb-2">FDA Grounded Rationale</h5>
-                  <p className="text-xs text-gray-700 leading-relaxed">{candidate.explanation_reference}</p>
-                </div>
-
-                <div className="flex gap-3 pt-2">
+                  {/* Step 3: Synthesis & Rules */}
+                  <div className="relative pl-8 md:pl-10">
+                    <div className="absolute left-[-3px] md:left-[5px] top-1 w-4 h-4 rounded-full bg-purple-500 border-4 border-white shadow-sm z-10" />
+                    <h5 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">3. Clinical Synthesis & Actions</h5>
+                    
+                    <div className="flex flex-wrap gap-3">
                   <button 
                     onClick={() => {
                         setShowInvestigationsFor(showInvestigationsFor === candidate.disease ? null : candidate.disease);
@@ -225,6 +251,8 @@ export default function DifferentialDiagnosis({ consultationId }: { consultation
                   >
                     {showMedicationsFor === candidate.disease ? 'Hide' : 'View'} Safe Medications
                   </button>
+                    </div>
+                  </div>
                 </div>
                   
                 {/* Collapsible Sub-panels */}

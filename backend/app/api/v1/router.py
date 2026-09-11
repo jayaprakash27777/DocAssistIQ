@@ -30,6 +30,10 @@ from app.api.v1.endpoints.ws import router as ws_router
 from app.api.v1.endpoints.rag import router as rag_router
 from app.api.v1.endpoints.verification import router as verification_router
 from app.api.v1.endpoints.explanation import router as explanation_router
+from app.api.v1.endpoints.search import router as search_router
+from app.api.v1.endpoints.patients import router as patients_router
+from app.api.v1.endpoints.social_hub import router as social_hub_router
+from app.api.v1.endpoints.feedback import router as feedback_router
 from app.config import Settings
 from app.dependencies import get_request_id_dep, get_settings_dep
 
@@ -67,6 +71,7 @@ api_v1_router.include_router(knowledge_router)
 api_v1_router.include_router(consent_router)
 api_v1_router.include_router(intake_router)
 api_v1_router.include_router(transcript_router)
+api_v1_router.include_router(patients_router)
 api_v1_router.include_router(datasets_router)
 
 # Phase 18 — Evaluation Harness
@@ -75,14 +80,15 @@ api_v1_router.include_router(evaluation_router)
 # Phase 19 — Experiment Tracking Foundation
 api_v1_router.include_router(experiments_router)
 
-# Phase 37 — RAG Retrieval
+# Phase 37 & 38 — RAG, Verification & Search
 api_v1_router.include_router(rag_router)
-
-# Phase 38 — Claim-Level Citation Verification
 api_v1_router.include_router(verification_router)
-
-# Phase 39 — Clinical Explanation / Why?
 api_v1_router.include_router(explanation_router)
+api_v1_router.include_router(search_router)
+
+# Phase 47 - Verified Doctor Knowledge Hub
+api_v1_router.include_router(social_hub_router, prefix="/hub", tags=["Social Hub"])
+api_v1_router.include_router(feedback_router, prefix="/feedback", tags=["Feedback"])
 
 # Phase 8 — WebSocket stream (mounted at app level — see main.py)
 # ws_router is imported here and exported for main.py to include directly

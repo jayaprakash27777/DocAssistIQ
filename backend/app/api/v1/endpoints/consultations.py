@@ -21,6 +21,7 @@ from app.models.doctor import Doctor
 from app.services import consultation_service
 from app.services import doctor_service
 from app.services import note_service
+from app.services.export_service import export_service
 from app.schemas.note import ClinicalNoteResponse, ClinicalNoteUpdate
 
 router = APIRouter(prefix="/consultations", tags=["Consultations"])
@@ -319,6 +320,8 @@ async def get_medications_for_disease(
     from app.services.medication_service import medication_provider
     from app.services.representation_service import build_clinical_representation
     from app.services.safety_engine import safety_engine
+    from app.models.patient_profile import PatientProfile
+    from app.models.patient import PatientSession
     
     consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
     if not consultation or consultation.doctor_id != doctor.id:
@@ -327,9 +330,84 @@ async def get_medications_for_disease(
     response = await medication_provider.get_medications(db, disease)
     rep = await build_clinical_representation(db, consultation_id)
     
+    patient_profile = None
+    if consultation.patient_session_id:
+        stmt = (
+            select(PatientProfile)
+            .join(PatientSession, PatientProfile.id == PatientSession.patient_profile_id)
+            .where(PatientSession.id == consultation.patient_session_id)
+        )
+        patient_profile = await db.scalar(stmt)
+    
     # Phase 46: Evaluate safety for each medication candidate
     for item in response.suggestions:
-        safety_decision = await safety_engine.evaluate_medication(item, rep)
+        safety_decision = await safety_engine.evaluate_medication(item, rep, patient_profile)
         item.safety_decision = safety_decision
         
     return response
+
+@router.get("/{consultation_id}/export")
+async def export_consultation(
+    consultation_id: uuid.UUID,
+    format: str = "pdf",
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Export a finalized consultation note.
+    Formats supported: 'pdf' (markdown representation), 'fhir'
+    """
+    consultation = await consultation_service.get_consultation(db, consultation_id)
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=404, detail="Consultation not found")
+        
+    if consultation.status not in ["finalized", "amended"]:
+        raise HTTPException(status_code=400, detail="Only finalized consultations can be exported")
+
+    # Fetch the note data
+    note_data = None
+    try:
+        note_data = await note_service.get_note(db, consultation_id)
+    except Exception:
+        pass # Note might not exist if empty, though it should
+
+    if format.lower() == "fhir":
+        return export_service.generate_fhir_document_reference(consultation, note_data)
+    elif format.lower() == "pdf":
+        from fastapi.responses import PlainTextResponse
+        md_content = export_service.generate_markdown(consultation, note_data)
+        # Using text/markdown as we're returning MD. The frontend will render it.
+        return PlainTextResponse(md_content, media_type="text/markdown", headers={"Content-Disposition": 'attachment; filename="export.md"'})
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported export format")
+
+@router.get("/{consultation_id}/audit")
+async def get_consultation_audit(
+    consultation_id: uuid.UUID,
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get the audit trail and consent records for a consultation.
+    """
+    consultation = await consultation_service.get_consultation(db, consultation_id)
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=404, detail="Consultation not found")
+        
+    from app.models.patient import ConsentRecord
+    from app.models.consultation import ConsultationAudit
+    from app.schemas.consent import ConsentRecordResponse
+    from app.schemas.consultation import ConsultationAuditResponse
+    
+    # Get audit events
+    audit_stmt = select(ConsultationAudit).where(ConsultationAudit.consultation_id == consultation_id).order_by(ConsultationAudit.created_at.desc())
+    audit_events = (await db.execute(audit_stmt)).scalars().all()
+    
+    # Get consent records
+    consent_stmt = select(ConsentRecord).where(ConsentRecord.consultation_id == consultation_id).order_by(ConsentRecord.created_at.desc())
+    consent_records = (await db.execute(consent_stmt)).scalars().all()
+    
+    return {
+        "audits": [ConsultationAuditResponse.model_validate(a) for a in audit_events],
+        "consents": [ConsentRecordResponse.model_validate(c) for c in consent_records]
+    }

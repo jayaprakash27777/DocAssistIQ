@@ -57,3 +57,13 @@ class ConsultationSummary(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+class ConsultationAuditResponse(BaseModel):
+    id: uuid.UUID
+    consultation_id: uuid.UUID
+    from_status: str | None
+    to_status: str
+    actor_id: uuid.UUID
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

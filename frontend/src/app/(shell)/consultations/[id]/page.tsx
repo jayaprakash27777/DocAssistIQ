@@ -31,6 +31,7 @@ import ClinicalNoteEditor from "@/components/clinical/ClinicalNoteEditor";
 import DifferentialDiagnosis from "@/components/clinical/DifferentialDiagnosis";
 import LiveTranscriptionPanel from "@/components/clinical/LiveTranscriptionPanel";
 import TranscriptEditorPanel from "@/components/clinical/TranscriptEditorPanel";
+import AuditTimeline from "@/components/clinical/AuditTimeline";
 import { useAudioCapture, formatElapsed } from "@/hooks/useAudioCapture";
 import { getStoredToken } from "@/lib/api";
 import { getSharedRealtimeClient } from "@/lib/ws";
@@ -638,6 +639,13 @@ export default function ConsultationDetailPage() {
             }
             style={{ fontFamily: "monospace", resize: "vertical" }}
           />
+
+          {/* Clinical Audit Trail */}
+          {consultation && (
+            <div className="mt-8">
+              <AuditTimeline consultationId={consultation.id} />
+            </div>
+          )}
         </div>
         </div>
 

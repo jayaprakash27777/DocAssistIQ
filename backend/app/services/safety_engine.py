@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.knowledge import Disease
+from app.models.patient_profile import PatientProfile
 from app.schemas.safety import SafetyDecision, SafetyFlag
 from app.schemas.diagnosis import DifferentialDiagnosisItem
 from app.schemas.medication import MedicationSuggestion
@@ -144,9 +145,10 @@ class SafetyEngine:
     async def evaluate_medication(
         self,
         suggestion: MedicationSuggestion,
-        representation: ClinicalRepresentationResponse
+        representation: ClinicalRepresentationResponse,
+        patient_profile: PatientProfile | None = None
     ) -> SafetyDecision:
-        """Evaluate a medication suggestion against the patient's clinical representation."""
+        """Evaluate a medication suggestion against the patient's clinical representation and structured profile."""
         flags: List[SafetyFlag] = []
         med_name = suggestion.generic_name.lower()
 
@@ -165,6 +167,14 @@ class SafetyEngine:
 
         # 2. Duplicate Therapy Check
         patient_meds = [m.value.lower() for m in representation.medications]
+        
+        # Merge structured medications from profile if available
+        if patient_profile and isinstance(patient_profile.baseline_conditions, dict):
+            structured_meds = patient_profile.baseline_conditions.get("current_medications", [])
+            for m in structured_meds:
+                if isinstance(m, str) and m.lower() not in patient_meds:
+                    patient_meds.append(m.lower())
+                    
         if any(med_name in pm or pm in med_name for pm in patient_meds):
             flags.append(SafetyFlag(
                 rule_id="SE-MED-002",
@@ -205,12 +215,26 @@ class SafetyEngine:
                     related_entity=suggestion.generic_name
                 ))
 
-        # 5. Context Checks (Age, Renal, Hepatic, Pregnancy)
-        # In a real system, we would parse structured demographics. Here we look for keywords in patient_context.
+        # 5. Structured Context Checks (Renal, Hepatic, Pregnancy, Age)
+        is_pregnant = False
+        has_renal_impairment = False
+        has_hepatic_impairment = False
+        age_group = None
+
+        if patient_profile and isinstance(patient_profile.baseline_conditions, dict):
+            bc = patient_profile.baseline_conditions
+            is_pregnant = bool(bc.get("pregnancy", False))
+            has_renal_impairment = bool(bc.get("renal_impairment", False)) or bool(bc.get("ckd", False))
+            has_hepatic_impairment = bool(bc.get("hepatic_impairment", False)) or bool(bc.get("liver_disease", False))
+            age_group = patient_profile.age_group
+
+        # Fallback to representation text if no structured profile
         demographics = (representation.patient_context.demographics or "").lower()
-        
-        # Pregnancy
-        if "pregnant" in demographics or "pregnancy" in demographics:
+        if not is_pregnant and ("pregnant" in demographics or "pregnancy" in demographics):
+            is_pregnant = True
+
+        # Pregnancy Check
+        if is_pregnant:
             if "contraindicated" in suggestion.pregnancy_lactation_considerations.lower():
                 flags.append(SafetyFlag(
                     rule_id="SE-MED-005",
@@ -221,7 +245,7 @@ class SafetyEngine:
                     source="SafetyEngine",
                     related_entity=suggestion.generic_name
                 ))
-            elif "warning" in suggestion.pregnancy_lactation_considerations.lower():
+            elif "warning" in suggestion.pregnancy_lactation_considerations.lower() or "caution" in suggestion.pregnancy_lactation_considerations.lower():
                 flags.append(SafetyFlag(
                     rule_id="SE-MED-006",
                     rule_version=self.VERSION,
@@ -231,6 +255,87 @@ class SafetyEngine:
                     source="SafetyEngine",
                     related_entity=suggestion.generic_name
                 ))
+
+        # Renal Check
+        if has_renal_impairment:
+            if "contraindicated" in suggestion.renal_considerations.lower():
+                flags.append(SafetyFlag(
+                    rule_id="SE-MED-007",
+                    rule_version=self.VERSION,
+                    category="CONTRAINDICATION",
+                    severity="CRITICAL",
+                    message=f"Medication '{suggestion.generic_name}' is contraindicated in renal impairment.",
+                    source="SafetyEngine",
+                    related_entity=suggestion.generic_name
+                ))
+            elif "adjust" in suggestion.renal_considerations.lower() or "warning" in suggestion.renal_considerations.lower():
+                flags.append(SafetyFlag(
+                    rule_id="SE-MED-008",
+                    rule_version=self.VERSION,
+                    category="RED_FLAG",
+                    severity="WARN",
+                    message=f"Renal adjustment may be required: {suggestion.renal_considerations}",
+                    source="SafetyEngine",
+                    related_entity=suggestion.generic_name
+                ))
+
+        # Hepatic Check
+        if has_hepatic_impairment:
+            if "contraindicated" in suggestion.hepatic_considerations.lower():
+                flags.append(SafetyFlag(
+                    rule_id="SE-MED-009",
+                    rule_version=self.VERSION,
+                    category="CONTRAINDICATION",
+                    severity="CRITICAL",
+                    message=f"Medication '{suggestion.generic_name}' is contraindicated in hepatic impairment.",
+                    source="SafetyEngine",
+                    related_entity=suggestion.generic_name
+                ))
+            elif "adjust" in suggestion.hepatic_considerations.lower() or "warning" in suggestion.hepatic_considerations.lower():
+                flags.append(SafetyFlag(
+                    rule_id="SE-MED-010",
+                    rule_version=self.VERSION,
+                    category="RED_FLAG",
+                    severity="WARN",
+                    message=f"Hepatic adjustment may be required: {suggestion.hepatic_considerations}",
+                    source="SafetyEngine",
+                    related_entity=suggestion.generic_name
+                ))
+
+        # Age Check (Pediatric/Geriatric)
+        if age_group:
+            age_lower = age_group.lower()
+            if ("months" in age_lower or "child" in age_lower) and "contraindicated in pediatric" in suggestion.age_considerations.lower():
+                flags.append(SafetyFlag(
+                    rule_id="SE-MED-011",
+                    rule_version=self.VERSION,
+                    category="CONTRAINDICATION",
+                    severity="CRITICAL",
+                    message=f"Medication '{suggestion.generic_name}' is contraindicated in pediatric patients.",
+                    source="SafetyEngine",
+                    related_entity=suggestion.generic_name
+                ))
+            elif ("65" in age_lower or "70" in age_lower or "80" in age_lower) and "geriatric" in suggestion.age_considerations.lower():
+                if "contraindicated" in suggestion.age_considerations.lower():
+                     flags.append(SafetyFlag(
+                        rule_id="SE-MED-012",
+                        rule_version=self.VERSION,
+                        category="CONTRAINDICATION",
+                        severity="CRITICAL",
+                        message=f"Medication '{suggestion.generic_name}' is contraindicated in geriatric patients.",
+                        source="SafetyEngine",
+                        related_entity=suggestion.generic_name
+                    ))
+                else:
+                    flags.append(SafetyFlag(
+                        rule_id="SE-MED-013",
+                        rule_version=self.VERSION,
+                        category="RED_FLAG",
+                        severity="WARN",
+                        message=f"Geriatric consideration: {suggestion.age_considerations}",
+                        source="SafetyEngine",
+                        related_entity=suggestion.generic_name
+                    ))
 
         # Determine overall decision
         decision = "ALLOW"

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { getMedicationsForDisease, MedicationResponse } from "@/lib/api";
 import { motion } from "framer-motion";
 import { Pill, AlertCircle, AlertTriangle, ShieldCheck, FileText } from "lucide-react";
+import FeedbackButtons from "./FeedbackButtons";
 
 export default function MedicationPanel({ consultationId, disease }: { consultationId: string, disease: string }) {
   const [data, setData] = useState<MedicationResponse | null>(null);
@@ -73,15 +74,24 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
       animate={{ opacity: 1, y: 0 }}
       className="mt-4 p-5 border border-emerald-200/60 bg-emerald-50/30 rounded-2xl shadow-sm backdrop-blur-md"
     >
-      <div className="flex items-center gap-3 mb-4 border-b border-emerald-100/50 pb-3">
-        <div className="p-2 bg-white rounded-xl shadow-sm border border-emerald-100">
-          <Pill className="w-5 h-5 text-emerald-500" />
+      <div className="flex items-start justify-between mb-4 border-b border-emerald-100/50 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white rounded-xl shadow-sm border border-emerald-100">
+            <Pill className="w-5 h-5 text-emerald-500" />
+          </div>
+          <div>
+            <h5 className="font-bold text-emerald-950 text-base">Reference Medications</h5>
+            <p className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 inline-flex items-center gap-1 px-1.5 py-0.5 rounded shadow-sm">
+              <ShieldCheck className="w-3 h-3"/> REFERENCE INFORMATION - CLINICIAN REVIEW REQUIRED
+            </p>
+          </div>
         </div>
-        <div>
-          <h5 className="font-bold text-emerald-950 text-base">Reference Medications</h5>
-          <p className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 inline-flex items-center gap-1 px-1.5 py-0.5 rounded shadow-sm">
-            <ShieldCheck className="w-3 h-3"/> REFERENCE INFORMATION - CLINICIAN REVIEW REQUIRED
-          </p>
+        <div className="shrink-0 pt-1 pr-1">
+          <FeedbackButtons 
+            suggestionId={`med-${consultationId}-${disease}-${Date.now()}`} 
+            suggestionType="medication" 
+            suggestionContext={data} 
+          />
         </div>
       </div>
 

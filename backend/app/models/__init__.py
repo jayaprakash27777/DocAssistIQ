@@ -43,6 +43,7 @@ from app.models.doctor import Doctor  # noqa: F401
 
 # ── Patient ───────────────────────────────────────────────────
 from app.models.patient import PatientSession, ConsentRecord  # noqa: F401
+from app.models.patient_profile import PatientProfile  # noqa: F401
 
 # ── Consultation ──────────────────────────────────────────────
 from app.models.consultation import Consultation, ConsultationAudit  # noqa: F401
@@ -62,8 +63,9 @@ from app.models.knowledge import (  # noqa: F401
     DiseaseMedicine,
 )
 
-# ── Audit, Feedback, FileObject ───────────────────────────────
+# 🎙️ Audit, Feedback, FileObject 🎙️
 from app.models.audit import AuditLog, Feedback, FileObject  # noqa: F401
+from app.models.feedback import ClinicianFeedback  # noqa: F401
 
 # ── Dataset ───────────────────────────────────────────────────
 from app.models.dataset import Dataset  # noqa: F401
@@ -79,6 +81,9 @@ from app.models.ingestion import IngestionJob  # noqa: F401
 
 # ── Embeddings ────────────────────────────────────────────────
 from app.models.embedding import EmbeddingRecord  # noqa: F401
+
+# ── Social Hub (Phase 47) ─────────────────────────────────────
+from app.models.social import DoctorPost, PostAttachment, PostLike, PostComment, PostBookmark  # noqa: F401
 
 __all__ = [
     # Provenance
@@ -98,6 +103,7 @@ __all__ = [
     # Doctor
     "Doctor",
     # Patient
+    "PatientProfile",
     "PatientSession",
     "ConsentRecord",
     # Consultation
@@ -123,6 +129,7 @@ __all__ = [
     "AuditLog",
     "Feedback",
     "FileObject",
+    "ClinicianFeedback",
     # Ingestion
     "IngestionJob",
     # Evaluation
@@ -132,4 +139,10 @@ __all__ = [
     "MLExperiment",
     # Embeddings
     "EmbeddingRecord",
+    # Social Hub
+    "DoctorPost",
+    "PostAttachment",
+    "PostLike",
+    "PostComment",
+    "PostBookmark",
 ]

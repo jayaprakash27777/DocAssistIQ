@@ -179,6 +179,12 @@ export function Sidebar({ mobileOpen, onMobileClose }: Props) {
             collapsed={collapsed}
           />
           <SidebarItem
+            href="/hub"
+            label="Clinical Hub"
+            icon={Icons.dashboard}
+            collapsed={collapsed}
+          />
+          <SidebarItem
             href="/profile"
             label="My Profile"
             icon={Icons.profile}

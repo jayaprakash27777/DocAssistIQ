@@ -1469,3 +1469,84 @@ export async function getMedicationsForDisease(
     `${BASE_URL}/api/v1/consultations/${consultation_id}/medications?disease=${encodeURIComponent(disease)}`
   );
 }
+
+// ------------------------------------------------------------------
+// Patient API
+// ------------------------------------------------------------------
+
+export interface PatientProfileCreate {
+  patient_ref: string;
+  age_group?: string | null;
+  biological_sex?: string | null;
+  baseline_conditions?: Record<string, any>;
+}
+
+export interface PatientSessionResponse {
+  id: string;
+  patient_ref: string;
+  encounter_type: string;
+  status: string;
+  clinical_notes_summary?: string | null;
+}
+
+export interface PatientProfileResponse {
+  id: string;
+  patient_ref: string;
+  age_group?: string | null;
+  biological_sex?: string | null;
+  baseline_conditions: Record<string, any>;
+  sessions: PatientSessionResponse[];
+}
+
+export async function createPatientProfile(
+  payload: PatientProfileCreate
+): Promise<ApiResult<PatientProfileResponse>> {
+  return authedFetch<PatientProfileResponse>(`${BASE_URL}/api/v1/patients/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getPatientProfiles(): Promise<ApiResult<PatientProfileResponse[]>> {
+  return authedFetch<PatientProfileResponse[]>(`${BASE_URL}/api/v1/patients/`);
+}
+
+export async function getPatientProfile(id: string): Promise<ApiResult<PatientProfileResponse>> {
+  return authedFetch<PatientProfileResponse>(`${BASE_URL}/api/v1/patients/${id}`);
+}
+
+// ------------------------------------------------------------------
+// Audit API
+// ------------------------------------------------------------------
+
+export interface ConsultationAuditResponse {
+  id: string;
+  consultation_id: string;
+  from_status: string | null;
+  to_status: string;
+  actor_id: string;
+  created_at: string;
+}
+
+export interface ConsultationAuditData {
+  audits: ConsultationAuditResponse[];
+  consents: ConsentRecordResponse[];
+}
+
+export async function getConsultationAudit(consultation_id: string): Promise<ApiResult<ConsultationAuditData>> {
+  return authedFetch<ConsultationAuditData>(`${BASE_URL}/api/v1/consultations/${consultation_id}/audit`);
+}
+
+export async function searchConsultations(query: string): Promise<ApiResult<ConsultationSummary[]>> {
+  return authedFetch<ConsultationSummary[]>(`${BASE_URL}/api/v1/consultations/?query=${encodeURIComponent(query)}`);
+}
+
+export async function submitClinicianFeedback(payload: any) {
+  return authedFetch(`${BASE_URL}/api/v1/feedback/suggestions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+

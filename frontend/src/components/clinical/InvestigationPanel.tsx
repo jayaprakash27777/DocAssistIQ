@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { getInvestigationsForDisease, InvestigationResponse } from "@/lib/api";
+import FeedbackButtons from "./FeedbackButtons";
 
 export default function InvestigationPanel({ consultationId, disease }: { consultationId: string, disease: string }) {
   const [data, setData] = useState<InvestigationResponse | null>(null);
@@ -102,11 +103,20 @@ export default function InvestigationPanel({ consultationId, disease }: { consul
 
   return (
     <div className="mt-4 p-4 border border-blue-200 bg-blue-50/30 rounded-lg">
-      <div className="flex items-center gap-2 mb-3 border-b border-blue-100 pb-2">
-        <span className="text-blue-500 text-lg">🔬</span>
-        <div>
-          <h5 className="font-bold text-blue-900 text-sm">Reference Investigations</h5>
-          <p className="text-[9px] text-blue-600 font-medium">NOT AN ORDER SHEET — DECISION SUPPORT ONLY</p>
+      <div className="flex items-start justify-between mb-3 border-b border-blue-100 pb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-blue-500 text-lg">🔬</span>
+          <div>
+            <h5 className="font-bold text-blue-900 text-sm">Reference Investigations</h5>
+            <p className="text-[9px] text-blue-600 font-medium">NOT AN ORDER SHEET — DECISION SUPPORT ONLY</p>
+          </div>
+        </div>
+        <div className="shrink-0 pt-1 pr-1">
+          <FeedbackButtons 
+            suggestionId={`inv-${consultationId}-${disease}-${Date.now()}`} 
+            suggestionType="investigation" 
+            suggestionContext={data} 
+          />
         </div>
       </div>
 

@@ -62,6 +62,14 @@ class PatientSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         comment="Attending doctor (FK to doctors, not users)",
     )
 
+    patient_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("patient_profiles.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+        comment="Link to the longitudinal patient profile",
+    )
+
     patient_ref: Mapped[str] = mapped_column(
         String(200),
         nullable=False,
@@ -89,6 +97,11 @@ class PatientSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Text,
         nullable=True,
         comment="Non-identifying encounter summary (no PII)",
+    )
+
+    patient_profile: Mapped["PatientProfile"] = relationship(
+        "PatientProfile",
+        back_populates="sessions",
     )
 
     def __repr__(self) -> str:

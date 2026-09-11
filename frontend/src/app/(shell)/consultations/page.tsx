@@ -12,9 +12,11 @@ import { Skeleton } from "@/components/shell/LoadingSkeleton";
 import {
   listConsultations,
   createConsultation,
+  searchConsultations,
   type ConsultationResponse,
   type ConsultationSummary,
 } from "@/lib/api";
+import { Search } from "lucide-react";
 
 export default function ConsultationsListPage() {
   const { toast } = useToast();
@@ -22,6 +24,8 @@ export default function ConsultationsListPage() {
   const [consultations, setConsultations] = useState<ConsultationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchConsultations = useCallback(async () => {
     setLoading(true);
@@ -34,9 +38,28 @@ export default function ConsultationsListPage() {
     }
   }, [toast]);
 
+  const performSearch = useCallback(async (query: string) => {
+    setLoading(true);
+    const r = await searchConsultations(query);
+    setLoading(false);
+    if (r.ok) {
+      setConsultations(r.data);
+    } else {
+      toast.error(r.error.message || "Search failed");
+    }
+  }, [toast]);
+
   useEffect(() => {
-    fetchConsultations();
-  }, [fetchConsultations]);
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery.trim().length >= 3) {
+        performSearch(searchQuery.trim());
+      } else if (searchQuery.trim().length === 0) {
+        fetchConsultations();
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, fetchConsultations, performSearch]);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -62,7 +85,20 @@ export default function ConsultationsListPage() {
         </button>
       </header>
 
-      <div style={{ marginTop: "2rem" }}>
+      <div className="mt-8 mb-4 relative max-w-lg">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400" />
+        </div>
+        <input
+          type="text"
+          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+          placeholder="Semantic Patient Search (e.g. 'headache and nausea')..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      <div style={{ marginTop: "1rem" }}>
         {loading ? (
           <div className="data-table">
             {Array.from({ length: 3 }).map((_, i) => (

@@ -13,12 +13,13 @@ from sqlalchemy import select
 
 from app.models.clinical import ClinicalFinding, ClinicalNote
 from app.infrastructure.ai.factory import get_generation_provider
+from app.services.embedding_service import generate_and_store_embedding
 
 baseline_generation_provider = get_generation_provider()
 
 log = structlog.get_logger(__name__)
 
-# Standard note sections according to Phase 30
+# Standard note sections according to Phase 30 (Hybrid SOAP)
 SECTIONS = [
     "chief_complaint",
     "hpi",
@@ -85,14 +86,23 @@ class NoteGeneratorService:
             # Fallback to simple deterministic formatting if AI fails
             drafted_sections = self._fallback_deterministic_draft(findings)
 
-        # Store flat string values per section (simple and easy to update/read)
+        # Store NoteSection objects per section (text, original_ai_text, status)
         # assessment and plan are left blank — clinician fills those in
         structured_sections = {}
         for section in SECTIONS:
             if section in ("assessment", "plan"):
-                structured_sections[section] = ""
+                structured_sections[section] = {
+                    "text": "",
+                    "original_ai_text": None,
+                    "status": "draft"
+                }
             else:
-                structured_sections[section] = drafted_sections.get(section, "") or ""
+                val = drafted_sections.get(section, "") or ""
+                structured_sections[section] = {
+                    "text": val,
+                    "original_ai_text": val,
+                    "status": "draft"
+                }
 
         # Upsert note
         note_result = await db.scalars(
@@ -107,10 +117,10 @@ class NoteGeneratorService:
                 existing_val = current_body.get(section, "")
                 # Only overwrite if section is empty and not assessment/plan
                 if section not in ("assessment", "plan"):
-                    if not existing_val:  # Only fill blanks
+                    if not existing_val or (isinstance(existing_val, dict) and not existing_val.get("text")):  # Only fill blanks
                         current_body[section] = structured_sections[section]
                 elif section not in current_body:
-                    current_body[section] = ""
+                    current_body[section] = { "text": "", "original_ai_text": None, "status": "draft" }
             
             existing_note.body = current_body
             existing_note.is_ai_generated = True
@@ -131,10 +141,32 @@ class NoteGeneratorService:
             
         await db.commit()
         await db.refresh(note)
+        
+        # Phase 36: Generate embedding for the new/updated note immediately
+        try:
+            current_body = note.body or {}
+            text_parts = []
+            for k, v in current_body.items():
+                if isinstance(v, dict) and "text" in v:
+                    text_parts.append(f"{k.upper()}: {v['text']}")
+                elif isinstance(v, str):
+                    text_parts.append(f"{k.upper()}: {v}")
+            note_content = "\n\n".join(text_parts)
+            
+            if note_content.strip():
+                await generate_and_store_embedding(
+                    db,
+                    source_record_id=str(consultation_id),
+                    source_record_type="clinical_note",
+                    content=note_content
+                )
+        except Exception as e:
+            log.error("note_embedding_failed", error=str(e))
+            
         return note
 
     def _fallback_deterministic_draft(self, findings: List[ClinicalFinding]) -> Dict[str, str]:
-        """Simple deterministic fallback to populate note if AI fails."""
+        """Simple deterministic fallback to populate structured note if AI fails."""
         sections = {s: "" for s in SECTIONS}
         
         pmh = []
