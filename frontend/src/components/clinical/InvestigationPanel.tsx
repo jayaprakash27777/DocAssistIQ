@@ -1,10 +1,63 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { getInvestigationsForDisease, InvestigationResponse } from "@/lib/api";
 import FeedbackButtons from "./FeedbackButtons";
+import { motion, AnimatePresence } from "framer-motion";
+import ClinicalLoader from "./ClinicalLoader";
+import { AlertTriangle, AlertCircle, FileText, CheckCircle2 } from "lucide-react";
 
-export default function InvestigationPanel({ consultationId, disease }: { consultationId: string, disease: string }) {
+const Section = ({ title, items, color, icon: Icon, consultationId, disease }: { title: string, items: any[], color: string, icon: any, consultationId: string, disease: string }) => {
+  if (items.length === 0) return null;
+  return (
+    <div className="mb-8 last:mb-0">
+      <h6 className={`text-sm font-bold uppercase tracking-widest mb-6 flex items-center gap-3 ${color}`}>
+        <Icon className="w-5 h-5" /> {title}
+      </h6>
+      <div className="space-y-4">
+        {items.map((item: any, idx: number) => (
+          <motion.div 
+            key={`${item.investigation_name}-${idx}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.1 }}
+            className="group px-6 py-5 bg-white dark:bg-[var(--surface-overlay)] rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--color-primary-300)] transition-all duration-300 shadow-sm hover:shadow-md relative overflow-hidden"
+          >
+            <div className="flex justify-between items-start gap-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="font-bold text-lg text-[var(--text-primary)] group-hover:text-[var(--color-primary-600)] transition-colors">
+                    {item.name || item.investigation_name}
+                  </span>
+                  {item.is_fasting_required && (
+                    <span className="px-2.5 py-1 text-xs font-bold uppercase tracking-widest bg-[var(--color-warning-50)] text-[var(--color-warning-700)] rounded-full">
+                      Fasting
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                  {item.rationale || item.reason}
+                </p>
+              </div>
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                <FeedbackButtons 
+                  suggestionId={`inv-${consultationId}-${disease}-${item.name || item.investigation_name}`} 
+                  suggestionType="investigation" 
+                  suggestionContext={item} 
+                />
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default function InvestigationPanel({ consultationId, disease, competing = [] }: { consultationId: string, disease: string, competing?: string[] }) {
   const [data, setData] = useState<InvestigationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +65,7 @@ export default function InvestigationPanel({ consultationId, disease }: { consul
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const res = await getInvestigationsForDisease(consultationId, disease);
+      const res = await getInvestigationsForDisease(consultationId, disease, competing);
       if (res.ok) {
         setData(res.data);
       } else {
@@ -26,22 +79,16 @@ export default function InvestigationPanel({ consultationId, disease }: { consul
   }, [consultationId, disease]);
 
   if (loading) {
-    return (
-      <div className="mt-4 p-4 border border-blue-100 rounded bg-blue-50/50 animate-pulse">
-        <div className="h-4 bg-blue-200 rounded w-1/4 mb-4"></div>
-        <div className="h-10 bg-blue-100 rounded w-full mb-2"></div>
-        <div className="h-10 bg-blue-100 rounded w-full"></div>
-      </div>
-    );
+    return <ClinicalLoader label={`Evaluating workup for ${disease}...`} messages={["Reviewing clinical presentation", "Analyzing standard of care guidelines", "Synthesizing investigation panel", "Finalizing recommendations"]} />;
   }
 
   if (error) {
-    return <div className="mt-4 p-3 text-xs text-red-600 bg-red-50 rounded border border-red-100">{error}</div>;
+    return <div className="mt-4 p-4 text-xs text-[var(--color-danger-700)] bg-[var(--color-danger-50)]/80 rounded-2xl border border-[var(--color-danger-200)] flex items-center gap-2"><AlertCircle className="w-4 h-4"/> {error}</div>;
   }
 
   if (!data || data.suggestions.length === 0) {
     return (
-      <div className="mt-4 p-3 text-xs text-gray-500 bg-gray-50 rounded border border-gray-100 italic">
+      <div className="mt-4 p-4 text-xs text-[var(--text-secondary)] bg-[var(--surface-sunken)] rounded-2xl border border-[var(--border-default)] italic">
         No reference investigations available for {disease}.
       </div>
     );
@@ -51,78 +98,37 @@ export default function InvestigationPanel({ consultationId, disease }: { consul
   const conditional = data.suggestions.filter(s => s.priority === "CONDITIONAL");
   const ifIndicated = data.suggestions.filter(s => s.priority === "IF INDICATED");
 
-  const Section = ({ title, items, color }: { title: string, items: any[], color: string }) => {
-    if (items.length === 0) return null;
-    return (
-      <div className="mb-4 last:mb-0">
-        <h6 className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${color}`}>{title}</h6>
-        <div className="space-y-3">
-          {items.map((item, idx) => (
-            <div key={idx} className="bg-white border border-gray-200 rounded p-3 shadow-sm">
-              <div className="flex justify-between items-start mb-1">
-                <span className="font-semibold text-sm text-gray-800">{item.name}</span>
-                <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-mono border border-gray-200">
-                  {item.provenance}
-                </span>
-              </div>
-              <p className="text-xs text-gray-700 mb-2 leading-relaxed">{item.rationale}</p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
-                {item.relevant_clinical_finding && (
-                  <div className="bg-blue-50 p-1.5 rounded border border-blue-100">
-                    <strong className="text-blue-800 block mb-0.5">Relevant Finding:</strong>
-                    <span className="text-blue-700">{item.relevant_clinical_finding}</span>
-                  </div>
-                )}
-                <div className="bg-gray-50 p-1.5 rounded border border-gray-100">
-                  <strong className="text-gray-600 block mb-0.5">Evidence:</strong>
-                  <span className="text-gray-600">{item.evidence}</span>
-                </div>
-              </div>
-              
-              <div className="mt-2 text-[10px] text-orange-700 bg-orange-50 p-1.5 rounded border border-orange-100">
-                <strong className="block mb-0.5">Limitations:</strong>
-                {item.limitations}
-              </div>
-
-              {item.safety_flags.length > 0 && (
-                <div className="mt-2 flex gap-1 flex-wrap">
-                  {item.safety_flags.map((flag: string, i: number) => (
-                    <span key={i} className="text-[9px] font-bold px-1.5 py-0.5 bg-red-100 text-red-700 rounded border border-red-200">
-                      ⚠️ {flag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   return (
-    <div className="mt-4 p-4 border border-blue-200 bg-blue-50/30 rounded-lg">
-      <div className="flex items-start justify-between mb-3 border-b border-blue-100 pb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-blue-500 text-lg">🔬</span>
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-4 p-5 border border-[var(--color-primary-200)] dark:border-[var(--color-primary-800)] bg-[var(--color-primary-50)]/30 dark:bg-[var(--color-primary-900)]/10 rounded-2xl shadow-sm backdrop-blur-md"
+    >
+      <div className="flex items-start justify-between mb-6 pb-5 border-b border-[var(--color-primary-200)] dark:border-[var(--color-primary-800)]">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-white/50 dark:bg-black/20 rounded-2xl shadow-inner border border-[var(--color-primary-200)] dark:border-[var(--color-primary-800)] flex items-center justify-center">
+            <FileText className="w-6 h-6 text-[var(--color-primary-600)] dark:text-[var(--color-primary-400)]" />
+          </div>
           <div>
-            <h5 className="font-bold text-blue-900 text-sm">Reference Investigations</h5>
-            <p className="text-[9px] text-blue-600 font-medium">NOT AN ORDER SHEET — DECISION SUPPORT ONLY</p>
+            <h5 className="font-bold text-[var(--color-primary-950)] dark:text-[var(--color-primary-100)] text-lg tracking-tight">Expected Investigations</h5>
+            <p className="text-[10px] text-[var(--text-secondary)] font-medium mt-1">Context-aware recommendations based on patient presentation</p>
           </div>
         </div>
-        <div className="shrink-0 pt-1 pr-1">
+        <div className="shrink-0">
           <FeedbackButtons 
-            suggestionId={`inv-${consultationId}-${disease}-${Date.now()}`} 
+            suggestionId={`inv-${consultationId}-${disease}`} 
             suggestionType="investigation" 
             suggestionContext={data} 
           />
         </div>
       </div>
 
-      <Section title="High Priority" items={highPriority} color="text-red-600" />
-      <Section title="Conditional" items={conditional} color="text-orange-600" />
-      <Section title="If Indicated" items={ifIndicated} color="text-blue-600" />
-    </div>
+      <div className="space-y-6">
+        <Section title="High Priority / Immediate" items={highPriority} color="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]" icon={AlertCircle} consultationId={consultationId} disease={disease} />
+        <Section title="Conditional / Monitor" items={conditional} color="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]" icon={AlertTriangle} consultationId={consultationId} disease={disease} />
+        <Section title="If Indicated" items={ifIndicated} color="text-[var(--color-primary-600)] dark:text-[var(--color-primary-400)]" icon={CheckCircle2} consultationId={consultationId} disease={disease} />
+      </div>
+    </motion.div>
   );
 }

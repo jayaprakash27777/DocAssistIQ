@@ -77,5 +77,6 @@ class MeResponse(BaseModel):
     role: str
     is_active: bool
     is_verified: bool
+    permissions: list[str] = []
     created_at: datetime
     updated_at: datetime

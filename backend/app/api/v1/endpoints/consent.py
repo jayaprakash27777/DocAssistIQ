@@ -11,9 +11,10 @@ from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.platform import API_RESPONSES
-from app.authorization import require_doctor
+from app.authorization import require_doctor, get_current_doctor_profile
 from app.dependencies import get_db
 from app.models.user import User
+from app.models.doctor import Doctor
 from app.models.patient import ConsentRecord
 from app.models.consultation import Consultation
 from app.schemas.consent import ConsentRecordCreate, ConsentRecordResponse
@@ -24,19 +25,25 @@ router = APIRouter(prefix="/consent", tags=["Consent"])
 @router.post("", response_model=ConsentRecordResponse, status_code=status.HTTP_201_CREATED)
 async def create_consent_record(
     payload: ConsentRecordCreate,
-    doctor: User = Depends(require_doctor),
+    doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
     """Record patient consent. Appends a new immutable record."""
-    # Verify the doctor owns the consultation
+    # Verify the doctor owns the consultation or is in the same tenant
     consultation = await db.scalar(
         select(Consultation).where(Consultation.id == payload.consultation_id)
     )
-    if not consultation or consultation.doctor_id != doctor.id:
-        raise HTTPException(status_code=403, detail="Unauthorized for this consultation")
+    if not consultation:
+        raise HTTPException(status_code=403, detail=f"Unauthorized: Consultation {payload.consultation_id} not found")
+    if consultation.doctor_id != doctor.id:
+        tenant_id = db.info.get("tenant_id")
+        if not tenant_id or consultation.tenant_id != tenant_id:
+            raise HTTPException(status_code=403, detail=f"Unauthorized: mismatch cons_doc={consultation.doctor_id} vs doc={doctor.id}")
         
     consent = ConsentRecord(
         consultation_id=payload.consultation_id,
+        patient_session_id=consultation.patient_session_id,
+        tenant_id=consultation.tenant_id,
         actor_name=payload.actor_name,
         actor_relationship=payload.actor_relationship,
         purpose=payload.purpose,
@@ -53,15 +60,19 @@ async def create_consent_record(
 @router.post("/{consultation_id}/revoke", response_model=ConsentRecordResponse)
 async def revoke_consent(
     consultation_id: uuid.UUID,
-    doctor: User = Depends(require_doctor),
+    doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
     """Revoke consent for a consultation. Appends a new record indicating revocation."""
     consultation = await db.scalar(
         select(Consultation).where(Consultation.id == consultation_id)
     )
-    if not consultation or consultation.doctor_id != doctor.id:
+    if not consultation:
         raise HTTPException(status_code=403, detail="Unauthorized for this consultation")
+    if consultation.doctor_id != doctor.id:
+        tenant_id = db.info.get("tenant_id")
+        if not tenant_id or consultation.tenant_id != tenant_id:
+            raise HTTPException(status_code=403, detail="Unauthorized for this consultation")
         
     # Get last consent to copy over details for the revocation record
     last_consent = await db.scalar(
@@ -76,6 +87,8 @@ async def revoke_consent(
         
     revocation = ConsentRecord(
         consultation_id=consultation_id,
+        patient_session_id=consultation.patient_session_id,
+        tenant_id=consultation.tenant_id,
         actor_name=last_consent.actor_name,
         actor_relationship=last_consent.actor_relationship,
         purpose=last_consent.purpose,
@@ -99,15 +112,19 @@ async def revoke_consent(
 @router.get("/{consultation_id}", response_model=ConsentRecordResponse)
 async def get_active_consent(
     consultation_id: uuid.UUID,
-    doctor: User = Depends(require_doctor),
+    doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the most recent consent status for a consultation."""
     consultation = await db.scalar(
         select(Consultation).where(Consultation.id == consultation_id)
     )
-    if not consultation or consultation.doctor_id != doctor.id:
+    if not consultation:
         raise HTTPException(status_code=403, detail="Unauthorized for this consultation")
+    if consultation.doctor_id != doctor.id:
+        tenant_id = db.info.get("tenant_id")
+        if not tenant_id or consultation.tenant_id != tenant_id:
+            raise HTTPException(status_code=403, detail="Unauthorized for this consultation")
         
     last_consent = await db.scalar(
         select(ConsentRecord)

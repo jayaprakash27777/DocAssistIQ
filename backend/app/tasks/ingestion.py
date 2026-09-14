@@ -83,7 +83,7 @@ async def _ingest_medquad(job: IngestionJob, source: Source, db) -> None:
     from app.models.embedding import EmbeddingRecord
     
     await db.begin()
-    import datasets
+    import datasets  # type: ignore[import-untyped]
     log.info("Fetching MedQuAD dataset from HuggingFace...")
     dataset = datasets.load_dataset("keivalya/MedQuad-MedicalQnADataset", split="train[:50]")
     
@@ -192,7 +192,7 @@ async def _ingest_openfda(job: IngestionJob, source: Source, db) -> None:
     provider = get_embedding_provider()
     
     # We load the json. Since it's a partition, it will fit in memory on modern systems.
-    with open(json_path, "r", encoding="utf-8") as f:
+    with open(json_path, "r", encoding="utf-8") as f:  # type: ignore
         data = json.load(f)
         
     results = data.get("results", [])

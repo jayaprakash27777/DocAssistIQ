@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * DocAssistIQ — Consultation Detail View (Phase 21).
  *
@@ -6,11 +9,15 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/components/shell/ToastProvider";
 import { Skeleton } from "@/components/shell/LoadingSkeleton";
+import { Button } from "@/components/ui/button";
+import * as Tabs from "@radix-ui/react-tabs";
+import { GripVertical, Mic, Square, CheckCircle, FileText, Activity, AlertCircle } from "lucide-react";
 import {
   getConsultation,
   transitionConsultationStatus,
@@ -32,6 +39,7 @@ import DifferentialDiagnosis from "@/components/clinical/DifferentialDiagnosis";
 import LiveTranscriptionPanel from "@/components/clinical/LiveTranscriptionPanel";
 import TranscriptEditorPanel from "@/components/clinical/TranscriptEditorPanel";
 import AuditTimeline from "@/components/clinical/AuditTimeline";
+import { SimilarCasesPanel } from "@/components/clinical/SimilarCasesPanel";
 import { useAudioCapture, formatElapsed } from "@/hooks/useAudioCapture";
 import { getStoredToken } from "@/lib/api";
 import { getSharedRealtimeClient } from "@/lib/ws";
@@ -77,6 +85,38 @@ export default function ConsultationDetailPage() {
   const [editText, setEditText] = useState("");
 
   const [representation, setRepresentation] = useState<ClinicalRepresentationResponse | null>(null);
+
+  // Resizable pane state
+  const [rightPaneWidth, setRightPaneWidth] = useState(600);
+  const isDragging = useRef(false);
+
+  const startDragging = useCallback((e: React.MouseEvent) => {
+    isDragging.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  const onDrag = useCallback((e: MouseEvent) => {
+    if (!isDragging.current) return;
+    const newWidth = window.innerWidth - e.clientX;
+    // Constrain width between 400px and 900px
+    setRightPaneWidth(Math.min(Math.max(newWidth, 400), 900));
+  }, []);
+
+  const stopDragging = useCallback(() => {
+    isDragging.current = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', onDrag);
+    window.addEventListener('mouseup', stopDragging);
+    return () => {
+      window.removeEventListener('mousemove', onDrag);
+      window.removeEventListener('mouseup', stopDragging);
+    };
+  }, [onDrag, stopDragging]);
 
   const fetchConsultation = useCallback(async () => {
     if (!id) return;
@@ -281,32 +321,43 @@ export default function ConsultationDetailPage() {
   const isSplitPane = ["draft", "under_review", "analysis_ready", "finalized", "amended"].includes(currentStatus);
 
   return (
-    <div className={isSplitPane ? "flex flex-col h-[calc(100vh-64px)] bg-gray-50 overflow-hidden" : "consultations-page max-w-3xl mx-auto"}>
-      <header className={`page-header flex justify-between items-center flex-wrap gap-4 ${isSplitPane ? "px-6 py-4 bg-white border-b shrink-0 m-0" : ""}`} style={isSplitPane ? { margin: 0, borderBottom: '1px solid #e5e7eb' } : { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-[var(--surface-base)] overflow-hidden relative">
+      
+      {/* Sticky Premium Header */}
+      <header className="px-6 py-4 bg-[var(--glass-bg)] backdrop-blur-xl border-b border-[var(--glass-border)] shrink-0 z-20 flex justify-between items-center shadow-sm sticky top-0">
         <div>
-          <h2 className="page-title">Consultation Room</h2>
-          <div style={{ fontSize: "0.875rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>
+          <h2 className="text-xl font-bold font-heading text-[var(--text-primary)] flex items-center gap-3">
+            Consultation Workspace
+            <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-widest font-bold ${
+              currentStatus === 'finalized' ? 'bg-[var(--color-success-50)] text-[var(--color-success-700)] border border-[var(--color-success-200)]' : 
+              currentStatus === 'recording' ? 'bg-[var(--color-danger-50)] text-[var(--color-danger-700)] border border-[var(--color-danger-200)] animate-pulse' : 
+              'bg-[var(--color-primary-50)] text-[var(--color-primary-700)] border border-[var(--color-primary-200)]'
+            }`}>
+              {currentStatus.replace('_', ' ')}
+            </span>
+          </h2>
+          <div className="text-xs text-[var(--text-tertiary)] mt-1 font-mono">
             ID: {consultation.id}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        
+        <div className="flex items-center gap-4">
           {consent ? (
-            <div style={{ background: "rgba(16, 185, 129, 0.1)", color: "var(--success)", padding: "0.5rem 1rem", borderRadius: "100px", fontSize: "0.875rem", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              ✅ Consent Granted
+            <div className="flex items-center gap-2 bg-[var(--color-success-50)] text-[var(--color-success-700)] px-3 py-1.5 rounded-full border border-[var(--color-success-200)] shadow-sm">
+              <CheckCircle className="w-4 h-4" />
+              <span className="text-xs font-bold uppercase tracking-wide">Consent Granted</span>
               {["created", "recording"].includes(currentStatus) && (
-                <button onClick={handleRevokeConsent} disabled={actionLoading} style={{ background: "none", border: "none", color: "var(--danger)", textDecoration: "underline", cursor: "pointer", marginLeft: "0.5rem", fontSize: "0.75rem" }}>
+                <button onClick={handleRevokeConsent} disabled={actionLoading} className="ml-2 text-[10px] underline hover:text-[var(--color-danger-600)] transition-colors">
                   Revoke
                 </button>
               )}
             </div>
           ) : (
-            <div style={{ background: "rgba(239, 68, 68, 0.1)", color: "var(--danger)", padding: "0.5rem 1rem", borderRadius: "100px", fontSize: "0.875rem", fontWeight: 600 }}>
-              ⚠️ Missing Consent
+            <div className="flex items-center gap-2 bg-[var(--color-danger-50)] text-[var(--color-danger-700)] px-3 py-1.5 rounded-full border border-[var(--color-danger-200)] shadow-sm">
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-xs font-bold uppercase tracking-wide">Missing Consent</span>
             </div>
           )}
-          <span className={`status-badge status-${currentStatus.toLowerCase()}`}>
-            {currentStatus.toUpperCase()}
-          </span>
         </div>
       </header>
 
@@ -340,318 +391,393 @@ export default function ConsultationDetailPage() {
         </div>
       )}
 
-      {showConsentForm && !consent && (
-        <div style={{ padding: "1rem", background: "var(--surface-base)", borderRadius: "8px", border: "1px solid var(--border-subtle)", marginTop: "1rem" }}>
-          <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "1rem" }}>Provide Informed Consent</h3>
-          <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-            To proceed with audio recording and automated analysis, we need explicit consent from the patient or legal guardian.
-          </p>
-          <div className="form-group">
-            <label>Consent Provided By</label>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="e.g., John Doe" 
-              value={consentActor} 
-              onChange={e => setConsentActor(e.target.value)} 
-            />
-          </div>
-          <div className="form-group">
-            <label>Relationship to Patient</label>
-            <select className="form-input" value={consentRelation} onChange={e => setConsentRelation(e.target.value)}>
-              <option value="self">Self</option>
-              <option value="parent">Parent</option>
-              <option value="guardian">Legal Guardian</option>
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
-            <button className="btn-primary" onClick={handleGrantConsent} disabled={actionLoading || !consentActor}>
-              Grant Consent & Proceed
-            </button>
-            <button className="btn-secondary" onClick={() => setShowConsentForm(false)}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Phase 42: Red Flag Banner */}
 
-      <div className={isSplitPane ? "flex flex-1 overflow-hidden" : ""} style={!isSplitPane ? { background: "var(--surface-base)", padding: "1.5rem", borderRadius: "8px", marginTop: "2rem" } : {}}>
+        {/* Main Content Area */}
+        <div className={`flex flex-1 overflow-hidden relative ${!isSplitPane ? 'max-w-4xl mx-auto w-full' : ''}`}>
         
         {/* Left Pane (Timeline / Transcript) */}
-        <div className={isSplitPane ? "flex-1 overflow-y-auto p-6 space-y-6" : "space-y-6"}>
+        <div className="flex-1 flex flex-col h-full bg-white relative">
+          {/* Consent Form */}
+          <div className="px-6 pt-6 shrink-0">
+            <AnimatePresence>
+              {showConsentForm && !consent && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="p-6 bg-white border border-[var(--border-default)] rounded-2xl shadow-sm mb-4 relative overflow-hidden"
+                >
+                  <div className="absolute top-0 left-0 w-1 h-full bg-[var(--color-primary-500)]" />
+                  <div className="flex items-start gap-4 mb-6">
+                    <div className="p-3 bg-[var(--color-primary-50)] rounded-xl text-[var(--color-primary-600)] shrink-0 shadow-inner">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold font-heading text-[var(--text-primary)] m-0">Informed Consent Required</h3>
+                      <p className="text-[var(--text-secondary)] mt-1 text-sm">
+                        By granting consent, you confirm that the patient has been informed of the clinical AI analysis and recording process, and has explicitly agreed to proceed.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <form onSubmit={handleGrantConsent}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+                      <div>
+                        <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-2">Actor Name</label>
+                        <input 
+                          type="text" 
+                          className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all shadow-inner" 
+                          value={consentActor} 
+                          onChange={(e) => setConsentActor(e.target.value)} 
+                          required 
+                          placeholder="e.g. John Doe" 
+                          disabled={actionLoading} 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-2">Relationship</label>
+                        <select 
+                          className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all shadow-inner" 
+                          value={consentRelation} 
+                          onChange={(e) => setConsentRelation(e.target.value)} 
+                          disabled={actionLoading}
+                        >
+                          <option value="self">Self (Patient)</option>
+                          <option value="parent">Parent</option>
+                          <option value="legal_guardian">Legal Guardian</option>
+                          <option value="proxy">Proxy / Healthcare Surrogate</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 border-t border-[var(--border-default)] pt-5">
+                      <Button type="submit" variant="primary" disabled={actionLoading} isLoading={actionLoading}>
+                        Grant & Record Consent
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={() => setShowConsentForm(false)} disabled={actionLoading}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <Tabs.Root defaultValue="ai-assistant" className="flex flex-col h-full">
+            <div className="px-6 border-b border-[var(--border-default)] shrink-0">
+              <Tabs.List className="flex gap-6">
+                <Tabs.Trigger 
+                  value="ai-assistant" 
+                  className="pb-3 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] data-[state=active]:text-[var(--color-primary-600)] data-[state=active]:border-b-2 data-[state=active]:border-[var(--color-primary-600)] transition-colors hover:text-[var(--text-primary)] outline-none"
+                >
+                  AI Assistant
+                </Tabs.Trigger>
+                <Tabs.Trigger 
+                  value="transcript" 
+                  className="pb-3 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] data-[state=active]:text-[var(--color-primary-600)] data-[state=active]:border-b-2 data-[state=active]:border-[var(--color-primary-600)] transition-colors hover:text-[var(--text-primary)] outline-none"
+                >
+                  Transcript & Review
+                </Tabs.Trigger>
+                <Tabs.Trigger 
+                  value="scratchpad" 
+                  className="pb-3 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] data-[state=active]:text-[var(--color-primary-600)] data-[state=active]:border-b-2 data-[state=active]:border-[var(--color-primary-600)] transition-colors hover:text-[var(--text-primary)] outline-none"
+                >
+                  Scratchpad
+                </Tabs.Trigger>
+              </Tabs.List>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 pb-32">
+              
+              <Tabs.Content value="ai-assistant" className="space-y-6 outline-none">
+                <div className="mb-6">
+                  <LiveTranscriptionPanel
+                    audioState={audio.state}
+                    audioStream={audio.stream}
+                    asrText={asrText}
+                    partialAsr={partialAsr}
+                    diarizedSegments={diarizedSegments}
+                    elapsedMs={audio.elapsedMs}
+                    onStart={() => handleTransition("recording")}
+                    onPause={() => audio.pause()}
+                    onStop={() => handleTransition("processing")}
+                  />
+                </div>
+                
+                {consultation?.findings && consultation.findings.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-6 p-5 bg-white border border-[var(--color-primary-200)] shadow-sm rounded-2xl relative overflow-hidden"
+                  >
+                    <div className="absolute top-0 left-0 w-1 h-full bg-[var(--color-primary-500)]" />
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-sm font-bold tracking-wide text-[var(--color-primary-800)] uppercase flex items-center gap-2 m-0">
+                        <Activity className="w-4 h-4" />
+                        Extracted Clinical Findings
+                      </h3>
+                      <span className="text-[0.65rem] font-bold px-2.5 py-1 bg-[var(--color-primary-50)] text-[var(--color-primary-700)] rounded-full uppercase tracking-widest border border-[var(--color-primary-200)] flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary-500)] animate-pulse" />
+                        AI Suggested
+                      </span>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2.5">
+                      {consultation.findings.map((finding: any) => (
+                        <motion.div 
+                          key={finding.id} 
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          whileHover={{ scale: 1.02 }}
+                          className={`p-3 rounded-xl border flex flex-col gap-1.5 min-w-[160px] shadow-sm transition-colors ${
+                            finding.negated 
+                              ? "bg-[var(--color-danger-50)] border-[var(--color-danger-200)]" 
+                              : finding.status === "confirmed" 
+                                ? "bg-[var(--color-success-50)] border-[var(--color-success-200)]"
+                                : "bg-white border-[var(--border-default)] hover:border-[var(--color-primary-300)]"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <span className={`text-sm font-bold capitalize ${finding.negated ? "text-[var(--color-danger-700)] line-through opacity-80" : "text-[var(--text-primary)]"}`}>
+                              {finding.value}
+                            </span>
+                            {finding.confidence_score && (
+                              <span className="text-[0.65rem] font-mono text-[var(--text-tertiary)] bg-[var(--surface-sunken)] px-1.5 rounded">
+                                {(finding.confidence_score * 100).toFixed(0)}%
+                              </span>
+                            )}
+                          </div>
+                          
+                          {finding.canonical_concept && finding.canonical_concept !== finding.value.toLowerCase() && (
+                            <div className="text-[0.7rem] text-[var(--text-secondary)] italic flex items-center gap-1">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>
+                              {finding.canonical_concept}
+                              {finding.mapping_source && <span className="opacity-60">({finding.mapping_source})</span>}
+                            </div>
+                          )}
+                          
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            <span className="text-[0.65rem] px-1.5 py-0.5 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded text-[var(--text-secondary)] font-medium">
+                              {finding.concept || finding.finding_type}
+                            </span>
+                            {finding.temporality && finding.temporality !== "current" && (
+                              <span className="text-[0.65rem] px-1.5 py-0.5 bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] rounded text-[var(--color-warning-700)] font-medium">
+                                {finding.temporality}
+                              </span>
+                            )}
+                            {finding.negated && (
+                              <span className="text-[0.65rem] px-1.5 py-0.5 bg-[var(--color-danger-100)] text-[var(--color-danger-700)] rounded font-bold">
+                                NEGATED
+                              </span>
+                            )}
+                            {finding.status === "confirmed" && (
+                              <span className="text-[0.65rem] px-1.5 py-0.5 bg-[var(--color-success-100)] text-[var(--color-success-700)] rounded font-bold flex items-center gap-1">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                CONFIRMED
+                              </span>
+                            )}
+                            {finding.status === "rejected" && (
+                              <span className="text-[0.65rem] px-1.5 py-0.5 bg-[var(--color-danger-100)] text-[var(--color-danger-700)] rounded font-bold flex items-center gap-1">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                REJECTED
+                              </span>
+                            )}
+                          </div>
+                          
+                          {finding.status === "pending" && (
+                            <div className="flex gap-1.5 mt-2 pt-2 border-t border-[var(--border-default)]">
+                              <button type="button" className="flex-1 py-1 px-2 text-[0.65rem] font-bold rounded bg-[var(--surface-sunken)] hover:bg-[var(--color-danger-50)] hover:text-[var(--color-danger-600)] transition-colors border border-[var(--border-default)]" onClick={() => handleReviewFinding(finding.id, "reject")}>Reject</button>
+                              <button type="button" className="flex-1 py-1 px-2 text-[0.65rem] font-bold rounded bg-[var(--color-primary-50)] text-[var(--color-primary-700)] hover:bg-[var(--color-primary-100)] transition-colors border border-[var(--color-primary-200)]" onClick={() => handleReviewFinding(finding.id, "confirm")}>Confirm</button>
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
+                {consultation && <DifferentialDiagnosis consultationId={consultation.id} trigger={consultation.findings?.length || consultation.status} />}
+                
+                {consultation && (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <SimilarCasesPanel consultationId={consultation.id} />
+                  </div>
+                )}
+              </Tabs.Content>
+
+              <Tabs.Content value="transcript" className="space-y-6 outline-none">
+                {savedTranscript && ["draft", "under_review", "finalized"].includes(currentStatus) ? (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <TranscriptEditorPanel
+                      transcript={savedTranscript}
+                      currentStatus={currentStatus}
+                      onSaveSegment={handleSaveSegment}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-center text-[var(--text-tertiary)] py-12 bg-[var(--surface-sunken)] rounded-xl border border-dashed border-[var(--border-default)]">
+                    No transcript available yet. Please complete a recording session.
+                  </div>
+                )}
+                
+                {consultation && (
+                  <div className="mt-8 border-t border-[var(--border-default)] pt-8">
+                    <h3 className="text-lg font-bold mb-4 font-heading">Consultation Audit Trail</h3>
+                    <AuditTimeline consultationId={consultation.id} />
+                  </div>
+                )}
+              </Tabs.Content>
+
+              <Tabs.Content value="scratchpad" className="space-y-6 outline-none h-full flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-sm font-bold tracking-wide text-[var(--color-primary-800)] uppercase">
+                    Unstructured Doctor Notes
+                  </h3>
+                  <Link href={`/consultations/${id}/intake`} className="text-xs font-bold text-[var(--color-primary-600)] hover:underline flex items-center gap-1">
+                    📝 Open Structured Intake Form
+                  </Link>
+                </div>
+                <textarea
+                  className="flex-1 w-full min-h-[300px] bg-yellow-50/50 border border-yellow-200 rounded-xl p-4 text-[var(--text-primary)] shadow-inner focus:ring-2 focus:ring-yellow-400 outline-none transition-all resize-none font-mono"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  disabled={
+                    actionLoading || 
+                    currentStatus === "processing" || 
+                    currentStatus === "finalized"
+                  }
+                  placeholder={
+                    currentStatus === "recording" 
+                      ? "Recording in progress... (type manual scratchpad notes here)" 
+                      : "Type free-form notes during the consultation..."
+                  }
+                />
+                <div className="flex justify-end mt-4">
+                  <Button 
+                    variant="primary" 
+                    onClick={() => handleTransition("draft")}
+                    disabled={actionLoading || !inputText.trim() || currentStatus === "finalized"}
+                    isLoading={actionLoading}
+                    className="shadow-md"
+                  >
+                    Analyze Notes
+                  </Button>
+                </div>
+              </Tabs.Content>
+            </div>
+          </Tabs.Root>
+
+          {/* Floating Action Bar (Phase 5) */}
+          <motion.div 
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-2xl rounded-full px-4 py-3 flex items-center gap-3"
+          >
+            {currentStatus === "created" && (
+              <Button 
+                variant="primary" 
+                onClick={() => {
+                  if (!consent) setShowConsentForm(true);
+                  else handleTransition("recording");
+                }}
+                disabled={actionLoading}
+                className="rounded-full shadow-lg gap-2 px-6"
+              >
+                <Mic className="w-4 h-4" /> Start Recording
+              </Button>
+            )}
+
+            {currentStatus === "recording" && (
+              <>
+                <Button 
+                  variant="primary" 
+                  onClick={() => handleTransition("processing")}
+                  disabled={actionLoading}
+                  className="rounded-full shadow-lg px-6"
+                >
+                  Submit for Analysis
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => handleTransition("created")}
+                  disabled={actionLoading}
+                  className="rounded-full gap-2 text-[var(--color-danger-600)] hover:bg-[var(--color-danger-50)] bg-white/50"
+                >
+                  <Square className="w-4 h-4" /> Stop
+                </Button>
+                <div className="px-4 font-mono text-sm font-bold text-[var(--color-danger-600)] flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[var(--color-danger-500)] animate-pulse" />
+                  {formatElapsed(audio.elapsedMs)}
+                </div>
+              </>
+            )}
+
+            {currentStatus === "processing" && (
+              <div className="px-6 flex items-center gap-3 text-sm font-bold text-[var(--color-primary-600)]">
+                <span className="w-4 h-4 rounded-full border-2 border-[var(--color-primary-600)] border-t-transparent animate-spin" />
+                AI is processing audio & notes...
+              </div>
+            )}
+
+            {currentStatus === "draft" && (
+              <Button variant="primary" onClick={() => handleTransition("under_review")} disabled={actionLoading} className="rounded-full shadow-lg px-6">
+                Begin Note Review
+              </Button>
+            )}
+
+            {currentStatus === "under_review" && (
+              <>
+                <Button variant="primary" onClick={() => handleTransition("analysis_ready")} disabled={actionLoading} className="rounded-full shadow-lg px-6">
+                  Mark Analysis Ready
+                </Button>
+                <Button variant="ghost" onClick={() => handleTransition("draft")} disabled={actionLoading} className="rounded-full bg-white/50">
+                  Back to Draft
+                </Button>
+              </>
+            )}
+
+            {currentStatus === "analysis_ready" && (
+              <>
+                <Button variant="primary" onClick={() => handleTransition("finalized")} disabled={actionLoading} className="rounded-full shadow-lg px-6 gap-2">
+                  <CheckCircle className="w-4 h-4" /> Sign Off & Finalize
+                </Button>
+                <Button variant="ghost" onClick={() => handleTransition("under_review")} disabled={actionLoading} className="rounded-full bg-white/50">
+                  Re-review
+                </Button>
+              </>
+            )}
+
+            {currentStatus === "finalized" && (
+              <Button variant="ghost" onClick={() => handleTransition("amended")} disabled={actionLoading} className="rounded-full bg-white/50 border border-[var(--border-default)]">
+                Amend Finalized Record
+              </Button>
+            )}
+
+            {currentStatus === "amended" && (
+              <Button variant="primary" onClick={() => handleTransition("finalized")} disabled={actionLoading} className="rounded-full shadow-lg px-6 gap-2">
+                <CheckCircle className="w-4 h-4" /> Sign Off Amendment
+              </Button>
+            )}
+          </motion.div>
+        </div>
         
-        {/* Consent Form Modal (Inline) */}
-        {showConsentForm && !consent && (
-          <div style={{ padding: "1.5rem", background: "var(--surface-raised)", border: "1px solid var(--border-subtle)", borderRadius: "8px", marginBottom: "2rem" }}>
-            <h3 style={{ marginTop: 0, color: "var(--text-primary)" }}>Informed Consent</h3>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginBottom: "1.5rem" }}>
-              By granting consent, you confirm that the patient has been informed of the clinical AI analysis and recording process, and has explicitly agreed to proceed.
-            </p>
-            <form onSubmit={handleGrantConsent}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
-                <div className="form-group">
-                  <label>Actor Name</label>
-                  <input type="text" className="input-field" value={consentActor} onChange={(e) => setConsentActor(e.target.value)} required placeholder="e.g. John Doe" disabled={actionLoading} />
-                </div>
-                <div className="form-group">
-                  <label>Relationship</label>
-                  <select className="input-field" value={consentRelation} onChange={(e) => setConsentRelation(e.target.value)} disabled={actionLoading}>
-                    <option value="self">Self (Patient)</option>
-                    <option value="parent">Parent</option>
-                    <option value="legal_guardian">Legal Guardian</option>
-                    <option value="proxy">Proxy / Healthcare Surrogate</option>
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: "1rem" }}>
-                <button type="submit" className="btn-primary" disabled={actionLoading}>Grant & Record Consent</button>
-                <button type="button" className="btn-secondary" onClick={() => setShowConsentForm(false)} disabled={actionLoading}>Cancel</button>
-              </div>
-            </form>
+        {/* Resizable Divider */}
+        {isSplitPane && (
+          <div 
+            className="w-2 bg-[var(--surface-base)] hover:bg-[var(--color-primary-200)] flex items-center justify-center cursor-col-resize transition-colors border-l border-r border-[var(--border-default)] z-10 shrink-0 group/divider"
+            onMouseDown={startDragging}
+          >
+            <GripVertical className="w-4 h-4 text-[var(--text-tertiary)] group-hover/divider:text-[var(--color-primary-600)]" />
           </div>
         )}
 
-        {/* State Machine UI */}
-        <div style={{ display: "flex", gap: "1rem", marginBottom: "2rem", flexWrap: "wrap" }}>
-          {currentStatus === "created" && (
-            <button 
-              className="btn-primary" 
-              onClick={() => {
-                if (!consent) setShowConsentForm(true);
-                else handleTransition("recording");
-              }}
-              disabled={actionLoading}
-            >
-              🎤 Start Recording
-            </button>
-          )}
-
-          {currentStatus === "recording" && (
-            <>
-              <button 
-                className="btn-primary" 
-                onClick={() => handleTransition("processing")}
-                disabled={actionLoading}
-              >
-                Submit for Analysis
-              </button>
-              <button 
-                className="btn-secondary" 
-                onClick={() => handleTransition("created")}
-                disabled={actionLoading}
-              >
-                Pause Recording
-              </button>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0 1rem", color: "var(--danger)", fontWeight: 600, background: "rgba(239, 68, 68, 0.1)", borderRadius: "8px" }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "pulse 1.5s infinite" }} />
-                Recording {formatElapsed(audio.elapsedMs)}
-              </div>
-            </>
-          )}
-          
-          {audio.error && (
-            <div style={{ color: "var(--danger)", fontSize: "0.875rem", padding: "0.5rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "4px" }}>
-              {audio.error}
-            </div>
-          )}
-          
-          {currentStatus === "processing" && (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--primary)" }}>
-              <div className="spinner" style={{ width: "20px", height: "20px", border: "2px solid var(--primary)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
-              AI is processing audio & clinical notes...
-            </div>
-          )}
-
-          {currentStatus === "draft" && (
-            <>
-              <button className="btn-primary" onClick={() => handleTransition("under_review")} disabled={actionLoading}>
-                Begin Note Review
-              </button>
-              <Link href={`/consultations/${consultation.id}/review`} className="btn-secondary" style={{ textDecoration: 'none' }}>
-                Open Note Workspace
-              </Link>
-            </>
-          )}
-
-          {currentStatus === "under_review" && (
-            <>
-              <Link href={`/consultations/${consultation.id}/review`} className="btn-primary" style={{ textDecoration: 'none' }}>
-                Open Review Workspace
-              </Link>
-              <button className="btn-secondary" onClick={() => handleTransition("analysis_ready")} disabled={actionLoading}>
-                Mark Analysis Ready
-              </button>
-              <button className="btn-secondary" onClick={() => handleTransition("draft")} disabled={actionLoading}>
-                Back to Draft
-              </button>
-            </>
-          )}
-
-          {currentStatus === "analysis_ready" && (
-            <>
-              <button className="btn-primary" onClick={() => handleTransition("finalized")} disabled={actionLoading}>
-                Sign Off & Finalize
-              </button>
-              <button className="btn-secondary" onClick={() => handleTransition("under_review")} disabled={actionLoading}>
-                Re-review
-              </button>
-            </>
-          )}
-
-          {currentStatus === "finalized" && (
-            <button className="btn-secondary" onClick={() => handleTransition("amended")} disabled={actionLoading}>
-              Amend Finalized Record
-            </button>
-          )}
-
-          {currentStatus === "amended" && (
-            <button className="btn-primary" onClick={() => handleTransition("finalized")} disabled={actionLoading}>
-              Sign Off Amendment
-            </button>
-          )}
-        </div>
-
-        {/* Input Text Area */}
-        <div className="form-group">
-          <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>Clinical Notes / Transcript</span>
-            <Link href={`/consultations/${id}/intake`} className="btn-secondary btn-sm" style={{ textDecoration: "none" }}>
-              📝 Open Structured Manual Intake
-            </Link>
-          </label>
-          
-          {/* Live Transcription Panel (Phase 25) */}
-          <div className="mb-6">
-            <LiveTranscriptionPanel
-              audioState={audio.state}
-              audioStream={audio.stream}
-              asrText={asrText}
-              partialAsr={partialAsr}
-              diarizedSegments={diarizedSegments}
-              elapsedMs={audio.elapsedMs}
-              onStart={() => handleTransition("recording")}
-              onPause={() => audio.pause()}
-              onStop={() => handleTransition("processing")}
-            />
-          </div>
-          {/* Clinical Findings (NLP Extracted) */}
-          {consultation?.findings && consultation.findings.length > 0 && (
-            <div style={{ marginBottom: "1rem", padding: "1rem", background: "var(--surface-raised)", border: "1px solid var(--border-subtle)", borderRadius: "8px" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--primary)", fontWeight: 600, marginBottom: "0.75rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>EXTRACTED CLINICAL FINDINGS (NLP)</span>
-                <span style={{ fontSize: "0.65rem", padding: "2px 6px", background: "rgba(16, 185, 129, 0.1)", color: "var(--success)", borderRadius: "100px" }}>
-                  AI Suggested
-                </span>
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                {consultation.findings.map((finding: any) => (
-                  <div key={finding.id} style={{ 
-                    padding: "0.5rem 0.75rem", 
-                    background: finding.negated ? "rgba(239, 68, 68, 0.05)" : "var(--surface-base)", 
-                    border: finding.negated ? "1px solid rgba(239, 68, 68, 0.2)" : "1px solid var(--border-subtle)",
-                    borderRadius: "6px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.25rem",
-                    minWidth: "150px"
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "0.85rem", fontWeight: 600, color: finding.negated ? "var(--error)" : "var(--text-primary)", textTransform: "capitalize" }}>
-                        {finding.value}
-                      </span>
-                      {finding.confidence_score && (
-                        <span style={{ fontSize: "0.65rem", color: "var(--text-tertiary)" }}>
-                          {(finding.confidence_score * 100).toFixed(0)}%
-                        </span>
-                      )}
-                    </div>
-                    {finding.canonical_concept && finding.canonical_concept !== finding.value.toLowerCase() && (
-                      <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", fontStyle: "italic", marginBottom: "0.25rem" }}>
-                        ↳ Mapped: {finding.canonical_concept}
-                        {finding.mapping_source && <span style={{ opacity: 0.6, fontSize: "0.6rem", marginLeft: "4px" }}>({finding.mapping_source})</span>}
-                      </div>
-                    )}
-                    <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap", flex: 1 }}>
-                      <span style={{ fontSize: "0.65rem", padding: "2px 4px", background: "var(--surface-sunken)", borderRadius: "4px", color: "var(--text-secondary)" }}>
-                        {finding.concept || finding.finding_type}
-                      </span>
-                      {finding.temporality && finding.temporality !== "current" && (
-                        <span style={{ fontSize: "0.65rem", padding: "2px 4px", background: "rgba(245, 158, 11, 0.1)", borderRadius: "4px", color: "var(--warning)" }}>
-                          {finding.temporality}
-                        </span>
-                      )}
-                      {finding.negated && (
-                        <span style={{ fontSize: "0.65rem", padding: "2px 4px", background: "rgba(239, 68, 68, 0.1)", borderRadius: "4px", color: "var(--error)" }}>
-                          negated
-                        </span>
-                      )}
-                      {finding.status === "confirmed" && (
-                        <span style={{ fontSize: "0.65rem", padding: "2px 4px", background: "rgba(16, 185, 129, 0.1)", borderRadius: "4px", color: "var(--success)" }}>
-                          ✓ Confirmed
-                        </span>
-                      )}
-                      {finding.status === "rejected" && (
-                        <span style={{ fontSize: "0.65rem", padding: "2px 4px", background: "rgba(239, 68, 68, 0.1)", borderRadius: "4px", color: "var(--error)" }}>
-                          ✗ Rejected
-                        </span>
-                      )}
-                    </div>
-                    {finding.status === "pending" && (
-                      <div style={{ display: "flex", gap: "0.25rem", marginTop: "0.25rem" }}>
-                        <button className="btn-secondary btn-sm" style={{ padding: "2px 6px", fontSize: "0.65rem", flex: 1 }} onClick={() => handleReviewFinding(finding.id, "reject")}>Reject</button>
-                        <button className="btn-primary btn-sm" style={{ padding: "2px 6px", fontSize: "0.65rem", flex: 1 }} onClick={() => handleReviewFinding(finding.id, "confirm")}>Confirm</button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Differential Diagnosis (Top-5) */}
-          {consultation && <DifferentialDiagnosis consultationId={consultation.id} />}
-
-          {/* Transcript Editor */}
-          {savedTranscript && ["draft", "under_review", "finalized"].includes(currentStatus) && (
-            <div style={{ marginBottom: "1rem" }}>
-              <TranscriptEditorPanel
-                transcript={savedTranscript}
-                currentStatus={currentStatus}
-                onSaveSegment={handleSaveSegment}
-              />
-            </div>
-          )}
-          
-          <textarea
-            className="input-field"
-            rows={10}
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            disabled={
-              actionLoading || 
-              currentStatus === "processing" || 
-              currentStatus === "finalized"
-            }
-            placeholder={
-              currentStatus === "recording" 
-                ? "Recording in progress... (type manual notes here)" 
-                : "Enter clinical notes..."
-            }
-            style={{ fontFamily: "monospace", resize: "vertical" }}
-          />
-
-          {/* Clinical Audit Trail */}
-          {consultation && (
-            <div className="mt-8">
-              <AuditTimeline consultationId={consultation.id} />
-            </div>
-          )}
-        </div>
-        </div>
-
         {/* Right Pane (Clinical Note Editor) */}
         {isSplitPane && (
-          <div className="w-[600px] xl:w-[700px] shrink-0 border-l border-gray-200 bg-white overflow-y-auto shadow-sm">
+          <div 
+            className="shrink-0 bg-white overflow-y-auto shadow-[-4px_0_24px_rgba(0,0,0,0.02)] relative z-0" 
+            style={{ width: `${rightPaneWidth}px` }}
+          >
             <ClinicalNoteEditor consultationId={consultation.id} />
           </div>
         )}

@@ -12,10 +12,10 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database import Base
-from app.infrastructure.models import TimestampMixin, UUIDPrimaryKeyMixin
+from app.infrastructure.models import TimestampMixin, UUIDPrimaryKeyMixin, TenantScopedMixin
 
 
-class Transcript(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class Transcript(TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """
     Container for a consultation's transcript segments.
     """
@@ -47,7 +47,7 @@ class Transcript(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
-class TranscriptSegment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class TranscriptSegment(TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """
     A single diarized utterance.
     Tracks original raw ASR vs clinician-corrected text for auditability.

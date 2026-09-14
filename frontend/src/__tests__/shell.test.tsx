@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * DocAssistIQ — Shell Component Tests (Phase 7).
  *

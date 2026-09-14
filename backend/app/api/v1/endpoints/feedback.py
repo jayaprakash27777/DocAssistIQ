@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from app.dependencies import get_db, get_current_doctor_profile
+from app.dependencies import get_db
+from app.authorization import get_current_doctor_profile
 from app.models.doctor import Doctor
 from app.models.feedback import ClinicianFeedback
 from app.schemas.feedback import ClinicianFeedbackCreate, ClinicianFeedbackResponse

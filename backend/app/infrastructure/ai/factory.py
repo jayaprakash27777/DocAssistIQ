@@ -16,8 +16,8 @@ def get_generation_provider() -> GenerationProvider:
     # Check if we should use local offline Ollama models
     # Defaulting to Ollama for offline/free use cases
     try:
-        # Defaulting to llama3 or mistral based on user preference, "llama3" as default.
-        _generation_provider = OllamaGenerationProvider(model_name="llama3")
+        # Defaulting to llama3.2 based on local server
+        _generation_provider = OllamaGenerationProvider(model_name="llama3.2")
     except Exception as e:
         # Fallback to Baseline if anything fails
         print(f"Warning: Failed to initialize Ollama: {e}")

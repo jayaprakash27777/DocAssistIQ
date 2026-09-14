@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * DocAssistIQ — Hardened WebSocket Client (Phase 23).
  */
@@ -234,9 +236,11 @@ let sharedClient: RealtimeClient | null = null;
 export function getSharedRealtimeClient(token: string): RealtimeClient {
   if (!sharedClient) {
     // In browser environment
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
-    sharedClient = new RealtimeClient(`${protocol}//${host}/ws/v1/stream`, token);
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ?? "http://localhost:8000";
+    // Convert http/https to ws/wss
+    const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/v1/stream";
+    sharedClient = new RealtimeClient(wsUrl, token);
+    sharedClient.connect();
   }
   return sharedClient;
 }

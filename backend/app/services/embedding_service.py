@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.embedding import EmbeddingRecord
-from app.infrastructure.ai.embeddings import get_embedding_provider
+from app.infrastructure.ai.factory import get_embedding_provider
 
 
 def compute_hash(content: str) -> str:
@@ -44,7 +44,7 @@ async def generate_and_store_embedding(
 
     # 2. Generate the embedding vector
     try:
-        vector = await provider.generate_embedding(content)
+        vector = await provider.embed(content)
     except Exception as e:
         import logging
         logging.getLogger(__name__).error(f"Failed to generate embedding: {e}")

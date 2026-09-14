@@ -1,0 +1,87 @@
+groups:
+  - name: DocAssistIQ_Infrastructure_Alerts
+    rules:
+      - alert: DatabaseDown
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL Database is down"
+          description: "The primary DocAssistIQ PostgreSQL instance has been unreachable for 2 minutes."
+          runbook: "https://docs.docassistiq.local/playbooks/ALERTS_PLAYBOOK.md#databasedown"
+          
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis Cache is down"
+          description: "The Redis instance used for caching and Celery queues is unreachable."
+          runbook: "https://docs.docassistiq.local/playbooks/ALERTS_PLAYBOOK.md#redisdown"
+
+      - alert: APIHighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 5xx Error Rate > 5%"
+          description: "The API is experiencing a high volume of server errors over the last 5 minutes."
+          runbook: "https://docs.docassistiq.local/playbooks/ALERTS_PLAYBOOK.md#apihigherrorrate"
+
+  - name: DocAssistIQ_AI_Alerts
+    rules:
+      - alert: AILatencyBreach
+        # Trigger if the 90th percentile of latency exceeds 2.5 seconds for 5 minutes
+        expr: histogram_quantile(0.9, rate(ai_operation_latency_seconds_bucket[5m])) > 2.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High AI Latency detected on {{ $labels.operation }}"
+          description: "90th percentile latency for {{ $labels.operation }} via {{ $labels.provider_name }} is > 2.5s."
+          runbook: "https://docs.docassistiq.local/playbooks/ALERTS_PLAYBOOK.md#ailatencybreach"
+
+      - alert: AIModelErrorSpike
+        expr: rate(ai_model_errors_total[5m]) > 1
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High AI Model Error Rate"
+          description: "Multiple errors ({{ $labels.error_type }}) detected in {{ $labels.operation }} using {{ $labels.provider_name }}."
+          runbook: "https://docs.docassistiq.local/playbooks/ALERTS_PLAYBOOK.md#aimodelerrorspike"
+
+      - alert: RAGRetrievalFailure
+        expr: rate(ai_model_errors_total{operation="rag_retrieval"}[5m]) > 0.5
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RAG Retrieval Pipeline Failing"
+          description: "Vector database retrieval is failing, breaking clinical grounding."
+          runbook: "https://docs.docassistiq.local/playbooks/ALERTS_PLAYBOOK.md#ragretrievalfailure"
+
+  - name: DocAssistIQ_Worker_Alerts
+    rules:
+      - alert: CeleryWorkerDown
+        expr: up{job="celery-worker"} == 0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery Worker Down"
+          description: "A background worker for knowledge ingestion has gone offline."
+          runbook: "https://docs.docassistiq.local/playbooks/ALERTS_PLAYBOOK.md#celeryworkerdown"
+
+      - alert: WebSocketDropSpike
+        expr: rate(ws_connections_dropped_total[5m]) > 5
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket Drop Rate"
+          description: "Real-time client connections (Phase 8) are dropping rapidly."
+          runbook: "https://docs.docassistiq.local/playbooks/ALERTS_PLAYBOOK.md#websocketdropspike"

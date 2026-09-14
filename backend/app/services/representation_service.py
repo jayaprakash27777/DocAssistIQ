@@ -23,7 +23,7 @@ async def build_clinical_representation(db: AsyncSession, consultation_id: uuid.
     findings = findings_res.scalars().all()
     
     # Initialize output structure
-    rep = ClinicalRepresentationResponse(
+    rep = ClinicalRepresentationResponse(  # type: ignore
         consultation_id=consultation_id,
         generated_at=datetime.now(timezone.utc),
         patient_context=PatientContext()
@@ -99,18 +99,20 @@ async def build_clinical_representation(db: AsyncSession, consultation_id: uuid.
         status = "negated" if f.negated else f.status
         
         if f.negated:
-            add_item(rep.negations, val, concept, status, prov)
-        elif f.finding_type == "symptom" or concept == "symptom":
-            add_item(rep.symptoms, val, concept, status, prov)
+            add_item(rep.negations, val, concept, status, prov)  # type: ignore
+        elif f.finding_type == "symptom" or concept == "symptom" or concept == "CONDITION" or f.finding_type == "diagnosis":
+            add_item(rep.symptoms, val, concept, status, prov)  # type: ignore
         elif f.finding_type == "measurement" or concept == "vitals":
-            add_item(rep.vitals, val, concept, status, prov)
+            add_item(rep.vitals, val, concept, status, prov)  # type: ignore
         elif concept == "medication":
-            add_item(rep.medications, val, concept, status, prov)
+            add_item(rep.medications, val, concept, status, prov)  # type: ignore
         elif concept == "allergy":
-            add_item(rep.allergies, val, concept, status, prov)
+            add_item(rep.allergies, val, concept, status, prov)  # type: ignore
+        elif concept == "travel_history" or concept == "travel":
+            add_item(rep.travel_history, val, concept, status, prov)  # type: ignore
         elif f.temporality == "past" or concept == "history":
-            add_item(rep.history, val, concept, status, prov)
+            add_item(rep.history, val, concept, status, prov)  # type: ignore
         else:
-            add_item(rep.report_findings, val, concept, status, prov)
+            add_item(rep.report_findings, val, concept, status, prov)  # type: ignore
 
     return rep

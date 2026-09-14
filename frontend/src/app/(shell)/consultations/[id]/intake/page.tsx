@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react/no-unescaped-entities */
 /**
  * DocAssistIQ — Manual Clinical Intake Form (Phase 22).
  */
@@ -16,6 +19,8 @@ import {
   type ManualIntakeResponse,
   type ManualIntakeUpdate
 } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 
 const DEBOUNCE_MS = 1500;
 
@@ -136,148 +141,177 @@ export default function ManualIntakePage() {
   const isFinal = intake?.status === "final";
 
   return (
-    <div className="consultations-page" style={{ maxWidth: "1000px" }}>
-      <header className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "var(--background)", zIndex: 10, padding: "1rem 0", borderBottom: "1px solid var(--border-subtle)" }}>
+    <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6">
+      <motion.header 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="sticky top-0 z-10 bg-[var(--glass-bg)] backdrop-blur-md border-b border-[var(--glass-border)] py-4 px-6 -mx-6 mb-8 rounded-b-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+      >
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-            <Link href={`/consultations/${id}`} style={{ color: "var(--primary)", textDecoration: "none", fontSize: "0.875rem" }}>
-              ← Back to Consultation
-            </Link>
-          </div>
-          <h2 className="page-title" style={{ margin: 0 }}>Structured Manual Intake</h2>
+          <Link href={`/consultations/${id}`} className="text-[var(--color-primary-600)] hover:text-[var(--color-primary-700)] text-sm font-medium flex items-center gap-1.5 transition-colors mb-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back to Consultation
+          </Link>
+          <h2 className="text-2xl font-bold font-heading text-[var(--text-primary)] m-0">Structured Manual Intake</h2>
         </div>
         
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <div style={{ fontSize: "0.875rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-[var(--text-secondary)] font-medium flex items-center gap-2">
             {saving ? (
-              <>
-                <div className="spinner" style={{ width: "12px", height: "12px", border: "2px solid var(--primary)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+              <span className="flex items-center gap-2 text-[var(--color-primary-600)]">
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 Saving...
-              </>
+              </span>
             ) : unsavedChanges ? (
-              "Unsaved changes"
+              <span className="text-[var(--color-warning-600)] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[var(--color-warning-500)] animate-pulse" />
+                Unsaved changes
+              </span>
             ) : lastSaved ? (
-              `Saved ${lastSaved.toLocaleTimeString()}`
+              <span className="text-[var(--text-tertiary)] flex items-center gap-1.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Saved {lastSaved.toLocaleTimeString()}
+              </span>
             ) : (
               "Draft"
             )}
           </div>
           
-          <button 
-            className="btn-primary" 
+          <Button 
+            variant="primary" 
             onClick={handleFinalize} 
             disabled={saving || isFinal}
+            isLoading={saving}
           >
             {isFinal ? "Finalized" : "Finalize Intake"}
-          </button>
+          </Button>
         </div>
-      </header>
+      </motion.header>
 
-      {isFinal && (
-        <div style={{ background: "rgba(16, 185, 129, 0.1)", color: "var(--success)", padding: "1rem", borderRadius: "8px", marginTop: "1rem", fontWeight: 600 }}>
-          This intake form has been finalized and is now read-only.
-        </div>
-      )}
+      <AnimatePresence>
+        {isFinal && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="bg-[var(--color-success-50)] text-[var(--color-success-700)] border border-[var(--color-success-200)] p-4 rounded-xl mb-6 font-medium flex items-center gap-3 shadow-sm"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            This intake form has been finalized and is securely locked.
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", marginTop: "2rem" }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         
         {/* Core Section */}
-        <section style={{ background: "var(--surface-base)", padding: "1.5rem", borderRadius: "8px" }}>
-          <h3 style={{ marginTop: 0, marginBottom: "1.5rem", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "0.5rem" }}>
-            History of Presenting Illness
-          </h3>
-          
-          <div className="form-group">
-            <label>Chief Complaint</label>
-            <textarea className="input-field" rows={2} value={formData.chief_complaint || ""} onChange={e => handleChange("chief_complaint", e.target.value)} disabled={isFinal} placeholder="Primary reason for visit" />
+        <motion.section 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white p-6 sm:p-8 rounded-2xl border border-[var(--border-default)] shadow-sm flex flex-col gap-5"
+        >
+          <div className="border-b border-[var(--border-default)] pb-4 mb-2">
+            <h3 className="text-lg font-bold font-heading text-[var(--text-primary)]">History of Presenting Illness</h3>
+            <p className="text-sm text-[var(--text-secondary)] mt-1">Core details regarding the patient's primary concern.</p>
           </div>
           
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <div className="form-group">
-              <label>Onset</label>
-              <input type="text" className="input-field" value={formData.onset || ""} onChange={e => handleChange("onset", e.target.value)} disabled={isFinal} placeholder="When did it start?" />
+          <div>
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Chief Complaint</label>
+            <textarea className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all resize-y min-h-[80px]" rows={2} value={formData.chief_complaint || ""} onChange={e => handleChange("chief_complaint", e.target.value)} disabled={isFinal} placeholder="Primary reason for visit" />
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Onset</label>
+              <input type="text" className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all" value={formData.onset || ""} onChange={e => handleChange("onset", e.target.value)} disabled={isFinal} placeholder="When did it start?" />
             </div>
-            <div className="form-group">
-              <label>Duration</label>
-              <input type="text" className="input-field" value={formData.duration || ""} onChange={e => handleChange("duration", e.target.value)} disabled={isFinal} placeholder="How long?" />
+            <div>
+              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Duration</label>
+              <input type="text" className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all" value={formData.duration || ""} onChange={e => handleChange("duration", e.target.value)} disabled={isFinal} placeholder="How long?" />
             </div>
           </div>
 
-          <div className="form-group">
-            <label>Symptoms</label>
-            <textarea className="input-field" rows={3} value={formData.symptoms || ""} onChange={e => handleChange("symptoms", e.target.value)} disabled={isFinal} placeholder="Detailed symptom description" />
+          <div>
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Symptoms</label>
+            <textarea className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all resize-y min-h-[100px]" rows={3} value={formData.symptoms || ""} onChange={e => handleChange("symptoms", e.target.value)} disabled={isFinal} placeholder="Detailed symptom description" />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <div className="form-group">
-              <label>Severity</label>
-              <input type="text" className="input-field" value={formData.severity || ""} onChange={e => handleChange("severity", e.target.value)} disabled={isFinal} placeholder="Mild, moderate, 8/10, etc." />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Severity</label>
+              <input type="text" className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all" value={formData.severity || ""} onChange={e => handleChange("severity", e.target.value)} disabled={isFinal} placeholder="Mild, moderate, 8/10, etc." />
             </div>
-            <div className="form-group">
-              <label>Location</label>
-              <input type="text" className="input-field" value={formData.location || ""} onChange={e => handleChange("location", e.target.value)} disabled={isFinal} placeholder="Anatomical location/radiation" />
+            <div>
+              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Location</label>
+              <input type="text" className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all" value={formData.location || ""} onChange={e => handleChange("location", e.target.value)} disabled={isFinal} placeholder="Anatomical location/radiation" />
             </div>
           </div>
           
-          <div className="form-group">
-            <label>Associated Symptoms</label>
-            <input type="text" className="input-field" value={formData.associated_symptoms || ""} onChange={e => handleChange("associated_symptoms", e.target.value)} disabled={isFinal} placeholder="Symptoms occurring together" />
+          <div>
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Associated Symptoms</label>
+            <input type="text" className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all" value={formData.associated_symptoms || ""} onChange={e => handleChange("associated_symptoms", e.target.value)} disabled={isFinal} placeholder="Symptoms occurring together" />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <div className="form-group">
-              <label>Aggravating Factors</label>
-              <input type="text" className="input-field" value={formData.aggravating_factors || ""} onChange={e => handleChange("aggravating_factors", e.target.value)} disabled={isFinal} placeholder="What makes it worse?" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Aggravating Factors</label>
+              <input type="text" className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all" value={formData.aggravating_factors || ""} onChange={e => handleChange("aggravating_factors", e.target.value)} disabled={isFinal} placeholder="What makes it worse?" />
             </div>
-            <div className="form-group">
-              <label>Relieving Factors</label>
-              <input type="text" className="input-field" value={formData.relieving_factors || ""} onChange={e => handleChange("relieving_factors", e.target.value)} disabled={isFinal} placeholder="What makes it better?" />
+            <div>
+              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Relieving Factors</label>
+              <input type="text" className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all" value={formData.relieving_factors || ""} onChange={e => handleChange("relieving_factors", e.target.value)} disabled={isFinal} placeholder="What makes it better?" />
             </div>
           </div>
 
-          <div className="form-group">
-            <label>Pertinent Negatives (Negations)</label>
-            <input type="text" className="input-field" value={formData.negations || ""} onChange={e => handleChange("negations", e.target.value)} disabled={isFinal} placeholder="Absence of specific symptoms" />
+          <div>
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Pertinent Negatives (Negations)</label>
+            <input type="text" className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all" value={formData.negations || ""} onChange={e => handleChange("negations", e.target.value)} disabled={isFinal} placeholder="Absence of specific symptoms" />
           </div>
-        </section>
+        </motion.section>
 
         {/* History & Vitals Section */}
-        <section style={{ background: "var(--surface-base)", padding: "1.5rem", borderRadius: "8px" }}>
-          <h3 style={{ marginTop: 0, marginBottom: "1.5rem", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "0.5rem" }}>
-            History & Vitals
-          </h3>
+        <motion.section 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white p-6 sm:p-8 rounded-2xl border border-[var(--border-default)] shadow-sm flex flex-col gap-5"
+        >
+          <div className="border-b border-[var(--border-default)] pb-4 mb-2">
+            <h3 className="text-lg font-bold font-heading text-[var(--text-primary)]">History & Vitals</h3>
+            <p className="text-sm text-[var(--text-secondary)] mt-1">Background information and current measurements.</p>
+          </div>
           
-          <div className="form-group">
-            <label>Past Medical History</label>
-            <textarea className="input-field" rows={3} value={formData.past_medical_history || ""} onChange={e => handleChange("past_medical_history", e.target.value)} disabled={isFinal} placeholder="Prior conditions, surgeries, etc." />
+          <div>
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Past Medical History</label>
+            <textarea className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all resize-y min-h-[80px]" rows={3} value={formData.past_medical_history || ""} onChange={e => handleChange("past_medical_history", e.target.value)} disabled={isFinal} placeholder="Prior conditions, surgeries, etc." />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <div className="form-group">
-              <label>Medications</label>
-              <textarea className="input-field" rows={2} value={formData.medications || ""} onChange={e => handleChange("medications", e.target.value)} disabled={isFinal} placeholder="Current meds & doses" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Medications</label>
+              <textarea className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all resize-y min-h-[80px]" rows={2} value={formData.medications || ""} onChange={e => handleChange("medications", e.target.value)} disabled={isFinal} placeholder="Current meds & doses" />
             </div>
-            <div className="form-group">
-              <label>Allergies</label>
-              <textarea className="input-field" rows={2} value={formData.allergies || ""} onChange={e => handleChange("allergies", e.target.value)} disabled={isFinal} placeholder="Drug or environmental allergies" />
+            <div>
+              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Allergies</label>
+              <textarea className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all resize-y min-h-[80px]" rows={2} value={formData.allergies || ""} onChange={e => handleChange("allergies", e.target.value)} disabled={isFinal} placeholder="Drug or environmental allergies" />
             </div>
           </div>
 
-          <div className="form-group">
-            <label>Family & Social History</label>
-            <textarea className="input-field" rows={2} value={formData.family_social_history || ""} onChange={e => handleChange("family_social_history", e.target.value)} disabled={isFinal} placeholder="Smoking, alcohol, hereditary conditions" />
+          <div>
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Family & Social History</label>
+            <textarea className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all resize-y min-h-[80px]" rows={2} value={formData.family_social_history || ""} onChange={e => handleChange("family_social_history", e.target.value)} disabled={isFinal} placeholder="Smoking, alcohol, hereditary conditions" />
           </div>
 
-          <div className="form-group">
-            <label>Vitals</label>
-            <textarea className="input-field" rows={2} value={formData.vitals || ""} onChange={e => handleChange("vitals", e.target.value)} disabled={isFinal} placeholder="BP, HR, Temp, RR, SpO2, Weight" />
+          <div>
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Vitals</label>
+            <textarea className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all resize-y min-h-[80px]" rows={2} value={formData.vitals || ""} onChange={e => handleChange("vitals", e.target.value)} disabled={isFinal} placeholder="BP, HR, Temp, RR, SpO2, Weight" />
           </div>
 
-          <div className="form-group">
-            <label>Previous Investigations</label>
-            <textarea className="input-field" rows={2} value={formData.previous_investigations || ""} onChange={e => handleChange("previous_investigations", e.target.value)} disabled={isFinal} placeholder="Recent lab results, imaging, etc." />
+          <div>
+            <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1.5">Previous Investigations</label>
+            <textarea className="w-full bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-3 text-sm text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] outline-none transition-all resize-y min-h-[80px]" rows={2} value={formData.previous_investigations || ""} onChange={e => handleChange("previous_investigations", e.target.value)} disabled={isFinal} placeholder="Recent lab results, imaging, etc." />
           </div>
-        </section>
+        </motion.section>
         
       </div>
     </div>

@@ -1,0 +1,29 @@
+# Core Machine Learning Frameworks
+torch>=2.1.0
+torchvision>=0.16.0
+torchaudio>=2.1.0
+
+# Hugging Face Ecosystem
+transformers>=4.35.0
+datasets>=2.14.5
+accelerate>=0.24.1
+evaluate>=0.4.1
+
+# Optimization & Quantization (Optional but recommended for large models)
+bitsandbytes>=0.41.1
+peft>=0.6.0
+trl>=0.7.2
+
+# Data Processing & Utilities
+numpy>=1.26.0
+pandas>=2.1.1
+scikit-learn>=1.3.1
+tqdm>=4.66.1
+
+# Model Evaluation & Tracking
+wandb>=0.15.12
+tensorboard>=2.14.1
+
+# Configuration Management
+hydra-core>=1.3.2
+omegaconf>=2.3.0

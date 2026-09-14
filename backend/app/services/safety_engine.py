@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+from typing import List, Literal
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -36,7 +36,7 @@ class SafetyEngine:
             if flag:
                 flags.append(flag)
                 
-        decision = "ALLOW"
+        decision: Literal["ALLOW", "WARN", "ABSTAIN"] = "ALLOW"
         if any(f.severity == "CRITICAL" for f in flags):
             decision = "ABSTAIN"
         elif any(f.severity in ["HIGH", "MEDIUM"] for f in flags):
@@ -118,7 +118,7 @@ class SafetyEngine:
                     ))
                 
                 # Contraindication check (mocked by looking at patient conditions)
-                patient_conditions = [c.value.lower() for c in representation.chronic_conditions]
+                patient_conditions = [c.value.lower() for c in representation.history]
                 for edge in graph.edges:
                     if edge.relationship == 'contraindicated_for' and edge.source_id == med.id:
                         target_node = next((n for n in graph.nodes if n.id == edge.target_id), None)
@@ -134,7 +134,7 @@ class SafetyEngine:
                             ))
 
         # Determine overall decision
-        decision = "ALLOW"
+        decision: Literal["ALLOW", "WARN", "ABSTAIN"] = "ALLOW"
         if any(f.severity == "CRITICAL" for f in flags):
             decision = "ABSTAIN"
         elif any(f.severity in ["HIGH", "MEDIUM"] for f in flags):
@@ -180,7 +180,7 @@ class SafetyEngine:
                 rule_id="SE-MED-002",
                 rule_version=self.VERSION,
                 category="RED_FLAG",
-                severity="WARN",
+                severity="MEDIUM",
                 message=f"Patient is already taking '{suggestion.generic_name}' or a similar medication.",
                 source="SafetyEngine",
                 related_entity=suggestion.generic_name
@@ -250,7 +250,7 @@ class SafetyEngine:
                     rule_id="SE-MED-006",
                     rule_version=self.VERSION,
                     category="RED_FLAG",
-                    severity="WARN",
+                    severity="MEDIUM",
                     message=f"Pregnancy consideration: {suggestion.pregnancy_lactation_considerations}",
                     source="SafetyEngine",
                     related_entity=suggestion.generic_name
@@ -273,7 +273,7 @@ class SafetyEngine:
                     rule_id="SE-MED-008",
                     rule_version=self.VERSION,
                     category="RED_FLAG",
-                    severity="WARN",
+                    severity="MEDIUM",
                     message=f"Renal adjustment may be required: {suggestion.renal_considerations}",
                     source="SafetyEngine",
                     related_entity=suggestion.generic_name
@@ -296,7 +296,7 @@ class SafetyEngine:
                     rule_id="SE-MED-010",
                     rule_version=self.VERSION,
                     category="RED_FLAG",
-                    severity="WARN",
+                    severity="MEDIUM",
                     message=f"Hepatic adjustment may be required: {suggestion.hepatic_considerations}",
                     source="SafetyEngine",
                     related_entity=suggestion.generic_name
@@ -331,14 +331,14 @@ class SafetyEngine:
                         rule_id="SE-MED-013",
                         rule_version=self.VERSION,
                         category="RED_FLAG",
-                        severity="WARN",
+                        severity="MEDIUM",
                         message=f"Geriatric consideration: {suggestion.age_considerations}",
                         source="SafetyEngine",
                         related_entity=suggestion.generic_name
                     ))
 
         # Determine overall decision
-        decision = "ALLOW"
+        decision: Literal["ALLOW", "WARN", "ABSTAIN"] = "ALLOW"
         if any(f.severity == "CRITICAL" for f in flags):
             decision = "ABSTAIN"
         elif any(f.severity in ["HIGH", "MEDIUM", "WARN"] for f in flags):

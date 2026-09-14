@@ -41,7 +41,7 @@ Design decisions:
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
 from fastapi import Query
 from pydantic import BaseModel, Field
@@ -87,7 +87,7 @@ openapi_tags: list[dict] = [
 
 #: Common HTTP response descriptions for route ``responses=`` parameters.
 #: Use as ``responses={**API_RESPONSES, 201: {"description": "Created"}}``.
-API_RESPONSES: dict[int, dict] = {
+API_RESPONSES: dict[int | str, dict[str, Any]] = {
     400: {
         "description": "Bad Request — malformed input",
         "content": {

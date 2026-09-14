@@ -76,6 +76,9 @@ from app.models.evaluation import EvaluationResult, EvaluationRun  # noqa: F401
 # ── Experiments ───────────────────────────────────────────────
 from app.models.experiment import MLExperiment  # noqa: F401
 
+# ── Registry (Phase 65) ───────────────────────────────────────
+from app.models.ml_registry import RegisteredModel, ModelLifecycleState  # noqa: F401
+
 # ── Ingestion ─────────────────────────────────────────────────
 from app.models.ingestion import IngestionJob  # noqa: F401
 
@@ -137,6 +140,9 @@ __all__ = [
     "EvaluationResult",
     # Experiments
     "MLExperiment",
+    # Registry
+    "RegisteredModel",
+    "ModelLifecycleState",
     # Embeddings
     "EmbeddingRecord",
     # Social Hub

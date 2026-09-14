@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * DocAssistIQ — Typed API client.
  *
@@ -265,6 +267,7 @@ export interface MeResponse {
   is_verified: boolean;
   created_at: string;
   updated_at: string;
+  permissions: string[];
 }
 
 // ── Token storage ──────────────────────────────────────────
@@ -297,10 +300,11 @@ function authHeaders(): Record<string, string> {
 
 async function authedFetch<T>(
   url: string,
-  options: RequestInit = {},
+  options: RequestInit & { timeoutMs?: number } = {},
 ): Promise<ApiResult<T>> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timeout = options.timeoutMs || 60000; // Increased to 60s for local LLM generation
+  const timer = setTimeout(() => controller.abort(), timeout);
   const requestId = generateRequestId();
 
   const headers: Record<string, string> = {
@@ -410,6 +414,17 @@ export interface ConsultationSummary {
   created_at: string;
 }
 
+export interface SimilarCaseResponse {
+  id: string;
+  age_group: string | null;
+  biological_sex: string | null;
+  baseline_conditions: Record<string, any>;
+  clinical_presentation_summary: string;
+  status: string;
+  created_at: string | null;
+  warning: string;
+}
+
 // ── Consultation API functions ──────────────────────────────
 
 export async function createConsultation(
@@ -453,6 +468,15 @@ export async function listConsultations(
 ): Promise<ApiResult<PagedResponse<ConsultationSummary>>> {
   return authedFetch<PagedResponse<ConsultationSummary>>(
     `${BASE_URL}/api/v1/consultations/?page=${page}&page_size=${page_size}`,
+  );
+}
+
+export async function getSimilarCases(
+  consultationId: string,
+  limit: number = 5,
+): Promise<ApiResult<{ cases: SimilarCaseResponse[] }>> {
+  return authedFetch<{ cases: SimilarCaseResponse[] }>(
+    `${BASE_URL}/api/v1/consultations/${consultationId}/similar-cases?limit=${limit}`,
   );
 }
 
@@ -540,6 +564,34 @@ export async function verifyDoctor(
   );
 }
 
+// Polypharmacy Simulation
+export interface PolypharmacyInteraction {
+  severity: "CRITICAL" | "WARNING" | "MINOR" | "SAFE";
+  drugs_involved: string[];
+  mechanism: string;
+  clinical_effect: string;
+  recommendation: string;
+}
+
+export interface PolypharmacyResponse {
+  interactions: PolypharmacyInteraction[];
+  summary_assessment: string;
+  is_safe: boolean;
+}
+
+export async function simulatePolypharmacy(
+  consultationId: string,
+  proposedMedications: string[]
+): Promise<ApiResult<PolypharmacyResponse>> {
+  return authedFetch<PolypharmacyResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultationId}/polypharmacy-simulate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proposed_medications: proposedMedications }),
+    },
+  );
+}
 
 // -- File Storage (Phase 11) ---------------------------------
 
@@ -644,7 +696,7 @@ export async function listSources(
   page_size = 20,
 ): Promise<ApiResult<PagedResponse<SourceResponse>>> {
   return authedFetch<PagedResponse<SourceResponse>>(
-    `/api/v1/sources/?page=&page_size=`,
+    `${BASE_URL}/api/v1/sources/?page=&page_size=`,
   );
 }
 
@@ -710,7 +762,7 @@ export async function listIngestionJobs(
   page_size = 20,
 ): Promise<ApiResult<PagedResponse<IngestionJobResponse>>> {
   return authedFetch<PagedResponse<IngestionJobResponse>>(
-    `/api/v1/ingestion/jobs?page=&page_size=`,
+    `${BASE_URL}/api/v1/ingestion/jobs?page=&page_size=`,
   );
 }
 
@@ -766,7 +818,7 @@ export async function listPendingKnowledge(
   pageSize = 20,
 ): Promise<ApiResult<PagedResponse<KnowledgeEntityResponse>>> {
   return authedFetch<PagedResponse<KnowledgeEntityResponse>>(
-    `/api/v1/knowledge//pending?page=&page_size=`,
+    `${BASE_URL}/api/v1/knowledge//pending?page=&page_size=`,
   );
 }
 
@@ -958,13 +1010,13 @@ export interface DatasetValidationResult {
 }
 
 export async function listDatasets(): Promise<ApiResult<DatasetResponse[]>> {
-  return authedFetch<DatasetResponse[]>(`/api/v1/datasets`);
+  return authedFetch<DatasetResponse[]>(`${BASE_URL}/api/v1/datasets`);
 }
 
 export async function registerDataset(
   payload: DatasetRegisterRequest,
 ): Promise<ApiResult<DatasetResponse>> {
-  return authedFetch<DatasetResponse>(`/api/v1/datasets`, {
+  return authedFetch<DatasetResponse>(`${BASE_URL}/api/v1/datasets`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -975,7 +1027,7 @@ export async function validateDataset(
   id: string,
 ): Promise<ApiResult<DatasetValidationResult>> {
   return authedFetch<DatasetValidationResult>(
-    `/api/v1/datasets//validate`,
+    `${BASE_URL}/api/v1/datasets//validate`,
     { method: 'POST' }
   );
 }
@@ -984,7 +1036,7 @@ export async function approveDataset(
   id: string,
 ): Promise<ApiResult<DatasetResponse>> {
   return authedFetch<DatasetResponse>(
-    `/api/v1/datasets//approve`,
+    `${BASE_URL}/api/v1/datasets//approve`,
     { method: 'POST' }
   );
 }
@@ -1020,19 +1072,19 @@ export interface TriggerEvaluationRequest {
 }
 
 export async function listEvaluations(): Promise<ApiResult<EvaluationRunResponse[]>> {
-  return authedFetch<EvaluationRunResponse[]>(`/api/v1/evaluations`);
+  return authedFetch<EvaluationRunResponse[]>(`${BASE_URL}/api/v1/evaluations`);
 }
 
 export async function getEvaluationDetails(
   id: string,
 ): Promise<ApiResult<EvaluationRunDetailResponse>> {
-  return authedFetch<EvaluationRunDetailResponse>(`/api/v1/evaluations/`);
+  return authedFetch<EvaluationRunDetailResponse>(`${BASE_URL}/api/v1/evaluations/`);
 }
 
 export async function triggerEvaluation(
   payload: TriggerEvaluationRequest,
 ): Promise<ApiResult<EvaluationRunResponse>> {
-  return authedFetch<EvaluationRunResponse>(`/api/v1/evaluations`, {
+  return authedFetch<EvaluationRunResponse>(`${BASE_URL}/api/v1/evaluations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -1043,7 +1095,7 @@ export async function executeEvaluationPipeline(
   id: string,
 ): Promise<ApiResult<{ status: string }>> {
   return authedFetch<{ status: string }>(
-    `/api/v1/evaluations//execute`,
+    `${BASE_URL}/api/v1/evaluations/${id}/execute`,
     { method: 'POST' }
   );
 }
@@ -1068,13 +1120,13 @@ export interface ExperimentResponse {
 }
 
 export async function listExperiments(): Promise<ApiResult<ExperimentResponse[]>> {
-  return authedFetch<ExperimentResponse[]>(`/api/v1/experiments`);
+  return authedFetch<ExperimentResponse[]>(`${BASE_URL}/api/v1/experiments`);
 }
 
 export async function getExperiment(
   id: string,
 ): Promise<ApiResult<ExperimentResponse>> {
-  return authedFetch<ExperimentResponse>(`/api/v1/experiments/`);
+  return authedFetch<ExperimentResponse>(`${BASE_URL}/api/v1/experiments/`);
 }
 
 // -- Consultation Lifecycle (Phase 20) --------------------------
@@ -1139,7 +1191,7 @@ export interface ConsentRecordCreate {
 export async function createConsent(
   payload: ConsentRecordCreate,
 ): Promise<ApiResult<ConsentRecordResponse>> {
-  return authedFetch<ConsentRecordResponse>(`/api/v1/consent`, {
+  return authedFetch<ConsentRecordResponse>(`${BASE_URL}/api/v1/consent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -1149,13 +1201,13 @@ export async function createConsent(
 export async function getActiveConsent(
   consultationId: string,
 ): Promise<ApiResult<ConsentRecordResponse>> {
-  return authedFetch<ConsentRecordResponse>(`/api/v1/consent/`);
+  return authedFetch<ConsentRecordResponse>(`${BASE_URL}/api/v1/consent/${consultationId}`);
 }
 
 export async function revokeConsent(
   consultationId: string,
 ): Promise<ApiResult<ConsentRecordResponse>> {
-  return authedFetch<ConsentRecordResponse>(`/api/v1/consent//revoke`, {
+  return authedFetch<ConsentRecordResponse>(`${BASE_URL}/api/v1/consent/${consultationId}/revoke`, {
     method: 'POST',
   });
 }
@@ -1191,14 +1243,14 @@ export type ManualIntakeUpdate = Partial<Omit<ManualIntakeResponse, "id" | "cons
 export async function getIntake(
   consultationId: string,
 ): Promise<ApiResult<ManualIntakeResponse>> {
-  return authedFetch<ManualIntakeResponse>(`/api/v1/consultations/${consultationId}/intake`);
+  return authedFetch<ManualIntakeResponse>(`${BASE_URL}/api/v1/consultations/${consultationId}/intake`);
 }
 
 export async function updateIntake(
   consultationId: string,
   payload: ManualIntakeUpdate,
 ): Promise<ApiResult<ManualIntakeResponse>> {
-  return authedFetch<ManualIntakeResponse>(`/api/v1/consultations/${consultationId}/intake`, {
+  return authedFetch<ManualIntakeResponse>(`${BASE_URL}/api/v1/consultations/${consultationId}/intake`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -1208,7 +1260,7 @@ export async function updateIntake(
 export async function finalizeIntake(
   consultationId: string,
 ): Promise<ApiResult<ManualIntakeResponse>> {
-  return authedFetch<ManualIntakeResponse>(`/api/v1/consultations/${consultationId}/intake/finalize`, {
+  return authedFetch<ManualIntakeResponse>(`${BASE_URL}/api/v1/consultations/${consultationId}/intake/finalize`, {
     method: 'POST',
   });
 }
@@ -1238,14 +1290,14 @@ export interface TranscriptResponse {
 export async function getTranscript(
   consultationId: string,
 ): Promise<ApiResult<TranscriptResponse>> {
-  return authedFetch<TranscriptResponse>(`/api/v1/consultations/${consultationId}/transcript`);
+  return authedFetch<TranscriptResponse>(`${BASE_URL}/api/v1/consultations/${consultationId}/transcript`);
 }
 
 export async function saveTranscript(
   consultationId: string,
   payload: { status: string; segments: any[] },
 ): Promise<ApiResult<TranscriptResponse>> {
-  return authedFetch<TranscriptResponse>(`/api/v1/consultations/${consultationId}/transcript`, {
+  return authedFetch<TranscriptResponse>(`${BASE_URL}/api/v1/consultations/${consultationId}/transcript`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -1258,7 +1310,7 @@ export async function correctTranscriptSegment(
   text: string,
 ): Promise<ApiResult<TranscriptSegmentResponse>> {
   return authedFetch<TranscriptSegmentResponse>(
-    `/api/v1/consultations/${consultationId}/transcript/segments/${segmentId}`,
+    `${BASE_URL}/api/v1/consultations/${consultationId}/transcript/segments/${segmentId}`,
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -1429,10 +1481,74 @@ export interface InvestigationResponse {
 
 export async function getInvestigationsForDisease(
   consultation_id: string,
-  disease: string
+  disease: string,
+  competing: string[] = []
 ): Promise<ApiResult<InvestigationResponse>> {
-  return authedFetch<InvestigationResponse>(
-    `${BASE_URL}/api/v1/consultations/${consultation_id}/investigations?disease=${encodeURIComponent(disease)}`
+  const url = new URL(`${BASE_URL}/api/v1/consultations/${consultation_id}/investigations`);
+  url.searchParams.append("disease", disease);
+  competing.forEach(c => url.searchParams.append("competing", c));
+  return authedFetch<InvestigationResponse>(url.toString());
+}
+
+export interface EarlyWarningResponse {
+  consultation_id: string;
+  probability_percentage: number;
+  is_high_risk: boolean;
+  primary_warning_flag: string;
+  contributing_factors: string[];
+  recommended_immediate_actions: string[];
+  mews_score: number;
+  qsofa_score: number;
+  news2_score: number;
+  sirs_score: number;
+}
+
+export async function getEarlyWarning(
+  consultation_id: string
+): Promise<ApiResult<EarlyWarningResponse>> {
+  return authedFetch<EarlyWarningResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/early-warning`
+  );
+}
+
+export interface EpiRadarResponse {
+  consultation_id: string;
+  cluster_detected: boolean;
+  cluster_name: string | null;
+  confidence_score: number;
+  matched_symptoms: string[];
+  local_cases_last_48h: number;
+  warning_message: string | null;
+}
+
+export async function getEpiRadar(
+  consultation_id: string
+): Promise<ApiResult<EpiRadarResponse>> {
+  return authedFetch<EpiRadarResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/epi-radar`
+  );
+}
+
+export interface PubMedArticle {
+  title: string;
+  pub_date: string;
+  source: string;
+  url: string;
+}
+
+export interface PubMedScannerResponse {
+  disease: string;
+  controversy_found: boolean;
+  articles: PubMedArticle[];
+  ai_summary: string | null;
+}
+
+export async function getPubMedControversy(
+  consultation_id: string,
+  disease: string
+): Promise<ApiResult<PubMedScannerResponse>> {
+  return authedFetch<PubMedScannerResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/pubmed-scanner?disease=${encodeURIComponent(disease)}`
   );
 }
 
@@ -1516,6 +1632,33 @@ export async function getPatientProfile(id: string): Promise<ApiResult<PatientPr
   return authedFetch<PatientProfileResponse>(`${BASE_URL}/api/v1/patients/${id}`);
 }
 
+export interface TimelineEvent {
+  id: string;
+  type: string;
+  timestamp: string | null;
+  title: string;
+  description: string;
+  status?: string;
+  consultation_id?: string;
+}
+
+export async function getPatientTimeline(
+  id: string,
+  limit: number = 50,
+  offset: number = 0,
+  type?: string
+): Promise<ApiResult<{ events: TimelineEvent[] }>> {
+  const params = new URLSearchParams({
+    limit: limit.toString(),
+    offset: offset.toString()
+  });
+  if (type) params.append('type', type);
+  
+  return authedFetch<{ events: TimelineEvent[] }>(
+    `${BASE_URL}/api/v1/patients/${id}/timeline?${params.toString()}`
+  );
+}
+
 // ------------------------------------------------------------------
 // Audit API
 // ------------------------------------------------------------------
@@ -1550,3 +1693,18 @@ export async function submitClinicianFeedback(payload: any) {
   });
 }
 
+// ------------------------------------------------------------------
+// Admin API
+// ------------------------------------------------------------------
+
+export interface AdminStatsResponse {
+  total_users: number;
+  total_doctors: number;
+  total_admins: number;
+  total_consultations: number;
+  pending_verifications: number;
+}
+
+export async function getAdminStats(): Promise<ApiResult<AdminStatsResponse>> {
+  return authedFetch<AdminStatsResponse>(`${BASE_URL}/api/v1/admin/stats`);
+}

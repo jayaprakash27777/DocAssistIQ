@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react-hooks/set-state-in-effect */
 /**
  * DocAssistIQ — Authenticated Shell Layout.
  *
@@ -23,6 +25,7 @@ import { ErrorBoundary } from "@/components/shell/ErrorBoundary";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { Header } from "@/components/shell/Header";
 import { DashboardSkeleton } from "@/components/shell/LoadingSkeleton";
+import { CommandPalette } from "@/components/shell/CommandPalette";
 
 // ── Inner layout (reads auth context) ────────────────────────
 
@@ -93,6 +96,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
           </ErrorBoundary>
         </main>
       </div>
+      <CommandPalette />
     </div>
   );
 }

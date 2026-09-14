@@ -61,3 +61,24 @@ async def ingest_social_posts(
         import structlog
         structlog.get_logger(__name__).error("social_batch_ingestion_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Social ingestion failed: {str(e)}")
+
+@router.post("/travel-notices", response_model=Dict[str, Any])
+async def ingest_travel_notices(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Ingest CDC Travel Health Notices into the global knowledge database for RAG.
+    """
+    from app.services.ingestion.travel_notice_ingester import travel_notice_ingester
+    
+    try:
+        docs_created = await travel_notice_ingester.ingest_batch(db)
+        return {
+            "status": "success",
+            "message": "Successfully ingested travel notices.",
+            "ingested_count": docs_created
+        }
+    except Exception as e:
+        import structlog
+        structlog.get_logger(__name__).error("travel_notices_ingestion_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Travel notices ingestion failed: {str(e)}")

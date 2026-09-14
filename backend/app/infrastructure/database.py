@@ -39,7 +39,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Session, with_loader_criteria
 
 from app.config import get_settings
 
@@ -115,9 +115,28 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
             get_engine(),
             class_=AsyncSession,
             expire_on_commit=False,
-            autobegin=False,
+            autobegin=True,
         )
     return _session_factory
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _add_tenant_filter(execute_state) -> None:
+    """Automatically append a tenant_id filter to all queries if tenant_id is set."""
+    if execute_state.is_select or execute_state.is_update or execute_state.is_delete:
+        if execute_state.execution_options.get("bypass_tenant_filter", False):
+            return
+            
+        tenant_id = execute_state.session.info.get("tenant_id")
+        if tenant_id:
+            from app.infrastructure.models import TenantScopedMixin
+            execute_state.statement = execute_state.statement.options(
+                with_loader_criteria(
+                    TenantScopedMixin,
+                    lambda cls: cls.tenant_id == tenant_id,
+                    include_aliases=True,
+                )
+            )
 
 
 # ============================================================

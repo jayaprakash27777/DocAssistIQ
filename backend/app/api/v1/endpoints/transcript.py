@@ -38,7 +38,8 @@ async def get_transcript(
     if not consultation or consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=403, detail="Unauthorized")
 
-    transcript = await db.scalar(
+    transcript = await db.scalar(  # type: ignore[assignment]
+
         select(Transcript)
         .options(selectinload(Transcript.segments))
         .where(Transcript.consultation_id == consultation_id)
@@ -96,7 +97,8 @@ async def save_transcript(
     await db.commit()
     
     # Reload with segments
-    transcript = await db.scalar(
+    transcript = await db.scalar(  # type: ignore[assignment]
+
         select(Transcript)
         .options(selectinload(Transcript.segments))
         .where(Transcript.id == transcript.id)

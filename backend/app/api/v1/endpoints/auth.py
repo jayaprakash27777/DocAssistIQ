@@ -119,9 +119,10 @@ async def login(
 async def logout(
     token: str = Depends(_extract_token),
     settings: Settings = Depends(get_settings_dep),
+    db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Logout — blacklist the current token JTI."""
-    await auth_service.logout_user(token=token, settings=settings)
+    """Logout - blacklist the current token JTI."""
+    await auth_service.logout_user(token=token, settings=settings, session=db)
 
 
 # ============================================================

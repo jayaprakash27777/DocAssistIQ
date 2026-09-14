@@ -13,21 +13,22 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.platform import API_RESPONSES
-from app.authorization import require_doctor
-from app.dependencies import get_db
+from app.authorization import require_permission
+from app.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.models.consultation import Consultation
 from app.models.doctor import Doctor
 from app.services import consultation_service
 from app.services import doctor_service
 from app.services import note_service
+from app.services.audit_service import log_event
 from app.services.export_service import export_service
 from app.schemas.note import ClinicalNoteResponse, ClinicalNoteUpdate
 
 router = APIRouter(prefix="/consultations", tags=["Consultations"])
 
 async def get_current_doctor_profile(
-    user: User = Depends(require_doctor),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> Doctor:
     """Fetch the current user's doctor profile."""
@@ -79,11 +80,18 @@ class ConsultationResponse(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
+class PaginatedConsultations(BaseModel):
+    items: list[ConsultationResponse]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
 
 @router.post("", response_model=ConsultationResponse, status_code=status.HTTP_201_CREATED)
 async def create_consultation(
     payload: ConsultationCreateRequest,
-    user: User = Depends(require_doctor),
+    user: User = Depends(require_permission("consultation", "create")),
     doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
@@ -91,10 +99,20 @@ async def create_consultation(
     consultation = await consultation_service.create_consultation(
         db, doctor.id, user.id, payload.patient_session_id, payload.input_text
     )
+    
+    await log_event(
+        db,
+        action="consultation.created",
+        entity_type="consultation",
+        entity_id=consultation.id,
+        actor_id=user.id,
+        severity="info",
+    )
+    
     return consultation
 
 
-@router.get("", response_model=dict)
+@router.get("", response_model=PaginatedConsultations)
 async def list_consultations(
     page: int = 1,
     page_size: int = 20,
@@ -121,6 +139,7 @@ async def list_consultations(
 @router.get("/{consultation_id}", response_model=ConsultationResponse)
 async def get_consultation(
     consultation_id: uuid.UUID,
+    user: User = Depends(require_permission("consultation", "read")),
     doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
@@ -133,6 +152,15 @@ async def get_consultation(
     if not consultation or consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=404, detail="Consultation not found")
         
+    await log_event(
+        db,
+        action="consultation.accessed",
+        entity_type="consultation",
+        entity_id=consultation.id,
+        actor_id=user.id,
+        severity="info",
+    )
+    
     return consultation
 
 
@@ -140,7 +168,7 @@ async def get_consultation(
 async def transition_consultation_status(
     consultation_id: uuid.UUID,
     payload: ConsultationTransitionRequest,
-    user: User = Depends(require_doctor),
+    user: User = Depends(require_permission("consultation", "update")),
     doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
@@ -161,7 +189,7 @@ async def transition_consultation_status(
 @router.get("/{consultation_id}/note", response_model=ClinicalNoteResponse)
 async def get_consultation_note(
     consultation_id: uuid.UUID,
-    user: User = Depends(require_doctor),
+    user: User = Depends(require_permission("consultation", "read")),
     doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
@@ -174,7 +202,7 @@ async def get_consultation_note(
 async def update_consultation_note(
     consultation_id: uuid.UUID,
     payload: ClinicalNoteUpdate,
-    user: User = Depends(require_doctor),
+    user: User = Depends(require_permission("consultation", "read")),
     doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
@@ -205,7 +233,8 @@ async def review_clinical_finding(
     consultation_id: uuid.UUID,
     finding_id: uuid.UUID,
     payload: FindingReviewRequest,
-    doctor: User = Depends(require_doctor),
+    user: User = Depends(require_permission("consultation", "update")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
     """Confirm or reject an AI-suggested clinical finding."""
@@ -228,7 +257,7 @@ async def review_clinical_finding(
     if payload.action == "confirm":
         finding.is_clinician_confirmed = True
         finding.status = "confirmed"
-        finding.confirmed_by_id = doctor.id
+        finding.confirmed_by_id = user.id
     elif payload.action == "reject":
         finding.is_clinician_confirmed = False
         finding.status = "rejected"
@@ -238,6 +267,35 @@ async def review_clinical_finding(
     await db.commit()
     await db.refresh(finding)
     return finding
+
+
+@router.post("/{consultation_id}/events", response_model=ConsultationEventResponse)
+async def create_consultation_event(
+    consultation_id: uuid.UUID,
+    payload: ConsultationEventCreate,
+    user: User = Depends(require_permission("consultation", "update")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Record an arbitrary timeline event for the consultation (e.g. system notification)."""
+    return await timeline_service.create_consultation_event(db, consultation_id, user.id, payload)
+
+
+@router.get("/{consultation_id}/disease-intelligence")
+async def get_disease_intelligence(
+    consultation_id: uuid.UUID,
+    disease: str = Query(..., description="Name of the disease to profile"),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate a geographic/travel-aware disease intelligence profile."""
+    # Ensure consultation exists and doctor has access
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    from app.services.disease_intelligence_service import generate_disease_intelligence
+    return await generate_disease_intelligence(db, disease)
 
 
 @router.get("/{consultation_id}/representation")
@@ -295,19 +353,75 @@ from app.schemas.investigation import InvestigationResponse
 async def get_investigations_for_disease(
     consultation_id: uuid.UUID,
     disease: str,
+    competing: list[str] = Query(default=[]),
     doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
     """Phase 44: Returns reference intelligence for investigations."""
     from app.services.investigation_service import investigation_provider
+    from app.services.representation_service import build_clinical_representation
     
     consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
     if not consultation or consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
-    return investigation_provider.get_investigations(disease)
+    rep = await build_clinical_representation(db, consultation_id)
+    return await investigation_provider.get_investigations(db, disease, rep, competing)
 
 from app.schemas.medication import MedicationResponse
+from app.schemas.early_warning import EarlyWarningResponse
+from app.schemas.epidemiology import EpiRadarResponse
+from app.schemas.pubmed import PubMedScannerResponse
+
+@router.get("/{consultation_id}/pubmed-scanner", response_model=PubMedScannerResponse)
+async def get_pubmed_controversies(
+    consultation_id: uuid.UUID,
+    disease: str,
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """PubMed Bleeding-Edge Controversy Scanner"""
+    from app.services.pubmed_scanner_service import pubmed_scanner_service
+    
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    return await pubmed_scanner_service.scan_for_controversies(disease)
+
+@router.get("/{consultation_id}/epi-radar", response_model=EpiRadarResponse)
+async def get_epi_radar_surveillance(
+    consultation_id: uuid.UUID,
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Real-Time Epidemiological Radar"""
+    from app.services.epidemiology_service import epi_radar_service
+    from app.services.representation_service import build_clinical_representation
+    
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    rep = await build_clinical_representation(db, consultation_id)
+    return await epi_radar_service.evaluate_syndromic_surveillance(db, consultation_id, rep)
+
+@router.get("/{consultation_id}/early-warning", response_model=EarlyWarningResponse)
+async def get_early_warning_evaluation(
+    consultation_id: uuid.UUID,
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Predictive Deterioration & Sepsis EWS"""
+    from app.services.early_warning_service import early_warning_service
+    from app.services.representation_service import build_clinical_representation
+    
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    rep = await build_clinical_representation(db, consultation_id)
+    return await early_warning_service.evaluate_deterioration_risk(db, consultation_id, rep)
 
 @router.get("/{consultation_id}/medications", response_model=MedicationResponse)
 async def get_medications_for_disease(
@@ -357,7 +471,7 @@ async def export_consultation(
     Export a finalized consultation note.
     Formats supported: 'pdf' (markdown representation), 'fhir'
     """
-    consultation = await consultation_service.get_consultation(db, consultation_id)
+    consultation = await consultation_service.get_consultation(db, consultation_id, doctor.id)
     if not consultation or consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=404, detail="Consultation not found")
         
@@ -367,19 +481,24 @@ async def export_consultation(
     # Fetch the note data
     note_data = None
     try:
-        note_data = await note_service.get_note(db, consultation_id)
+        note_data_raw = await note_service.get_clinical_note(db, consultation_id)
+        if note_data_raw:
+            note_data = ClinicalNoteResponse.model_validate(note_data_raw)
     except Exception:
         pass # Note might not exist if empty, though it should
 
     if format.lower() == "fhir":
         return export_service.generate_fhir_document_reference(consultation, note_data)
     elif format.lower() == "pdf":
-        from fastapi.responses import PlainTextResponse
-        md_content = export_service.generate_markdown(consultation, note_data)
-        # Using text/markdown as we're returning MD. The frontend will render it.
-        return PlainTextResponse(md_content, media_type="text/markdown", headers={"Content-Disposition": 'attachment; filename="export.md"'})
+        from fastapi import Response
+        pdf_bytes = export_service.generate_pdf(consultation, note_data)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="consultation_{consultation_id}.pdf"'}
+        )
     else:
-        raise HTTPException(status_code=400, detail="Unsupported export format")
+        raise HTTPException(status_code=400, detail="Unsupported format")
 
 @router.get("/{consultation_id}/audit")
 async def get_consultation_audit(
@@ -390,7 +509,7 @@ async def get_consultation_audit(
     """
     Get the audit trail and consent records for a consultation.
     """
-    consultation = await consultation_service.get_consultation(db, consultation_id)
+    consultation = await consultation_service.get_consultation(db, consultation_id, doctor.id)
     if not consultation or consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=404, detail="Consultation not found")
         
@@ -411,3 +530,62 @@ async def get_consultation_audit(
         "audits": [ConsultationAuditResponse.model_validate(a) for a in audit_events],
         "consents": [ConsentRecordResponse.model_validate(c) for c in consent_records]
     }
+
+@router.get("/{consultation_id}/similar-cases")
+async def get_similar_cases(
+    consultation_id: uuid.UUID,
+    limit: int = 5,
+    user: User = Depends(require_permission("consultation", "read")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Phase 50: Retrieve similar historical cases using pgvector similarity search."""
+    from app.services.case_retrieval import find_similar_cases
+    
+    # Ensure doctor owns the consultation
+    await consultation_service.get_consultation(db, consultation_id, doctor.id)
+    
+    similar_cases = await find_similar_cases(db, consultation_id, limit)
+    return {"cases": similar_cases}
+
+from app.schemas.polypharmacy import PolypharmacyRequest, PolypharmacyResponse
+
+@router.post("/{consultation_id}/polypharmacy-simulate", response_model=PolypharmacyResponse)
+async def simulate_polypharmacy(
+    consultation_id: uuid.UUID,
+    payload: PolypharmacyRequest,
+    user: User = Depends(require_permission("consultation", "read")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Simulate drug interactions using LLM."""
+    from app.services.polypharmacy_service import polypharmacy_simulator
+    from app.services.representation_service import build_clinical_representation
+    from app.models.patient_profile import PatientProfile
+    from app.models.patient import PatientSession
+    
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    rep = await build_clinical_representation(db, consultation_id)
+    
+    current_meds = [m.value.lower() for m in rep.medications]
+    
+    if consultation.patient_session_id:
+        stmt = (
+            select(PatientProfile)
+            .join(PatientSession, PatientProfile.id == PatientSession.patient_profile_id)
+            .where(PatientSession.id == consultation.patient_session_id)
+        )
+        patient_profile = await db.scalar(stmt)
+        if patient_profile and patient_profile.baseline_conditions:
+            structured_meds = patient_profile.baseline_conditions.get("current_medications", [])
+            for sm in structured_meds:
+                if sm.lower() not in current_meds:
+                    current_meds.append(sm.lower())
+                    
+    return await polypharmacy_simulator.simulate(
+        proposed_meds=payload.proposed_medications,
+        current_meds=current_meds
+    )

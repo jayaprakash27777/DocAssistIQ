@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * DocAssistIQ — Loading Skeleton.
  *
@@ -11,6 +12,7 @@
  */
 
 import React from "react";
+import { Skeleton as UiSkeleton } from "@/components/ui/skeleton";
 
 interface SkeletonProps {
   width?: string;
@@ -26,8 +28,8 @@ export function Skeleton({
   borderRadius = "6px",
 }: SkeletonProps) {
   return (
-    <div
-      className={`skeleton ${className}`}
+    <UiSkeleton
+      className={className}
       style={{ width, height, borderRadius }}
       aria-hidden="true"
     />

@@ -15,11 +15,11 @@ import time
 from app.services.diarization_service import default_diarization_provider
 
 try:
-    import av
-    from faster_whisper import WhisperModel
+    import av  # type: ignore[import-untyped]
+    from faster_whisper import WhisperModel  # type: ignore[import-untyped]
 except ImportError:
-    av = None
-    WhisperModel = None
+    av = None  # type: ignore[assignment]
+    WhisperModel = None  # type: ignore[assignment]
 
 log = structlog.get_logger(__name__)
 
@@ -101,17 +101,25 @@ class ASRService:
         accumulated_text = ""
         start_time = time.time()
         
+        webm_buffer = bytearray()
+        decoded_audio_len = 0
+        
         while True:
             chunk = await audio_queue.get()
             if chunk is None:
                 # End of stream
                 break
                 
-            # Decode incoming chunk
-            decoded_chunk = await asyncio.to_thread(self._decode_audio_chunk, chunk)
-            if len(decoded_chunk) == 0:
+            webm_buffer.extend(chunk)
+                
+            # Decode the entire incoming stream so far
+            full_audio = await asyncio.to_thread(self._decode_audio_chunk, bytes(webm_buffer))
+            if len(full_audio) == 0 or len(full_audio) <= decoded_audio_len:
                 continue
                 
+            decoded_chunk = full_audio[decoded_audio_len:]
+            decoded_audio_len = len(full_audio)
+            
             buffer = np.concatenate((buffer, decoded_chunk))
             
             # If buffer is >= 2 seconds, transcribe

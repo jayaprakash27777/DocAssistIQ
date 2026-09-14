@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * DocAssistIQ — Source Provenance Component (Phase 12).
  *

@@ -24,10 +24,10 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database import Base
-from app.infrastructure.models import TimestampMixin, UUIDPrimaryKeyMixin
+from app.infrastructure.models import TimestampMixin, UUIDPrimaryKeyMixin, TenantScopedMixin
 
 
-class PatientSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class PatientSession(TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """
     A de-identified patient encounter record.
 
@@ -99,7 +99,7 @@ class PatientSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         comment="Non-identifying encounter summary (no PII)",
     )
 
-    patient_profile: Mapped["PatientProfile"] = relationship(
+    patient_profile: Mapped["PatientProfile"] = relationship(  # type: ignore
         "PatientProfile",
         back_populates="sessions",
     )
@@ -108,7 +108,7 @@ class PatientSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         return f"<PatientSession id={self.id} status={self.status!r}>"
 
 
-class ConsentRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class ConsentRecord(TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """
     Immutable audit trail for patient consent.
 
@@ -122,10 +122,10 @@ class ConsentRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_consent_records_session", "patient_session_id"),
     )
 
-    patient_session_id: Mapped[uuid.UUID] = mapped_column(
+    patient_session_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("patient_sessions.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         comment="Related patient session",
     )
 

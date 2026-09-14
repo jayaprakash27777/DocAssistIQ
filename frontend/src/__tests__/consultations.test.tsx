@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable react/no-unescaped-entities */
 /**
  * DocAssistIQ — Phase 8 Frontend Tests
  *

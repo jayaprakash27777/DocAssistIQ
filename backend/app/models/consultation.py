@@ -19,12 +19,13 @@ import uuid
 from sqlalchemy import ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector
 
 from app.infrastructure.database import Base
-from app.infrastructure.models import TimestampMixin, UUIDPrimaryKeyMixin
+from app.infrastructure.models import TimestampMixin, UUIDPrimaryKeyMixin, TenantScopedMixin
 
 
-class Consultation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class Consultation(TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """A clinical text-input consultation submitted by a doctor."""
 
     __tablename__ = "consultations"
@@ -63,6 +64,14 @@ class Consultation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         comment="Lifecycle: created|recording|processing|draft|under_review|analysis_ready|finalized|amended",
     )
 
+    # Phase 73: Clinical Immutability Record
+    immutable_hash: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        index=True,
+        comment="Phase 73: Clinical Immutability Record",
+    )
+
     placeholder_response: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -70,6 +79,12 @@ class Consultation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "Non-clinical placeholder response (development only). "
             "Always prefixed with the mandatory safety label."
         ),
+    )
+
+    clinical_representation_embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(768),
+        nullable=True,
+        comment="Vector embedding of the consultation's clinical representation for similar case retrieval",
     )
 
     # Relationships
@@ -80,7 +95,7 @@ class Consultation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         order_by="ConsultationAudit.created_at",
     )
 
-    findings: Mapped[list["ClinicalFinding"]] = relationship(
+    findings: Mapped[list["ClinicalFinding"]] = relationship(  # type: ignore
         "ClinicalFinding",
         back_populates="consultation",
         cascade="all, delete-orphan",

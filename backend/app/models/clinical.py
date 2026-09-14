@@ -24,10 +24,10 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database import Base
-from app.infrastructure.models import TimestampMixin, UUIDPrimaryKeyMixin
+from app.infrastructure.models import TimestampMixin, UUIDPrimaryKeyMixin, TenantScopedMixin
 
 
-class ClinicalNote(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class ClinicalNote(TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """
     A structured narrative note attached to a consultation.
 
@@ -101,7 +101,7 @@ class ClinicalNote(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         return f"<ClinicalNote id={self.id} type={self.note_type!r} v={self.version}>"
 
 
-class ManualIntake(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class ManualIntake(TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """
     Structured manual clinical intake (Phase 22).
     
@@ -160,7 +160,7 @@ class ManualIntake(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         return f"<ManualIntake id={self.id} consultation={self.consultation_id}>"
 
 
-class ClinicalFinding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class ClinicalFinding(TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """
     A discrete clinical finding from a consultation.
 
@@ -249,7 +249,7 @@ class ClinicalFinding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         comment="The specific version of the knowledge base that surfaced this finding",
     )
 
-    consultation: Mapped["Consultation"] = relationship(
+    consultation: Mapped["Consultation"] = relationship(  # type: ignore
         "Consultation", back_populates="findings"
     )
 

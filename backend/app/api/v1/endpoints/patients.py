@@ -1,13 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.api.platform import API_RESPONSES
-from app.authorization import require_doctor
-from app.dependencies import get_db
+from app.authorization import require_permission
+from app.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.models.patient_profile import PatientProfile
 from app.models.doctor import Doctor
@@ -20,7 +20,7 @@ from app.schemas.patient import (
 router = APIRouter(prefix="/patients", tags=["Patients"])
 
 async def get_current_doctor_profile(
-    user: User = Depends(require_doctor),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Doctor:
     """Helper to get the doctor profile for the current user."""
@@ -38,6 +38,7 @@ async def get_current_doctor_profile(
 @router.post("/", response_model=PatientProfileResponse, responses=API_RESPONSES)
 async def create_patient_profile(
     profile_in: PatientProfileCreate,
+    user: User = Depends(require_permission("patient", "create")),
     doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
@@ -85,6 +86,7 @@ async def list_patient_profiles(
 @router.get("/{profile_id}", response_model=PatientProfileResponse, responses=API_RESPONSES)
 async def get_patient_profile(
     profile_id: uuid.UUID,
+    user: User = Depends(require_permission("patient", "read")),
     doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
@@ -107,3 +109,31 @@ async def get_patient_profile(
         )
         
     return profile
+
+@router.get("/{profile_id}/timeline", responses=API_RESPONSES)
+async def get_patient_timeline(
+    profile_id: uuid.UUID,
+    page: int = 1,
+    page_size: int = 50,
+    event_type: str | None = Query(None, description="Filter by event_type"),
+    user: User = Depends(require_permission("patient", "read")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get chronological timeline of events for a patient."""
+    from app.services.timeline_service import get_patient_timeline as fetch_timeline
+    
+    # Check access to this patient profile
+    stmt = select(PatientProfile).where(
+        PatientProfile.id == profile_id,
+        PatientProfile.tenant_id == doctor.tenant_id
+    )
+    result = await db.execute(stmt)
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    filters = event_type.split(",") if event_type else None
+    
+    events = await fetch_timeline(db, profile_id, page_size, (page - 1) * page_size, filters or [])
+    return {"events": events}
+

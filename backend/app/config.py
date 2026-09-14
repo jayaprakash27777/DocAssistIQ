@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     backend_host: str = "0.0.0.0"  # noqa: S104
     backend_port: int = 8000
     backend_secret_key: str = _DEV_SECRET_PLACEHOLDER  # noqa: S105
-    backend_cors_origins: str = "http://localhost:3000"
+    backend_cors_origins: str = "http://localhost:3000,http://localhost:3001"
 
     # Database (PostgreSQL + asyncpg)
     database_url: str = (
@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     # Celery
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"
+
+    # Retention Policies (Days)
+    # Default to 7 years (2555 days) for clinical data per standard regulations
+    retention_days_clinical: int = 2555
+    # Default to 1 year (365 days) for audit and system logs
+    retention_days_audit: int = 365
 
     # JWT Authentication
     jwt_secret_key: str = "dev-jwt-secret-change-in-production"  # noqa: S105

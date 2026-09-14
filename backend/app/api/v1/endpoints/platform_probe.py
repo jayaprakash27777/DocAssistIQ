@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from pydantic import Field
 """DocAssistIQ — Platform Probe Endpoint.
 
 Exercises every API platform primitive end-to-end against a real database:
@@ -14,9 +17,7 @@ in ``tests/test_platform.py``.
 Access requires an authenticated ``doctor`` or ``admin`` account.
 """
 
-from __future__ import annotations
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -46,8 +47,7 @@ _ALLOWED_ROLES: set[str] = {"doctor", "admin"}
 class UserFilterParams(FilterParams):
     """Filter parameters for the user probe endpoint."""
 
-    from fastapi import Query
-    from pydantic import Field
+    
 
     role: str | None = Field(Query(default=None, description="Filter by role (doctor or admin)"))
 

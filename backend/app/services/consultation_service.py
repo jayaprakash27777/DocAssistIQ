@@ -1,10 +1,10 @@
+from __future__ import annotations
+
+from app.services.note_generator import NoteGeneratorService
 """DocAssistIQ — Consultation Service (Phase 20).
 
 Orchestrates the consultation lifecycle state machine and audit trailing.
 """
-
-from __future__ import annotations
-
 import uuid
 from typing import Any
 
@@ -16,10 +16,11 @@ from sqlalchemy.orm import selectinload
 from app.exceptions import NotFoundError, ValidationError
 from app.models.consultation import Consultation, ConsultationAudit
 from app.models.patient import ConsentRecord
-from app.models.clinical import ClinicalFinding
+from app.models.clinical import ClinicalFinding, ClinicalNote
 from app.models.transcript import Transcript
 from app.services.clinical_nlp import extractor
 from app.services.note_generator import note_generator_service
+import hashlib
 
 
 log = structlog.get_logger(__name__)
@@ -43,11 +44,13 @@ async def create_consultation(
     input_text: str | None = None
 ) -> Consultation:
     """Create a new consultation in the CREATED state."""
+    tenant_id = db.info.get("tenant_id")
     consultation = Consultation(
         doctor_id=doctor_id,
         patient_session_id=patient_session_id,
         status="created",
         input_text=input_text or "",  # Use provided text or empty
+        tenant_id=tenant_id,
     )
     db.add(consultation)
     await db.flush()
@@ -106,6 +109,53 @@ async def list_consultations(
     return list(result.scalars().all()), total_count
 
 
+
+from sqlalchemy import delete
+async def _extract_nlp_findings(db: AsyncSession, consultation: Consultation, consultation_id: uuid.UUID):
+    # Clear old pending AI suggestions
+    await db.execute(
+        delete(ClinicalFinding)
+        .where(ClinicalFinding.consultation_id == consultation_id)
+        .where(ClinicalFinding.status == "pending")
+        .where(ClinicalFinding.is_ai_suggested == True)
+    )
+    
+    findings = await extractor.extract(consultation.input_text or "", source_context="manual_intake")
+    
+    transcript = await db.scalar(
+        select(Transcript)
+        .options(selectinload(Transcript.segments))
+        .where(Transcript.consultation_id == consultation_id)
+    )
+    if transcript and transcript.segments:
+        full_transcript_text = " ".join([seg.processed_text or seg.raw_text for seg in transcript.segments])
+        if full_transcript_text.strip():
+            transcript_findings = await extractor.extract(full_transcript_text, source_context="transcript")
+            findings.extend(transcript_findings)
+            
+    tenant_id = db.info.get("tenant_id")
+    for f in findings:
+        finding = ClinicalFinding(
+            tenant_id=tenant_id,
+            consultation_id=consultation.id,
+            finding_text=f["value"],
+            finding_type="symptom" if f["concept"] == "SYMPTOM" else "diagnosis" if f["concept"] == "CONDITION" else "measurement",
+            is_ai_suggested=True,
+            is_clinician_confirmed=False,
+            status="pending",
+            confidence_score=f["confidence"],
+            concept=f["concept"],
+            value=f["value"],
+            certainty=f["certainty"],
+            negated=f["negated"],
+            temporality=f["temporality"],
+            source_context=f["source"],
+            canonical_concept=f["canonical_concept"],
+            mapping_source=f["mapping_source"],
+            mapping_confidence=f["mapping_confidence"]
+        )
+        db.add(finding)
+
 async def update_consultation_state(
     db: AsyncSession, 
     consultation_id: uuid.UUID,
@@ -124,11 +174,16 @@ async def update_consultation_state(
         # Just update text if provided
         if input_text is not None:
             consultation.input_text = input_text
+            
+            # If we update text in draft state, re-extract findings
+            if current_state == "draft":
+                await _extract_nlp_findings(db, consultation, consultation_id)
+            
             await db.commit()
             
             # Phase 30: AI Note Generation
             try:
-                await note_generator.draft_note_from_findings(db, consultation_id, actor_id)
+                await NoteGeneratorService().draft_note_from_findings(db, consultation_id, actor_id)
             except Exception as e:
                 # Failing to generate note shouldn't block the state transition, but should be logged.
                 log.error("note_generation_failed", error=str(e))
@@ -162,41 +217,25 @@ async def update_consultation_state(
         
     # Phase 28: Clinical NLP Extraction on transition to draft
     if new_state == "draft":
-        # Extract from manual intake
-        findings = await extractor.extract(consultation.input_text, source_context="manual_intake")
-        
-        # Extract from transcript
-        transcript = await db.scalar(
-            select(Transcript).where(Transcript.consultation_id == consultation_id)
-        )
-        if transcript:
-            # For simplicity, we just extract from the whole text, but you could extract per-segment
-            # Let's get the raw text joined.
-            # In a real app we'd load the segments. Let's just use what's there if possible.
-            pass
+        await _extract_nlp_findings(db, consultation, consultation_id)
             
-        for f in findings:
-            finding = ClinicalFinding(
-                consultation_id=consultation.id,
-                finding_text=f["value"],
-                finding_type="symptom" if f["concept"] == "SYMPTOM" else "diagnosis" if f["concept"] == "CONDITION" else "measurement",
-                is_ai_suggested=True,
-                is_clinician_confirmed=False,
-                status="pending",
-                confidence_score=f["confidence"],
-                concept=f["concept"],
-                value=f["value"],
-                certainty=f["certainty"],
-                negated=f["negated"],
-                temporality=f["temporality"],
-                source_context=f["source"],
-                canonical_concept=f["canonical_concept"],
-                mapping_source=f["mapping_source"],
-                mapping_confidence=f["mapping_confidence"]
-            )
-            db.add(finding)
             
     consultation.status = new_state
+    
+    # Phase 73: Immutability hashing
+    if new_state == "finalized":
+        # Fetch the clinical note to hash it
+        note = await db.scalar(
+            select(ClinicalNote).where(ClinicalNote.consultation_id == consultation_id)
+        )
+        if note:
+            # Create a SHA-256 hash of the content to lock it
+            import json
+            content_to_hash = f"{note.id}|{json.dumps(note.body, sort_keys=True)}|{note.updated_at}"
+            consultation.immutable_hash = hashlib.sha256(content_to_hash.encode("utf-8")).hexdigest()
+        else:
+            # Fallback if no note exists
+            consultation.immutable_hash = hashlib.sha256(str(consultation.id).encode("utf-8")).hexdigest()
     
     # Audit log
     audit = ConsultationAudit(

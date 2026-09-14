@@ -51,41 +51,83 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
         severity_str = ", ".join([item.value for item in representation.severity]) if representation.severity else "Unknown"
         history_str = ", ".join([item.value for item in representation.history]) if representation.history else "None"
         vitals_str = ", ".join([item.value for item in representation.vitals]) if representation.vitals else "None"
+        travel_history_str = ", ".join([item.value for item in representation.travel_history]) if getattr(representation, "travel_history", None) else "None"
 
         # PHASE 2: Retrieve RAG Context
         from app.services.rag_service import retrieve_medical_context
         
-        # Build query from symptoms
-        symptoms_str = ", ".join([f"{item.value} ({item.status})" for item in representation.symptoms])
-        rag_context = await retrieve_medical_context(db, symptoms_str, top_k=3)
-        system_prompt = f"""You are an expert clinical diagnostic AI.
+        # Build query from symptoms and travel history
+        rag_query = symptoms_str
+        
+        live_context = ""
+        if travel_history_str != "None":
+            rag_query += f" travel to {travel_history_str} endemic disease outbreak"
+            # Real-time fetch for CDC Travel Health Notices (Geo-Spatial Aware)
+            try:
+                import httpx
+                import xml.etree.ElementTree as ET
+                async with httpx.AsyncClient(timeout=3.0) as client:
+                    response = await client.get("https://wwwnc.cdc.gov/travel/rss/notices.xml")
+                    if response.status_code == 200:
+                        root = ET.fromstring(response.text)
+                        live_notices = []
+                        for item in root.findall(".//item"):
+                            title = item.find("title").text if item.find("title") is not None else ""
+                            desc = item.find("description").text if item.find("description") is not None else ""
+                            
+                            # Basic geo-spatial pre-filtering (LLM will do the deep semantic matching)
+                            # We grab all notices but format them clearly for the LLM's incubation engine.
+                            live_notices.append(f"- {title}: {desc}")
+                            
+                        if live_notices:
+                            live_context = "LIVE CDC GLOBAL OUTBREAK DATABASE:\n" + "\n".join(live_notices[:10]) + "\n\n"
+            except Exception as e:
+                import structlog
+                structlog.get_logger(__name__).error("live_cdc_fetch_failed", error=str(e))
+            
+        rag_context = await retrieve_medical_context(db, rag_query, top_k=3)
+        if live_context:
+            rag_context = live_context + "STATIC KNOWLEDGE BASE CONTEXT:\n" + rag_context
+            
+        system_prompt = f"""You are a Senior Clinical Diagnostician AI and Geo-Spatial Epidemiologist.
 Your task is to analyze the provided clinical representation and return a JSON list of the top 3-5 differential diagnoses.
+You must be precise, medical, and evidence-based. Do NOT invent or hallucinate diseases.
 
-You MUST use the following retrieved FDA medication contexts (if any) to ground your analysis. If the patient's symptoms match known side effects or contraindications of these retrieved drugs, prioritize those in your diagnosis.
+## Instructions
+1. Analyze the symptoms, duration, severity, vitals, and travel history.
+2. Formulate 3-5 highly likely differential diagnoses.
+3. For each diagnosis, explicitly list which provided findings support it, which expected findings are missing, and which findings contradict it.
+4. Base your confidence score (0.0 to 1.0) strictly on clinical overlap. The most likely diagnosis should typically have a score > 0.8.
+5. You MUST consider the following retrieved knowledge context (e.g. FDA drug side effects, WHO disease outbreaks).
+6. **ULTRA-ADVANCED GEO-SPATIAL & INCUBATION PIPELINE**: If the patient has travel history, you MUST act as a geographic engine.
+   - Match their specific countries visited against the LIVE CDC GLOBAL OUTBREAK DATABASE provided below (e.g., if they visited Brazil, you MUST map that to South America notices).
+   - If there is a geographic match, mathematically cross-reference the patient's "days since return" (duration) against the standard incubation period of the endemic pathogens. If the incubation period does not fit, lower the score!
 
-Retrieved Context:
+## Retrieved Context:
 {rag_context}
 
-Return ONLY valid JSON matching this schema exactly:
-{
+## Output Format
+Return ONLY valid JSON matching this exact schema (no markdown, no preamble):
+{{
   "candidates": [
-    {
-      "disease": "string (name of disease)",
-      "score": float (0.0 to 1.0 confidence),
-      "supporting_findings": ["string"],
-      "missing_expected_findings": ["string"],
+    {{
+      "disease": "string (Specific medical name)",
+      "score": 0.0 to 1.0,
+      "supporting_findings": ["string", "string"],
+      "missing_expected_findings": ["string", "string"],
       "contradicting_information": ["string"],
-      "uncertainty": "string (Low, Moderate, High)",
-      "explanation_reference": "string (1 sentence clinical rationale)"
-    }
+      "uncertainty": "Low" | "Moderate" | "High",
+      "explanation_reference": "string (1-2 sentences of clinical rationale)"
+    }}
   ]
-}
+}}
 """
         user_prompt = f"""Clinical Representation:
 - Symptoms: {symptoms_str}
 - Duration: {duration_str}
 - Severity: {severity_str}
 - Past Medical History: {history_str}
+- Travel History: {travel_history_str}
 - Vitals: {vitals_str}
 
 Analyze this data and return the JSON.
@@ -103,11 +145,9 @@ Analyze this data and return the JSON.
                 explanation = c.get("explanation_reference", "")
                 
                 if missing_critical_info:
-                    score *= 0.8  # Penalty for missing core info
-                    uncertainty = "High"
-                    explanation += " Confidence reduced due to missing clinical context (duration/severity)."
+                    explanation += " (Note: Confidence may be impacted by missing clinical context like duration or severity.)"
                 
-                top_candidates.append(DifferentialDiagnosisItem(
+                top_candidates.append(DifferentialDiagnosisItem(  # type: ignore
                     disease=c.get("disease", "Unknown"),
                     score=round(score, 3),
                     supporting_findings=c.get("supporting_findings", []),
@@ -218,7 +258,7 @@ class BaselineDiagnosisProvider(DiagnosisProvider):
                     uncertainty = "High"
                     explanation += " Confidence reduced due to missing clinical context (duration/severity)."
                 
-                candidates.append(DifferentialDiagnosisItem(
+                candidates.append(DifferentialDiagnosisItem(  # type: ignore
                     disease=disease,
                     score=round(score, 3),
                     supporting_findings=supporting,

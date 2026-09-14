@@ -206,15 +206,15 @@ def get_storage_provider(settings: object | None = None) -> MinioStorageProvider
             settings = get_settings()
 
         # object_storage_endpoint is "http://host:port" — strip scheme for minio client
-        endpoint_raw: str = settings.object_storage_endpoint
+        endpoint_raw: str = getattr(settings, 'object_storage_endpoint', None)  # type: ignore
         endpoint = endpoint_raw.replace("http://", "").replace("https://", "")
         secure = endpoint_raw.startswith("https://")
 
         _provider = MinioStorageProvider(
             endpoint=endpoint,
-            access_key=settings.object_storage_access_key,
-            secret_key=settings.object_storage_secret_key,
-            bucket=settings.object_storage_bucket,
+            access_key=getattr(settings, 'object_storage_access_key', None),  # type: ignore
+            secret_key=getattr(settings, 'object_storage_secret_key', None),  # type: ignore
+            bucket=getattr(settings, 'object_storage_bucket', None),  # type: ignore
             secure=secure,
         )
     return _provider

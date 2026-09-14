@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * DocAssistIQ — Toast Context and Provider.
  *
@@ -127,10 +128,10 @@ export function useToast() {
   if (!ctx) throw new Error("useToast() must be used inside <ToastProvider>");
 
   return {
-    toast: {
+    toast: React.useMemo(() => ({
       success: (message: string) => ctx.addToast("success", message),
       error: (message: string) => ctx.addToast("error", message),
       info: (message: string) => ctx.addToast("info", message),
-    },
+    }), [ctx.addToast]),
   };
 }

@@ -41,6 +41,7 @@ class ClinicalRepresentationResponse(BaseModel):
     duration: List[RepresentationItem] = Field(default_factory=list)
     severity: List[RepresentationItem] = Field(default_factory=list)
     history: List[RepresentationItem] = Field(default_factory=list)
+    travel_history: List[RepresentationItem] = Field(default_factory=list)
     medications: List[RepresentationItem] = Field(default_factory=list)
     allergies: List[RepresentationItem] = Field(default_factory=list)
     vitals: List[RepresentationItem] = Field(default_factory=list)

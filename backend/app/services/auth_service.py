@@ -22,13 +22,14 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+from passlib.context import CryptContext  # type: ignore[import-untyped]
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.exceptions import AuthenticationError, AuthorizationError, ConflictError
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
+from app.services.audit_service import log_event
 
 logger = structlog.get_logger(__name__)
 
@@ -187,8 +188,24 @@ async def register_user(
         email=email,
         password_hash=hash_password(password),
         full_name=full_name,
+        role="doctor"
     )
     user = await repo.create(user)
+
+    if user.role == "doctor":
+        from app.models.tenant import Tenant
+        from app.models.doctor import Doctor
+        import uuid
+        
+        # Create a default tenant for the doctor
+        slug = f"tenant-{uuid.uuid4().hex[:8]}"
+        tenant = Tenant(name=f"{full_name}'s Clinic", slug=slug)
+        session.add(tenant)
+        await session.flush()
+        
+        doctor = Doctor(user_id=user.id, tenant_id=tenant.id)
+        session.add(doctor)
+        await session.flush()
 
     logger.info(
         "user_registered",
@@ -236,18 +253,46 @@ async def authenticate_user(
         )
 
     logger.info("login_success", user_id=str(user.id))
+    
+    await log_event(
+        session,
+        action="user.login",
+        entity_type="user",
+        entity_id=user.id,
+        actor_id=user.id,
+        severity="info",
+    )
+    
     return user
 
 
-async def logout_user(*, token: str, settings: Settings) -> None:
-    """Invalidate a token by blacklisting its JTI in Redis."""
+async def logout_user(
+    *, 
+    token: str, 
+    settings: Settings,
+    session: AsyncSession,
+) -> None:
+    """Invalidate a token by blacklisting its JTI in Redis and audit log it."""
     payload = decode_token(token, settings)
     jti: str = payload["jti"]
     exp: int = payload["exp"]
+    user_id_str: str = payload.get("sub", "")
 
     remaining_ttl = max(0, int(exp - _utcnow().timestamp()))
     if remaining_ttl > 0:
         await _blacklist_jti(jti, remaining_ttl)
+        
+    if user_id_str:
+        import uuid
+        user_id = uuid.UUID(user_id_str)
+        await log_event(
+            session,
+            action="user.logout",
+            entity_type="user",
+            entity_id=user_id,
+            actor_id=user_id,
+            severity="info",
+        )
 
 
 async def get_current_user(

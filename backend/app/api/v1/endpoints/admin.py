@@ -18,9 +18,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.platform import API_RESPONSES, PagedResponse, PaginationParams, paginate
 from app.authorization import require_admin
-from app.dependencies import get_db
+from app.config import Settings
+from app.dependencies import get_db, get_settings_dep
 from app.models.user import User
 from app.schemas.auth import MeResponse
+from app.services import retention_service
+from app.infrastructure.storage import get_s3_client
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -35,6 +38,15 @@ class AdminPingResponse(BaseModel):
 
     ok: bool
     message: str
+
+
+class AdminStatsResponse(BaseModel):
+    """Real-time platform metrics for the admin dashboard."""
+    total_users: int
+    total_doctors: int
+    total_admins: int
+    total_consultations: int
+    pending_verifications: int
 
 
 # ============================================================
@@ -59,6 +71,78 @@ async def admin_ping(
 ) -> AdminPingResponse:
     """Admin-only liveness check."""
     return AdminPingResponse(ok=True, message="Admin access confirmed")
+
+
+# ============================================================
+# GET /admin/stats
+# ============================================================
+
+
+@router.get(
+    "/stats",
+    response_model=AdminStatsResponse,
+    summary="Get real-time admin metrics",
+    description="Returns platform-wide metrics such as total users and consultations.",
+    responses=API_RESPONSES,
+)
+async def get_admin_stats(
+    _current_admin: User = Depends(require_admin),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
+) -> AdminStatsResponse:
+    from sqlalchemy import select, func
+    from app.models.consultation import Consultation
+    from app.models.doctor import Doctor
+
+    # User counts
+    users_result = await db.execute(select(User.role, func.count(User.id)).group_by(User.role))
+    role_counts = {role: count for role, count in users_result.all()}
+    
+    total_users = sum(role_counts.values())
+    total_doctors = role_counts.get("doctor", 0)
+    total_admins = role_counts.get("admin", 0)
+
+    # Consultation count
+    consultations_count = await db.scalar(select(func.count(Consultation.id))) or 0
+
+    # Pending verifications count
+    pending_verifications = await db.scalar(
+        select(func.count(Doctor.id)).where(Doctor.verification_status == "pending")
+    ) or 0
+
+    return AdminStatsResponse(
+        total_users=total_users,
+        total_doctors=total_doctors,
+        total_admins=total_admins,
+        total_consultations=consultations_count,
+        pending_verifications=pending_verifications,
+    )
+
+
+# ============================================================
+# POST /admin/retention/purge
+# ============================================================
+
+
+class PurgeResponse(BaseModel):
+    stats: dict[str, int]
+
+
+@router.post(
+    "/retention/purge",
+    response_model=PurgeResponse,
+    summary="Trigger retention purge (admin only)",
+    description="Deletes data exceeding the configured retention period.",
+    status_code=200,
+)
+async def admin_trigger_purge(
+    _current_admin: User = Depends(require_admin),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep)
+) -> PurgeResponse:
+    """Manually trigger retention service purge."""
+    storage = get_s3_client()
+    stats = await retention_service.purge_expired_data(db, storage, settings)
+    return PurgeResponse(stats=stats)
 
 
 # ============================================================

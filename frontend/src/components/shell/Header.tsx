@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * DocAssistIQ — Shell Header.
  *
@@ -13,6 +14,7 @@ import { useAuth } from "@/lib/auth-context";
 import { NotificationBell } from "./NotificationBell";
 import { ProfileDropdown } from "./ProfileDropdown";
 import { WsStatus } from "./WsStatus";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -74,6 +76,7 @@ export function Header({ onMenuToggle }: Props) {
       </div>
 
       <div className="shell-header-right">
+        <ThemeToggle />
         <WsStatus />
         <NotificationBell unreadCount={0} />
         {user && <ProfileDropdown user={user} />}

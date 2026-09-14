@@ -48,8 +48,8 @@ class ConnectionState:
         self.in_seq = -1  # Last seen sequence number from client
         self.last_heartbeat = datetime.now(timezone.utc)
         self.closed = False
-        self.audio_queue = asyncio.Queue()
-        self.asr_task = None
+        self.audio_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+        self.asr_task: asyncio.Task[None] | None = None
 
     async def send_msg(self, msg_type: str, payload: dict, ack: int | None = None):
         if self.closed:

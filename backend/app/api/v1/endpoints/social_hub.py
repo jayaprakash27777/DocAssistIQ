@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
-from app.api.deps import get_db, get_current_doctor_profile
+from app.dependencies import get_db
+from app.authorization import get_current_doctor_profile
 from app.models.doctor import Doctor
-from app.models.file import FileObject
+from app.models.audit import FileObject
 from app.models.social import DoctorPost, PostLike, PostComment, PostAttachment, PostBookmark
 from app.schemas.social import (
     DoctorPostCreate, DoctorPostResponse,
@@ -14,12 +15,12 @@ from app.schemas.social import (
 )
 from app.api.v1.endpoints.ws import manager
 from app.services.ingestion.social_ingester import ingest_doctor_post
-from app.database import AsyncSessionLocal
+from app.infrastructure.database import get_session_factory
 
 router = APIRouter()
 
 async def _trigger_ingestion(post_id: uuid.UUID):
-    async with AsyncSessionLocal() as db:
+    async with get_session_factory()() as db:
         post = await db.scalar(select(DoctorPost).where(DoctorPost.id == post_id))
         if post:
             await ingest_doctor_post(db, post)
@@ -28,8 +29,8 @@ async def _trigger_ingestion(post_id: uuid.UUID):
 async def get_social_feed(
     skip: int = 0,
     limit: int = 20,
-    disease: str = None,
-    specialty: str = None,
+    disease: str | None = None,
+    specialty: str | None = None,
     db: AsyncSession = Depends(get_db),
     doctor: Doctor = Depends(get_current_doctor_profile)
 ):
@@ -60,7 +61,7 @@ async def get_social_feed(
         resp.comments_count = comments_count or 0
         resp.is_liked_by_me = bool(is_liked)
         resp.is_bookmarked_by_me = bool(is_bookmarked)
-        resp.comments = list(comments)
+        resp.comments = [PostCommentResponse.model_validate(c) for c in comments]
         response_posts.append(resp)
         
     return response_posts
@@ -97,7 +98,7 @@ async def create_post(
             attachment = PostAttachment(
                 post_id=post.id,
                 file_url=f"/api/v1/files/{f_obj.id}/download",
-                file_type=f_obj.content_type
+                file_type=f_obj.mime_type
             )
             db.add(attachment)
         await db.commit()

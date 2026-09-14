@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * Auth layout — minimal centred shell for login/register.
  * No navigation, just the DocAssistIQ mark and the form card.

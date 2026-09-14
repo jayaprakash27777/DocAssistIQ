@@ -2,7 +2,7 @@ from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 class ClinicianFeedbackCreate(BaseModel):
-    suggestion_id: str = Field(..., max_length=100)
+    suggestion_id: str = Field(..., max_length=255)
     suggestion_type: str = Field(..., max_length=50)
     decision: str = Field(..., max_length=20, description="'ACCEPT', 'MODIFY', 'REJECT'")
     reason: Optional[str] = None

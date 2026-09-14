@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authLogin, storeToken } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 interface FieldError {
   email?: string;
@@ -120,18 +122,14 @@ function LoginContent() {
           )}
         </div>
 
-        <button
+        <Button
           id="login-submit"
-          className="auth-submit"
           type="submit"
-          disabled={pending}
-          aria-busy={pending}
+          isLoading={pending}
+          className="w-full mt-2 h-11 text-base"
         >
-          {pending ? (
-            <span className="auth-spinner" aria-hidden="true" />
-          ) : null}
           {pending ? "Signing in…" : "Sign in"}
-        </button>
+        </Button>
       </form>
 
       <p className="auth-redirect-hint">

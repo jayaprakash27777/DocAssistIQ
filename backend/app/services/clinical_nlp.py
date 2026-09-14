@@ -26,21 +26,24 @@ class ClinicalExtractor:
         if not text:
             return []
             
-        system_prompt = """You are a medical data extraction AI.
-Extract all clinical findings (symptoms, conditions, medications, allergies, vitals) from the text.
-Return ONLY valid JSON matching this schema exactly:
+        system_prompt = """You are an Expert Clinical Medical Data Extraction AI.
+Your task is to carefully read the provided clinical text (or audio transcript) and extract every single clinical finding.
+You must be thorough. Do not miss any symptoms, conditions, medications, allergies, or vitals.
+Crucially, you must accurately determine if the patient DENIES the finding (negated: true) and whether it is a past or current issue (temporality).
+
+Return ONLY valid JSON matching this exact schema:
 {
   "findings": [
     {
-      "concept": "string (SYMPTOM, CONDITION, MEDICATION, ALLERGY, VITALS)",
-      "value": "string (the exact words from text)",
-      "negated": boolean,
-      "temporality": "string (current, past)"
+      "concept": "string (strictly one of: SYMPTOM, CONDITION, MEDICATION, ALLERGY, VITALS)",
+      "value": "string (the exact specific medical term or phrase)",
+      "negated": boolean (true if patient denies it, false if they have it),
+      "temporality": "string (strictly 'current' or 'past')"
     }
   ]
 }
 """
-        user_prompt = f"Text:\n{text}\n\nExtract findings as JSON."
+        user_prompt = f"Text:\n{text}\n\nExtract all findings as JSON."
         
         try:
             # We must use async here. Note: consultation_service.py might be calling this synchronously if it wasn't async before.
@@ -70,9 +73,56 @@ Return ONLY valid JSON matching this schema exactly:
                 }
                 findings.append(finding)
                 
+            if not findings:
+                log.warning("llm_extraction_empty", fallback="BaselineExtractor")
+                return self._baseline_extract(text, source_context)
+                
             return findings
         except Exception as e:
-            log.error("llm_extraction_failed", error=str(e))
-            return []
+            log.warning("llm_extraction_failed", error=str(e), fallback="BaselineExtractor")
+            # Fallback keyword extractor if LLM is down
+            return self._baseline_extract(text, source_context)
+            
+    def _baseline_extract(self, text: str, source_context: str) -> List[Dict[str, Any]]:
+        text_lower = text.lower()
+        findings = []
+        
+        # Simple mock dictionary for fallback
+        keywords = {
+            "headache": "SYMPTOM",
+            "cough": "SYMPTOM",
+            "fever": "SYMPTOM",
+            "nausea": "SYMPTOM",
+            "shortness of breath": "SYMPTOM",
+            "chest pain": "SYMPTOM",
+            "fatigue": "SYMPTOM",
+            "hypertension": "CONDITION",
+            "diabetes": "CONDITION",
+            "asthma": "CONDITION",
+            "ibuprofen": "MEDICATION",
+            "lisinopril": "MEDICATION",
+            "penicillin": "ALLERGY"
+        }
+        
+        for kw, concept in keywords.items():
+            if kw in text_lower:
+                # Check for simple negation
+                negated = f"no {kw}" in text_lower or f"denies {kw}" in text_lower
+                canon, mapping_src, mapping_conf = normalizer.normalize(kw)
+                
+                findings.append({
+                    "concept": concept,
+                    "value": kw.title(),
+                    "certainty": "high",
+                    "negated": negated,
+                    "temporality": "current",
+                    "source": source_context,
+                    "confidence": 0.80,
+                    "canonical_concept": canon,
+                    "mapping_source": mapping_src,
+                    "mapping_confidence": mapping_conf
+                })
+                
+        return findings
 
 extractor = ClinicalExtractor()

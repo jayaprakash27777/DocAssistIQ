@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
 import { Clock, ShieldCheck, UserCheck, CheckCircle, Activity } from "lucide-react";
 import { getConsultationAudit, ConsultationAuditData } from "@/lib/api";

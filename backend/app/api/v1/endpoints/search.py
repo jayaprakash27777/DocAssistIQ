@@ -4,20 +4,20 @@ from sqlalchemy import select, text
 import uuid
 from typing import List, Dict, Any
 
-from app.infrastructure.database import get_db
-from app.infrastructure.auth import get_current_user_id
+from app.dependencies import get_db, get_current_user
 from app.models.embedding import EmbeddingRecord
 from app.models.consultation import Consultation
+from app.models.user import User
 from app.infrastructure.ai.embeddings import get_embedding_provider
 from app.schemas.consultation import ConsultationSummary
 
 router = APIRouter(prefix="/search", tags=["Search"])
 
 @router.get("/consultations", response_model=List[ConsultationSummary])
-async def semantic_search_consultations(
-    q: str = Query(..., min_length=3, max_length=200, description="Semantic search query"),
-    db: AsyncSession = Depends(get_db),
-    user_id: uuid.UUID = Depends(get_current_user_id)
+async def search_all(
+    q: str = Query(..., min_length=1),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Phase 36: Semantic Patient Search.
@@ -32,7 +32,8 @@ async def semantic_search_consultations(
         logging.getLogger(__name__).error(f"Search embedding failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to embed search query")
 
-    # 2. Perform vector similarity search (Cosine Distance) using pgvector
+    user_id = current_user.id
+    # 1. Hybrid Search in Vector DBsimilarity search (Cosine Distance) using pgvector
     # We want clinical notes belonging to consultations owned by the requesting user.
     # Note: EmbeddingRecord.embedding.cosine_distance(query_vector) is the sqlalchemy-pgvector syntax
     
@@ -43,7 +44,7 @@ async def semantic_search_consultations(
     stmt = (
         select(Consultation, EmbeddingRecord.embedding.cosine_distance(query_vector).label("distance"))
         .join(EmbeddingRecord, text("consultations.id::text = embedding_records.source_record_id"))
-        .where(Consultation.user_id == user_id)
+        .where(Consultation.doctor_id == user_id)
         .where(EmbeddingRecord.source_record_type == "clinical_note")
         .order_by(text("distance ASC"))
         .limit(10)

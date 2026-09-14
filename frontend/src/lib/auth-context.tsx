@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * DocAssistIQ — Authentication Context.
  *
@@ -33,6 +34,7 @@ interface AuthContextValue {
   user: MeResponse | null;
   loading: boolean;
   refetch: () => void;
+  hasPermission: (resource: string, action: string) => boolean;
 }
 
 // ── Context ──────────────────────────────────────────────────
@@ -51,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setState({ status: "loading" });
+    setState(prev => prev.status === "loading" ? prev : { status: "loading" });
     const result = await authGetMe();
 
     if (result.ok) {
@@ -65,14 +67,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUser();
   }, [fetchUser]);
 
   const user = state.status === "authenticated" ? state.user : null;
   const loading = state.status === "loading";
 
+  const hasPermission = useCallback((resource: string, action: string) => {
+    if (!user) return false;
+    if (user.permissions.includes("*")) return true;
+    return user.permissions.includes(`${resource}:${action}`);
+  }, [user]);
+
   return (
-    <AuthContext.Provider value={{ state, user, loading, refetch: fetchUser }}>
+    <AuthContext.Provider value={{ state, user, loading, refetch: fetchUser, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

@@ -60,14 +60,16 @@ class NoteGeneratorService:
         ])
 
         system_prompt = (
-            "You are a clinical AI assistant drafting a structured note. "
+            "You are an Expert Clinical Note Generator AI. "
+            "Your task is to write a highly professional, accurate, and concise clinical note from the provided unstructured clinical findings. "
             "You MUST ONLY use the provided extracted findings to write factual sections. "
-            "DO NOT invent facts, vitals, or examination findings. "
-            "Leave sections blank if there is no data. "
-            "Output ONLY valid JSON matching this schema: "
-            "{'chief_complaint': '', 'hpi': '', 'past_medical_history': '', "
-            "'medications': '', 'allergies': '', 'family_history': '', "
-            "'social_history': '', 'examination': '', 'investigations': ''}"
+            "DO NOT invent facts, vitals, or examination findings. DO NOT hallucinate patient history. "
+            "Use standard medical abbreviations where appropriate. "
+            "Leave sections blank if there is absolutely no supporting data. "
+            "Output ONLY valid JSON matching this exact schema (no markdown, no preamble): "
+            '{"chief_complaint": "", "hpi": "", "past_medical_history": "", '
+            '"medications": "", "allergies": "", "family_history": "", '
+            '"social_history": "", "examination": "", "investigations": ""}'
         )
 
         prompt = f"Extracted Findings:\\n{findings_context}"
@@ -75,16 +77,22 @@ class NoteGeneratorService:
         log.info("note_generator_request", consultation_id=str(consultation_id))
         
         try:
+            from app.infrastructure.ai.interfaces import GenerationRequest
+            request = GenerationRequest(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                json_schema={"type": "object"}
+            )
             # For Baseline provider, this just echoes back a simple JSON struct.
             # In production, this would call an LLM.
-            response = await baseline_generation_provider.generate(prompt, system=system_prompt)
+            result = await baseline_generation_provider.generate(request)
             # The baseline provider returns a string. Let's assume it's valid JSON.
             import json
-            drafted_sections = json.loads(response)
+            drafted_sections = json.loads(result.text)
         except Exception as e:
             log.error("note_generator_failed", error=str(e))
             # Fallback to simple deterministic formatting if AI fails
-            drafted_sections = self._fallback_deterministic_draft(findings)
+            drafted_sections = self._fallback_deterministic_draft(findings)  # type: ignore
 
         # Store NoteSection objects per section (text, original_ai_text, status)
         # assessment and plan are left blank — clinician fills those in
@@ -128,7 +136,9 @@ class NoteGeneratorService:
             existing_note.version += 1
             note = existing_note
         else:
+            tenant_id = db.info.get("tenant_id")
             note = ClinicalNote(
+                tenant_id=tenant_id,
                 consultation_id=consultation_id,
                 author_id=doctor_id, # The doctor owns the note
                 note_type="progress",

@@ -69,8 +69,8 @@ api_v1_router.include_router(knowledge_router)
 
 # Phase 17 — Dataset Registry and Governance
 api_v1_router.include_router(consent_router)
-api_v1_router.include_router(intake_router)
-api_v1_router.include_router(transcript_router)
+api_v1_router.include_router(intake_router, tags=["Intake"])
+api_v1_router.include_router(transcript_router, prefix="/consultations", tags=["Transcript"])
 api_v1_router.include_router(patients_router)
 api_v1_router.include_router(datasets_router)
 

@@ -1,7 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { getClinicalNote, updateClinicalNote, ClinicalNoteResponse, ClinicalNoteUpdate, NoteSection } from "@/lib/api";
+import { motion, AnimatePresence } from "framer-motion";
 import FeedbackButtons from "./FeedbackButtons";
 
 const SOAP_STRUCTURE = [
@@ -90,11 +94,16 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
     [consultationId]
   );
 
-  const handleSectionChange = (sectionId: string, value: string) => {
+  const handleSectionChange = (sectionId: string, value: string, element?: HTMLTextAreaElement) => {
     const currentSection = body[sectionId] || { text: "", original_ai_text: null, status: "draft" };
     const updatedSection = { ...currentSection, text: value };
     const updatedBody = { ...body, [sectionId]: updatedSection };
     setBody(updatedBody);
+
+    if (element) {
+      element.style.height = 'auto';
+      element.style.height = element.scrollHeight + 'px';
+    }
 
     if (saveTimeout) clearTimeout(saveTimeout);
     
@@ -158,16 +167,16 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
     }
   };
 
-  if (loading) return <div className="text-sm text-gray-500 animate-pulse">Loading note...</div>;
-  if (!note) return <div className="text-sm text-red-500">{error || "No note found"}</div>;
+  if (loading) return <div className="text-sm text-[var(--text-tertiary)] animate-pulse">Loading note...</div>;
+  if (!note) return <div className="text-sm text-[var(--color-danger-500)]">{error || "No note found"}</div>;
 
   return (
-    <div className="bg-white border rounded-md shadow-sm flex flex-col h-full overflow-hidden">
-      <div className="flex justify-between items-center p-4 border-b bg-gray-50 shrink-0">
-        <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+    <div className="bg-white rounded-2xl shadow-sm border border-[var(--border-default)] flex flex-col h-full overflow-hidden">
+      <div className="flex justify-between items-center p-5 border-b border-[var(--border-default)] bg-[var(--surface-sunken)] shrink-0">
+        <h2 className="text-lg font-bold font-heading text-[var(--text-primary)] flex items-center gap-3">
           Clinical Note
           {note.is_ai_generated && (
-            <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium border border-blue-200 shadow-sm">
+            <span className="bg-[var(--color-primary-50)] text-[var(--color-primary-700)] text-[0.65rem] uppercase tracking-widest px-2 py-0.5 rounded-full font-bold border border-[var(--color-primary-200)] shadow-sm">
               AI Drafted
             </span>
           )}
@@ -176,26 +185,26 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
           <div className="flex gap-2 mr-2">
             <button 
               onClick={() => handleExport("pdf")}
-              className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded border border-gray-300 transition-colors"
+              className="text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-white hover:bg-[var(--surface-raised)] px-3 py-1.5 rounded-lg border border-[var(--border-default)] transition-all shadow-sm"
             >
-              Export PDF (MD)
+              Export PDF
             </button>
             <button 
               onClick={() => handleExport("fhir")}
-              className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded border border-gray-300 transition-colors"
+              className="text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-white hover:bg-[var(--surface-raised)] px-3 py-1.5 rounded-lg border border-[var(--border-default)] transition-all shadow-sm"
             >
               Copy FHIR
             </button>
           </div>
           {saving ? (
-            <span className="text-blue-600 flex items-center gap-1">
-              <span className="w-2 h-2 bg-blue-600 rounded-full animate-ping"></span>
+            <span className="text-[var(--color-primary-600)] flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+              <span className="w-2 h-2 bg-[var(--color-primary-500)] rounded-full animate-ping"></span>
               Saving...
             </span>
           ) : (
-            <span className="text-green-600 flex items-center gap-1">
+            <span className="text-[var(--color-success-600)] flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
               Saved
             </span>
@@ -204,71 +213,114 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
       </div>
       
       {error && (
-        <div className="p-3 bg-red-50 text-red-700 text-sm border-b border-red-200">
+        <div className="p-3 bg-[var(--color-danger-50)] text-[var(--color-danger-700)] text-sm border-b border-[var(--color-danger-200)] font-medium">
           {error}
         </div>
       )}
 
-      <div className="p-4 overflow-y-auto flex-1 space-y-8 bg-gray-50/50">
-        {SOAP_STRUCTURE.map((group) => (
-          <div key={group.groupId} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="bg-gray-50/80 px-4 py-3 border-b border-gray-200">
-              <h3 className="font-bold text-gray-800 tracking-wide">{group.groupLabel}</h3>
-            </div>
-            <div className="p-4 space-y-6">
-              {group.sections.map((section) => (
-                <div key={section.id} className="space-y-1.5 group/section">
-                  <div className="flex justify-between items-center">
-                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                      {section.label}
-                      {body[section.id]?.status === "accepted" && (
-                        <span className="text-emerald-600 text-[10px] flex items-center gap-0.5 bg-emerald-50 px-1.5 py-0.5 rounded">
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                          </svg>
-                          Accepted
-                        </span>
-                      )}
-                      {body[section.id]?.status === "draft" && body[section.id]?.original_ai_text && (
-                        <span className="text-blue-600 text-[10px] flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded">
-                          AI Draft
-                        </span>
-                      )}
-                    </label>
-                    <div className="flex gap-2">
-                      {body[section.id]?.status === "draft" && body[section.id]?.original_ai_text && (
-                        <FeedbackButtons
-                          suggestionId={`note-${consultationId}-${section.id}-${note?.version}`}
-                          suggestionType="clinical_note"
-                          suggestionContext={{ section: section.id, original_text: body[section.id]?.original_ai_text, edited_text: body[section.id]?.text }}
-                          onFeedbackSubmitted={(decision) => {
-                            if (decision === "ACCEPT") {
-                              handleSectionAccept(section.id);
-                            } else if (decision === "REJECT") {
-                              handleSectionRevert(section.id);
-                            }
-                          }}
-                        />
-                      )}
+      <div className="p-8 overflow-y-auto flex-1 bg-white">
+        <div className="max-w-3xl mx-auto space-y-12 pb-20">
+          {SOAP_STRUCTURE.map((group, groupIdx) => (
+            <motion.div 
+              key={group.groupId} 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: note.is_ai_generated ? groupIdx * 0.15 : 0, duration: 0.5 }}
+              className="space-y-6"
+            >
+              <h3 className="text-2xl font-bold font-heading text-[var(--text-primary)] border-b-2 border-[var(--surface-sunken)] pb-2 flex items-center gap-2">
+                {group.groupLabel}
+              </h3>
+              
+              <div className="space-y-8">
+                {group.sections.map((section, sectionIdx) => {
+                  const isAiDraft = body[section.id]?.status === "draft" && body[section.id]?.original_ai_text;
+                  const isAccepted = body[section.id]?.status === "accepted";
+                  
+                  return (
+                  <motion.div 
+                    key={section.id} 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: note.is_ai_generated ? (groupIdx * 0.15) + (sectionIdx * 0.1) : 0 }}
+                    className="space-y-3 group/section relative"
+                  >
+                    <div className="flex justify-between items-end">
+                      <label className="block text-sm font-bold text-[var(--text-secondary)] flex items-center gap-2">
+                        {section.label}
+                        {isAccepted && (
+                          <span className="text-[var(--color-success-700)] text-[10px] uppercase tracking-widest flex items-center gap-1 bg-[var(--color-success-50)] px-2 py-0.5 rounded-full border border-[var(--color-success-200)]">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Accepted
+                          </span>
+                        )}
+                        {isAiDraft && (
+                          <span className="text-[var(--color-primary-700)] text-[10px] uppercase tracking-widest flex items-center gap-1 bg-[var(--color-primary-50)] px-2 py-0.5 rounded-full border border-[var(--color-primary-200)] relative overflow-hidden">
+                            <span className="absolute inset-0 bg-white/40 w-full h-full transform -skew-x-12 animate-shimmer" />
+                            AI Draft
+                          </span>
+                        )}
+                      </label>
+                      <AnimatePresence>
+                        {isAiDraft && (
+                          <motion.div 
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="flex gap-2"
+                          >
+                            <FeedbackButtons
+                              suggestionId={`note-${consultationId}-${section.id}-${note?.version}`}
+                              suggestionType="clinical_note"
+                              suggestionContext={{ section: section.id, original_text: body[section.id]?.original_ai_text, edited_text: body[section.id]?.text }}
+                              onFeedbackSubmitted={(decision) => {
+                                if (decision === "ACCEPT") {
+                                  handleSectionAccept(section.id);
+                                } else if (decision === "REJECT") {
+                                  handleSectionRevert(section.id);
+                                }
+                              }}
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
-                  </div>
-                  <textarea
-                    className={`w-full min-h-[60px] p-3 text-sm text-gray-800 border rounded-lg transition-all resize-y shadow-inner ${
-                      body[section.id]?.status === "accepted" 
-                        ? "bg-white border-emerald-200 focus:ring-emerald-500 focus:border-emerald-500" 
-                        : body[section.id]?.original_ai_text && body[section.id]?.text === body[section.id]?.original_ai_text
-                          ? "bg-blue-50/40 border-blue-200 focus:ring-blue-500 focus:border-blue-500"
-                          : "bg-gray-50/50 focus:bg-white focus:ring-blue-500 focus:border-blue-500"
-                    }`}
-                    value={body[section.id]?.text || ""}
-                    onChange={(e) => handleSectionChange(section.id, e.target.value)}
-                    placeholder={`Enter ${section.label.toLowerCase()}...`}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
+                    <div className="relative">
+                      {isAiDraft && (
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-[var(--color-primary-200)] to-[var(--color-primary-400)] rounded-xl blur opacity-30 animate-pulse-slow pointer-events-none" />
+                      )}
+                      <textarea
+                        className={`w-full min-h-[40px] p-4 text-base leading-relaxed border rounded-xl transition-all resize-none shadow-sm outline-none overflow-hidden relative z-10 ${
+                          isAccepted 
+                            ? "bg-white border-[var(--color-success-200)] text-[var(--color-success-900)] focus:ring-2 focus:ring-[var(--color-success-500)] focus:border-transparent" 
+                            : isAiDraft && body[section.id]?.text === body[section.id]?.original_ai_text
+                              ? "bg-[var(--color-primary-50)]/50 border-[var(--color-primary-300)] text-[var(--color-primary-900)] focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-transparent"
+                              : "bg-[var(--surface-sunken)] border-[var(--border-default)] text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-transparent hover:bg-white"
+                        }`}
+                        value={body[section.id]?.text || ""}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = target.scrollHeight + 'px';
+                        }}
+                        onChange={(e) => handleSectionChange(section.id, e.target.value, e.target as HTMLTextAreaElement)}
+                        placeholder={`Enter ${section.label.toLowerCase()}...`}
+                        ref={(el) => {
+                          if (el && !el.style.height) {
+                            el.style.height = 'auto';
+                            el.style.height = el.scrollHeight + 'px';
+                          }
+                        }}
+                      />
+                    </div>
+                  </motion.div>
+                )})}
+              </div>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </div>
   );

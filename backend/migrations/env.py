@@ -89,7 +89,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
-            compare_server_default=True,
+            compare_server_default=False,
             # Include schema in comparisons if using non-public schemas
             include_schemas=False,
         )

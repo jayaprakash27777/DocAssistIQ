@@ -15,7 +15,7 @@ class ClinicianFeedback(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "clinician_feedback"
 
     suggestion_id: Mapped[str] = mapped_column(
-        String(100), 
+        String(255), 
         nullable=False,
         comment="Unique identifier for the suggestion being evaluated"
     )

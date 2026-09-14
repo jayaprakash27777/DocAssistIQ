@@ -28,6 +28,7 @@ from app.dependencies import get_db
 from app.models.user import User
 from app.schemas.doctor import DoctorCreate, DoctorResponse, DoctorUpdate, VerifyDoctorRequest
 from app.services import doctor_service
+from app.services.audit_service import log_event
 
 router = APIRouter(prefix="/doctors", tags=["Doctor Profiles"])
 
@@ -151,4 +152,15 @@ async def verify_doctor(
     db: AsyncSession = Depends(get_db),
 ) -> DoctorResponse:
     doctor = await doctor_service.admin_verify_doctor(db, admin, doctor_id, payload)
+    
+    await log_event(
+        db,
+        action=f"doctor.{payload.action}",
+        entity_type="doctor",
+        entity_id=doctor_id,
+        actor_id=admin.id,
+        severity="info",
+        diff=f'{{"reason": "{payload.rejection_reason}"}}' if payload.rejection_reason else None,
+    )
+    
     return DoctorResponse.model_validate(doctor)

@@ -22,10 +22,11 @@ audit table written via the repository layer.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, ForeignKey, Index, text, event, func
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column, object_session
 
 
 class TimestampMixin:
@@ -70,3 +71,26 @@ class UUIDPrimaryKeyMixin:
         default=uuid.uuid4,
         comment="Primary key (UUID v4, generated at INSERT)",
     )
+
+
+class TenantScopedMixin:
+    """Adds a ``tenant_id`` column for strict multi-tenant isolation.
+    
+    This mixin establishes the physical boundary for tenant data.
+    Queries should always filter by this column via a loader criteria.
+    """
+    
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="The tenant this data belongs to",
+    )
+
+@event.listens_for(TenantScopedMixin, "before_insert", propagate=True)
+def _auto_populate_tenant_id(mapper, connection, target):
+    """Automatically populate tenant_id from the session if it's missing."""
+    if target.tenant_id is None:
+        session = object_session(target)
+        if session and "tenant_id" in session.info:
+            target.tenant_id = session.info["tenant_id"]

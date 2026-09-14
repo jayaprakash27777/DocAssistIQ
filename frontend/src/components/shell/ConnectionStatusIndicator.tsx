@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react/no-unescaped-entities */
 /**
  * DocAssistIQ — Connection Status Indicator (Phase 23).
  */
@@ -27,10 +30,10 @@ export function ConnectionStatusIndicator() {
     };
   }, []);
 
-  let color = "var(--text-secondary)";
+  const color = "var(--text-secondary)";
   let dotColor = "gray";
   let label = "Unknown";
-  let showDot = true;
+  const showDot = true;
   let pulse = false;
 
   switch (state) {

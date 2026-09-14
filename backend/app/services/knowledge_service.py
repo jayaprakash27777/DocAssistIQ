@@ -32,7 +32,7 @@ async def get_knowledge_entity(db: AsyncSession, entity_type: str, entity_id: uu
     if not model:
         raise ValidationError(f"Unknown knowledge entity type: {entity_type}", code="INVALID_ENTITY_TYPE")
 
-    result = await db.execute(select(model).where(model.id == entity_id))
+    result = await db.execute(select(model).where(model.id == entity_id))  # type: ignore[attr-defined]
     entity = result.scalar_one_or_none()
     if not entity:
         raise NotFoundError(f"{entity_type.capitalize()} not found.", code="ENTITY_NOT_FOUND")
@@ -128,14 +128,14 @@ async def list_pending_knowledge(
     count_r = await db.execute(
         select(func.count())
         .select_from(model)
-        .where(model.status == "PENDING_REVIEW")
+        .where(model.status == "PENDING_REVIEW")  # type: ignore[attr-defined]
     )
     total = count_r.scalar_one()
 
     result = await db.execute(
         select(model)
-        .where(model.status == "PENDING_REVIEW")
-        .order_by(model.created_at.desc())
+        .where(model.status == "PENDING_REVIEW")  # type: ignore[attr-defined]
+        .order_by(model.created_at.desc())  # type: ignore[attr-defined]
         .offset(offset)
         .limit(page_size)
     )

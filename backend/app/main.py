@@ -12,11 +12,29 @@ Application factory wiring together all Phase 0–2 components:
 """
 
 from collections.abc import AsyncGenerator
+import asyncio
+import logging
+import uuid
+import bcrypt
+# Monkey-patch for passlib + bcrypt >= 4.0.0
+setattr(bcrypt, "__about__", type("about", (), {"__version__": getattr(bcrypt, "__version__", "4.0.1")}))
+_original_hashpw = bcrypt.hashpw
+def _patched_hashpw(password: bytes, salt: bytes) -> bytes:
+    if len(password) > 72:
+        password = password[:72]
+    return _original_hashpw(password, salt)
+bcrypt.hashpw = _patched_hashpw
+
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.platform import openapi_tags
 from app.api.v1.router import api_v1_router, ws_router
@@ -24,9 +42,13 @@ from app.config import get_settings
 from app.exception_handlers import register_exception_handlers
 from app.logging_config import configure_logging
 from app.middleware.request_id import RequestIDMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.routers import system
 
 logger = structlog.get_logger(__name__)
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 
 @asynccontextmanager
@@ -93,17 +115,26 @@ def create_app() -> FastAPI:
         expose_headers=["X-Request-ID", "X-Correlation-ID"],
     )
     application.add_middleware(RequestIDMiddleware)
+    application.add_middleware(SecurityHeadersMiddleware)
+    application.add_middleware(SlowAPIMiddleware)
 
     # ----------------------------------------------------------------
     # Exception handlers
     # ----------------------------------------------------------------
     register_exception_handlers(application)
+    application.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    application.state.limiter = limiter
 
     # ----------------------------------------------------------------
     # Routers
     # ----------------------------------------------------------------
     # System endpoints at root level (used by Docker health checks)
     application.include_router(system.router)
+
+    # Phase 66 - Prometheus Metrics Endpoint
+    @application.get("/metrics", include_in_schema=False)
+    def metrics():
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     # Versioned business-logic API
     application.include_router(api_v1_router)

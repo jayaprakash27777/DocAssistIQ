@@ -96,7 +96,7 @@ def validate_dataset_file(filepath: Path, required_keys: list[str]) -> DatasetVa
         return result
 
     seen_hashes = set()
-    label_map = {}
+    label_map: dict[str, str] = {}
 
     with open(filepath, "r", encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):

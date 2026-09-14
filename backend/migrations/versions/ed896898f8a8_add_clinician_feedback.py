@@ -98,9 +98,9 @@ def upgrade() -> None:
                existing_comment='JSON schema defining the expected structure of the records',
                existing_nullable=False,
                existing_server_default=sa.text("'{}'::jsonb"))
-    op.create_unique_constraint('uq_disease_investigation', 'disease_investigations', ['disease_id', 'investigation_id'])
-    op.create_unique_constraint('uq_disease_medicine', 'disease_medicines', ['disease_id', 'medicine_id'])
-    op.create_unique_constraint('uq_disease_symptom', 'disease_symptoms', ['disease_id', 'symptom_id'])
+    # op.create_unique_constraint('uq_disease_investigation', 'disease_investigations', ['disease_id', 'investigation_id'])
+    # op.create_unique_constraint('uq_disease_medicine', 'disease_medicines', ['disease_id', 'medicine_id'])
+    # op.create_unique_constraint('uq_disease_symptom', 'disease_symptoms', ['disease_id', 'symptom_id'])
     op.alter_column('doctor_posts', 'id',
                existing_type=sa.UUID(),
                comment='Primary key (UUID v4, generated at INSERT)',
@@ -225,7 +225,7 @@ def upgrade() -> None:
                comment='Last modification timestamp (UTC, server-set)',
                existing_nullable=False,
                existing_server_default=sa.text('now()'))
-    op.create_unique_constraint('uq_role_permissions', 'role_permissions', ['role_id', 'permission_id'])
+    # op.create_unique_constraint('uq_role_permissions', 'role_permissions', ['role_id', 'permission_id'])
     op.create_index(op.f('ix_transcript_segments_transcript_id'), 'transcript_segments', ['transcript_id'], unique=False)
     op.create_index(op.f('ix_transcripts_consultation_id'), 'transcripts', ['consultation_id'], unique=False)
     # ### end Alembic commands ###

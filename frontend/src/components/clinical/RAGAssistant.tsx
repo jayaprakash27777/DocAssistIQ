@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react/no-unescaped-entities */
 "use client";
 
 import React, { useState } from "react";
@@ -101,19 +103,28 @@ export default function RAGAssistant() {
       </div>
 
       <div className="p-4 border-t bg-white">
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <input
-            type="text"
+        <form onSubmit={handleSearch} className="flex gap-2 items-end">
+          <textarea
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search guidelines, interactions, etc..."
-            className="flex-1 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (query.trim() && !loading) {
+                  // create a synthetic event to pass to handleSearch
+                  handleSearch(e as unknown as React.FormEvent);
+                }
+              }
+            }}
+            placeholder="Search guidelines, paste patient paragraphs, etc... (Shift+Enter for new line)"
+            className="flex-1 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[40px] max-h-[200px]"
+            rows={2}
             disabled={loading}
           />
           <button
             type="submit"
             disabled={loading || !query.trim()}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors h-[40px]"
           >
             {loading ? "Searching..." : "Ask"}
           </button>

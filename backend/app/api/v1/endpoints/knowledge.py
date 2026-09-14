@@ -21,7 +21,9 @@ from app.authorization import require_admin, require_doctor
 from app.dependencies import get_db
 from app.models.provenance import Evidence, Source
 from app.models.user import User
+from app.schemas.knowledge import KnowledgeEntityResponse, KnowledgeReviewRequest, ProvenanceItemResponse
 from app.services import knowledge_service
+from app.services.audit_service import log_event
 from app.services.embedding_service import generate_and_store_embedding
 from app.models.embedding import EmbeddingRecord
 from app.services.graph_service import get_disease_knowledge_graph
@@ -30,33 +32,7 @@ from app.schemas.graph import DiseaseKnowledgeGraph
 router = APIRouter(prefix="/knowledge", tags=["Knowledge Base (Entities)"])
 
 
-class KnowledgeReviewRequest(BaseModel):
-    new_status: Literal["APPROVED", "REJECTED", "SUPERSEDED", "OUTDATED"]
-    superseded_by_id: uuid.UUID | None = None
 
-
-class KnowledgeEntityResponse(BaseModel):
-    id: uuid.UUID
-    code: str
-    name: str
-    status: str
-    is_ai_generated: bool
-    created_at: str
-    updated_at: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ProvenanceItemResponse(BaseModel):
-    id: uuid.UUID
-    claim: str
-    evidence_grade: str | None
-    recommendation_grade: str | None
-    is_ai_extracted: bool
-    source_name: str
-    source_code: str
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get(
@@ -102,6 +78,16 @@ async def review_knowledge(
     entity = await knowledge_service.transition_knowledge_status(
         db, entity_type, entity_id, payload.new_status, admin.id, payload.superseded_by_id
     )
+    
+    await log_event(
+        db,
+        action=f"knowledge.{payload.new_status}",
+        entity_type=entity_type,
+        entity_id=entity_id,
+        actor_id=admin.id,
+        severity="info",
+    )
+    
     return KnowledgeEntityResponse.model_validate(entity)
 
 

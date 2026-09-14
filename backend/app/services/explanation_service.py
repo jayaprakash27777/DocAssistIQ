@@ -57,15 +57,16 @@ async def explain_clinical_finding(db: AsyncSession, finding_id: uuid.UUID) -> E
     # We use the existing safe RAG service
     rag_request = RAGQueryRequest(
         query=finding.finding_text,
+        patient_context=None,
         top_k=3,
-        filters=RAGFilterParams(only_approved=True)
+        filters=RAGFilterParams(only_approved=True, min_evidence_grade="LOW", knowledge_version_id=None)
     )
     rag_response = await retrieve_evidence(db, rag_request)
     
     supporting_evidence = []
     for cit in rag_response.citations:
         try:
-            ev_id = uuid.UUID(cit.evidence_id)
+            ev_id = cit.evidence_id if isinstance(cit.evidence_id, uuid.UUID) else uuid.UUID(cit.evidence_id)
             supporting_evidence.append(ExplanationEvidenceItem(
                 evidence_id=ev_id,
                 source_name=cit.source_name,

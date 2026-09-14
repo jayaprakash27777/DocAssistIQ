@@ -64,5 +64,11 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         comment="True once email verification is complete (future phase)",
     )
 
+    @property
+    def permissions(self) -> list[str]:
+        from app.authorization import PERMISSION_MATRIX
+        perms = PERMISSION_MATRIX.get(self.role, set())
+        return list(perms)
+
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email!r} role={self.role!r}>"

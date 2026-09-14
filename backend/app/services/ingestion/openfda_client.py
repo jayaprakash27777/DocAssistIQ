@@ -33,7 +33,7 @@ class OpenFDAClient:
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
-                response = await client.get(self.BASE_URL, params=params)
+                response = await client.get(self.BASE_URL, params=params)  # type: ignore
                 response.raise_for_status()
                 data = response.json()
                 return data.get("results", [])

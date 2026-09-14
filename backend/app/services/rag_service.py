@@ -134,7 +134,23 @@ async def retrieve_evidence(
         # Use the real generation provider!
         gen_provider = get_generation_provider()
         context_str = "\n".join([f"[{i+1}] {c.claim} (Grade: {c.evidence_grade or 'N/A'})" for i, c in enumerate(citations)])
-        prompt = f"Answer the following clinical query strictly using the provided evidence citations. Do not make up information.\n\nQuery: {request.query}\n\nEvidence:\n{context_str}\n\nAnswer:"
+        
+        prompt = f"""You are an Expert Clinical Medical AI Assistant. 
+The user has provided input which may be a direct clinical question OR a long, unstructured paragraph describing a patient case.
+
+Your task:
+1. Analyze the unstructured input. If the user is describing a patient, identify the implicit clinical questions (e.g., potential diagnoses, management steps, or red flags).
+2. Answer the user's explicit or implicit questions.
+3. You MUST ground your clinical assessment strictly in the provided evidence citations. Do not make up medical facts. 
+4. If the provided evidence is insufficient to fully address the complex case, state what is supported and what requires further clinical judgement outside the knowledge base.
+
+User Input / Clinical Case:
+{request.query}
+
+Approved Clinical Evidence:
+{context_str}
+
+Expert Clinical Assessment:"""
         
         gen_req = GenerationRequest(prompt=prompt)
         try:
@@ -192,8 +208,8 @@ async def retrieve_medical_context(db: AsyncSession, query: str, top_k: int = 3)
         )
         if ev:
             context += f"Relevant Medical Evidence:\n"
-            if ev.context:
-                context += f"Context: {ev.context}\n"
+            if getattr(ev, 'context', getattr(ev, 'text', '')):
+                context += f"Context: {getattr(ev, 'context', getattr(ev, 'text', ''))}\n"
             context += f"Findings: {ev.claim}\n\n"
                 
     return context

@@ -44,7 +44,7 @@ class OllamaGenerationProvider(GenerationProvider):
             payload["system"] = request.system_prompt
             
         if request.max_tokens:
-            payload["options"]["num_predict"] = request.max_tokens
+            payload["options"]["num_predict"] = request.max_tokens  # type: ignore
 
         if request.json_schema:
             payload["format"] = "json"

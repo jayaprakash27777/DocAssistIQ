@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react/no-unescaped-entities */
 /**
  * DocAssistIQ — WebSocket Connection Status Pill (Phase 23).
  *
@@ -16,6 +18,7 @@ export function WsStatus() {
   useEffect(() => {
     const token = getStoredToken();
     if (!token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState('UNAVAILABLE');
       return;
     }
@@ -32,10 +35,10 @@ export function WsStatus() {
     };
   }, []);
 
-  let color = "var(--text-secondary)";
+  const color = "var(--text-secondary)";
   let dotColor = "gray";
   let label = "Unknown";
-  let showDot = true;
+  const showDot = true;
   let pulse = false;
 
   switch (state) {

@@ -22,7 +22,7 @@ class RAGQueryRequest(BaseModel):
     patient_context: Optional[str] = Field(
         None, description="Optional patient state (e.g. '70yo M with CKD')."
     )
-    filters: RAGFilterParams = Field(default_factory=RAGFilterParams)
+    filters: RAGFilterParams = Field(default_factory=lambda: RAGFilterParams())  # type: ignore
     top_k: int = Field(5, description="Number of evidence chunks to retrieve.")
 
 

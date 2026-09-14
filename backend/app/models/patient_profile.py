@@ -68,7 +68,7 @@ class PatientProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         comment="JSON containing known past medical history / chronic conditions",
     )
 
-    sessions: Mapped[list["PatientSession"]] = relationship(
+    sessions: Mapped[list["PatientSession"]] = relationship(  # type: ignore
         "PatientSession",
         back_populates="patient_profile",
         cascade="all, delete-orphan",

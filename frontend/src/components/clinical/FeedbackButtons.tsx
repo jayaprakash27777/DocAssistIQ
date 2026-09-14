@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
@@ -71,7 +73,8 @@ export default function FeedbackButtons({
     <div className="flex flex-col items-end gap-2">
       <div className="flex items-center gap-2">
         <button
-          onClick={() => handleAction("ACCEPT", true)}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleAction("ACCEPT", true); }}
           disabled={loading}
           className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
           title="Accept Suggestion"
@@ -79,7 +82,8 @@ export default function FeedbackButtons({
           <Check className="w-3 h-3" /> Accept
         </button>
         <button
-          onClick={() => handleAction("MODIFY")}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleAction("MODIFY"); }}
           disabled={loading}
           className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors"
           title="Modify Suggestion"
@@ -87,7 +91,8 @@ export default function FeedbackButtons({
           <Edit3 className="w-3 h-3" /> Modify
         </button>
         <button
-          onClick={() => handleAction("REJECT")}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleAction("REJECT"); }}
           disabled={loading}
           className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
           title="Reject Suggestion"
@@ -102,6 +107,7 @@ export default function FeedbackButtons({
           <input
             type="text"
             autoFocus
+            onClick={(e) => e.stopPropagation()}
             className="w-full text-xs p-2 border border-gray-200 rounded focus:outline-none focus:border-blue-400 mb-2"
             placeholder={decision === "REJECT" ? "e.g. Hallucination, Not relevant" : "e.g. Incorrect dosage"}
             value={reason}
@@ -109,13 +115,15 @@ export default function FeedbackButtons({
           />
           <div className="flex justify-end gap-2">
             <button
-              onClick={() => setShowReason(false)}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setShowReason(false); }}
               className="text-[10px] px-2 py-1 text-gray-500 hover:text-gray-700 font-bold"
             >
               Cancel
             </button>
             <button
-              onClick={() => handleAction(decision!, true)}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleAction(decision!, true); }}
               disabled={loading || !reason.trim()}
               className="text-[10px] px-3 py-1 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
             >
