@@ -1,7 +1,8 @@
 from app.schemas.medication import MedicationResponse, MedicationSuggestion
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.services.rag_service import retrieve_medical_context
+from app.services.rag_service import retrieve_medical_context, retrieve_medicine_context
 from app.services.llm_service import llm_service
+from app.services.rxnav_service import get_rxcui, check_interactions
 import json
 import structlog
 
@@ -103,14 +104,18 @@ class MedicationProvider:
 
     async def get_medications(self, db: AsyncSession, disease_name: str) -> MedicationResponse:
         rag_context = await retrieve_medical_context(db, f"{disease_name} treatments", top_k=3)
+        medicine_context = await retrieve_medicine_context(db, f"{disease_name} indications", top_k=5)
         
         system_prompt = f"""You are an Expert Clinical Pharmacologist AI.
 Your task is to recommend 2 to 4 safe, standard-of-care medications for the disease: '{disease_name}'.
-You MUST ground your response in the retrieved FDA data (if any). Do not hallucinate dosing. 
+You MUST ground your response in the retrieved FDA medicine data and general evidence. Do not hallucinate dosing. 
 If standard dosing varies, state typical ranges and explicitly mention 'Requires clinical correlation'.
 
-## Retrieved FDA Context:
+## Retrieved Medical Evidence Context:
 {rag_context}
+
+## Retrieved FDA Medicine Context:
+{medicine_context}
 
 ## Output Requirements
 Return ONLY valid JSON matching this exact schema:
@@ -143,7 +148,23 @@ Return ONLY valid JSON matching this exact schema:
                 suggestions.append(MedicationSuggestion(**item, safety_decision=None))  # type: ignore
             if not suggestions:
                 raise ValueError("No medications generated in JSON")
-            return MedicationResponse(disease=disease_name, suggestions=suggestions)
+                
+            # LIVE NIH DDI ENGINE
+            rxcuis = []
+            for s in suggestions:
+                rxcui = await get_rxcui(s.generic_name)
+                if rxcui:
+                    rxcuis.append(rxcui)
+            
+            ddi_warnings = []
+            if len(rxcuis) >= 2:
+                ddi_warnings = await check_interactions(rxcuis)
+
+            return MedicationResponse(
+                disease=disease_name, 
+                suggestions=suggestions, 
+                ddi_warnings=ddi_warnings
+            )
         except Exception as e:
             log.error("llm_medication_failed", error=str(e), disease=disease_name)
             fallback = BaselineMedicationProvider()

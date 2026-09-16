@@ -21,15 +21,22 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
         {items.map((item: any, idx: number) => (
           <motion.div 
             key={`${item.investigation_name}-${idx}`}
+            draggable={true}
+            onDragStart={(e) => {
+              e.dataTransfer.setData("text/plain", `Plan: Order ${item.name || item.investigation_name} - ${item.rationale || item.reason}`);
+            }}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.1 }}
-            className="group px-6 py-5 bg-white dark:bg-[var(--surface-overlay)] rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--color-primary-300)] transition-all duration-300 shadow-sm hover:shadow-md relative overflow-hidden"
+            className="group px-6 py-5 bg-white/70 rounded-2xl border border-white hover:border-blue-300 transition-all duration-300 shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(59,130,246,0.1)] relative overflow-hidden backdrop-blur-xl cursor-grab active:cursor-grabbing"
           >
-            <div className="flex justify-between items-start gap-6">
+            <div className="flex justify-between items-start gap-6 relative z-10">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="font-bold text-lg text-[var(--text-primary)] group-hover:text-[var(--color-primary-600)] transition-colors">
+                  <div className="text-slate-300 hover:text-slate-500 cursor-grab px-1 -ml-2" title="Drag to Clinical Note">
+                    <span className="text-xl leading-none">⠿</span>
+                  </div>
+                  <span className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">
                     {item.name || item.investigation_name}
                   </span>
                   {item.is_fasting_required && (
@@ -38,7 +45,7 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                <p className="text-sm text-slate-600 leading-relaxed font-medium">
                   {item.rationale || item.reason}
                 </p>
               </div>
@@ -103,16 +110,18 @@ export default function InvestigationPanel({ consultationId, disease, competing 
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-4 p-5 border border-[var(--color-primary-200)] dark:border-[var(--color-primary-800)] bg-[var(--color-primary-50)]/30 dark:bg-[var(--color-primary-900)]/10 rounded-2xl shadow-sm backdrop-blur-md"
+      className="mt-6 p-6 overflow-hidden rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 bg-white/40 backdrop-blur-2xl relative"
     >
-      <div className="flex items-start justify-between mb-6 pb-5 border-b border-[var(--color-primary-200)] dark:border-[var(--color-primary-800)]">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-300 to-cyan-300 opacity-70"></div>
+      
+      <div className="flex items-start justify-between mb-8 pb-5 border-b border-white/50">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-white/50 dark:bg-black/20 rounded-2xl shadow-inner border border-[var(--color-primary-200)] dark:border-[var(--color-primary-800)] flex items-center justify-center">
-            <FileText className="w-6 h-6 text-[var(--color-primary-600)] dark:text-[var(--color-primary-400)]" />
+          <div className="p-3 bg-white/80 rounded-2xl shadow-sm border border-blue-100/50 flex items-center justify-center backdrop-blur-md">
+            <FileText className="w-6 h-6 text-blue-600" />
           </div>
           <div>
-            <h5 className="font-bold text-[var(--color-primary-950)] dark:text-[var(--color-primary-100)] text-lg tracking-tight">Expected Investigations</h5>
-            <p className="text-[10px] text-[var(--text-secondary)] font-medium mt-1">Context-aware recommendations based on patient presentation</p>
+            <h5 className="font-black text-slate-800 text-lg tracking-tight">Expected Investigations</h5>
+            <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-1">Context-aware algorithmic recommendations</p>
           </div>
         </div>
         <div className="shrink-0">
@@ -125,9 +134,9 @@ export default function InvestigationPanel({ consultationId, disease, competing 
       </div>
 
       <div className="space-y-6">
-        <Section title="High Priority / Immediate" items={highPriority} color="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]" icon={AlertCircle} consultationId={consultationId} disease={disease} />
-        <Section title="Conditional / Monitor" items={conditional} color="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]" icon={AlertTriangle} consultationId={consultationId} disease={disease} />
-        <Section title="If Indicated" items={ifIndicated} color="text-[var(--color-primary-600)] dark:text-[var(--color-primary-400)]" icon={CheckCircle2} consultationId={consultationId} disease={disease} />
+        <Section title="High Priority / Immediate" items={highPriority} color="text-[var(--color-danger-600)] [var(--color-danger-400)]" icon={AlertCircle} consultationId={consultationId} disease={disease} />
+        <Section title="Conditional / Monitor" items={conditional} color="text-[var(--color-warning-600)] [var(--color-warning-400)]" icon={AlertTriangle} consultationId={consultationId} disease={disease} />
+        <Section title="If Indicated" items={ifIndicated} color="text-[var(--color-primary-600)] [var(--color-primary-400)]" icon={CheckCircle2} consultationId={consultationId} disease={disease} />
       </div>
     </motion.div>
   );

@@ -696,12 +696,12 @@ export async function listSources(
   page_size = 20,
 ): Promise<ApiResult<PagedResponse<SourceResponse>>> {
   return authedFetch<PagedResponse<SourceResponse>>(
-    `${BASE_URL}/api/v1/sources/?page=&page_size=`,
+    `${BASE_URL}/api/v1/sources/?page=${page}&page_size=${page_size}`,
   );
 }
 
 export async function getSource(id: string): Promise<ApiResult<SourceResponse>> {
-  return authedFetch<SourceResponse>(`${BASE_URL}/api/v1/sources/`);
+  return authedFetch<SourceResponse>(`${BASE_URL}/api/v1/sources/${id}`);
 }
 
 export async function createSource(
@@ -718,7 +718,7 @@ export async function updateSource(
   id: string,
   payload: SourceUpdate,
 ): Promise<ApiResult<SourceResponse>> {
-  return authedFetch<SourceResponse>(`${BASE_URL}/api/v1/sources/`, {
+  return authedFetch<SourceResponse>(`${BASE_URL}/api/v1/sources/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -762,7 +762,7 @@ export async function listIngestionJobs(
   page_size = 20,
 ): Promise<ApiResult<PagedResponse<IngestionJobResponse>>> {
   return authedFetch<PagedResponse<IngestionJobResponse>>(
-    `${BASE_URL}/api/v1/ingestion/jobs?page=&page_size=`,
+    `${BASE_URL}/api/v1/ingestion/jobs?page=${page}&page_size=${page_size}`,
   );
 }
 
@@ -818,7 +818,7 @@ export async function listPendingKnowledge(
   pageSize = 20,
 ): Promise<ApiResult<PagedResponse<KnowledgeEntityResponse>>> {
   return authedFetch<PagedResponse<KnowledgeEntityResponse>>(
-    `${BASE_URL}/api/v1/knowledge//pending?page=&page_size=`,
+    `${BASE_URL}/api/v1/knowledge/${entityType}/pending?page=${page}&page_size=${pageSize}`,
   );
 }
 
@@ -1027,7 +1027,7 @@ export async function validateDataset(
   id: string,
 ): Promise<ApiResult<DatasetValidationResult>> {
   return authedFetch<DatasetValidationResult>(
-    `${BASE_URL}/api/v1/datasets//validate`,
+    `${BASE_URL}/api/v1/datasets/${id}/validate`,
     { method: 'POST' }
   );
 }
@@ -1036,7 +1036,7 @@ export async function approveDataset(
   id: string,
 ): Promise<ApiResult<DatasetResponse>> {
   return authedFetch<DatasetResponse>(
-    `${BASE_URL}/api/v1/datasets//approve`,
+    `${BASE_URL}/api/v1/datasets/${id}/approve`,
     { method: 'POST' }
   );
 }
@@ -1078,7 +1078,7 @@ export async function listEvaluations(): Promise<ApiResult<EvaluationRunResponse
 export async function getEvaluationDetails(
   id: string,
 ): Promise<ApiResult<EvaluationRunDetailResponse>> {
-  return authedFetch<EvaluationRunDetailResponse>(`${BASE_URL}/api/v1/evaluations/`);
+  return authedFetch<EvaluationRunDetailResponse>(`${BASE_URL}/api/v1/evaluations/${id}`);
 }
 
 export async function triggerEvaluation(
@@ -1126,7 +1126,7 @@ export async function listExperiments(): Promise<ApiResult<ExperimentResponse[]>
 export async function getExperiment(
   id: string,
 ): Promise<ApiResult<ExperimentResponse>> {
-  return authedFetch<ExperimentResponse>(`${BASE_URL}/api/v1/experiments/`);
+  return authedFetch<ExperimentResponse>(`${BASE_URL}/api/v1/experiments/${id}`);
 }
 
 // -- Consultation Lifecycle (Phase 20) --------------------------
@@ -1484,10 +1484,10 @@ export async function getInvestigationsForDisease(
   disease: string,
   competing: string[] = []
 ): Promise<ApiResult<InvestigationResponse>> {
-  const url = new URL(`${BASE_URL}/api/v1/consultations/${consultation_id}/investigations`);
-  url.searchParams.append("disease", disease);
-  competing.forEach(c => url.searchParams.append("competing", c));
-  return authedFetch<InvestigationResponse>(url.toString());
+  const qs = new URLSearchParams();
+  qs.append("disease", disease);
+  competing.forEach(c => qs.append("competing", c));
+  return authedFetch<InvestigationResponse>(`${BASE_URL}/api/v1/consultations/${consultation_id}/investigations?${qs.toString()}`);
 }
 
 export interface EarlyWarningResponse {
@@ -1575,6 +1575,7 @@ export interface MedicationSuggestion {
 export interface MedicationResponse {
   disease: string;
   suggestions: MedicationSuggestion[];
+  ddi_warnings?: string[];
 }
 
 export async function getMedicationsForDisease(

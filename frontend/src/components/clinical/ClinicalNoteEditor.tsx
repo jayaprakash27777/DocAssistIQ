@@ -4,7 +4,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { getClinicalNote, updateClinicalNote, ClinicalNoteResponse, ClinicalNoteUpdate, NoteSection } from "@/lib/api";
+import { useClinicalNote, useUpdateClinicalNote } from "@/hooks/useConsultations";
+import { NoteSection } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import FeedbackButtons from "./FeedbackButtons";
 
@@ -47,51 +48,27 @@ const SOAP_STRUCTURE = [
 ];
 
 export default function ClinicalNoteEditor({ consultationId }: { consultationId: string }) {
-  const [note, setNote] = useState<ClinicalNoteResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: note, isLoading, error: fetchError } = useClinicalNote(consultationId);
+  const updateMutation = useUpdateClinicalNote(consultationId);
   const [body, setBody] = useState<Record<string, NoteSection>>({});
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [dragOverSection, setDragOverSection] = useState<string | null>(null);
 
+  // Sync body state when data loads or changes from server
   useEffect(() => {
-    async function loadNote() {
-      const result = await getClinicalNote(consultationId);
-      if (result.ok) {
-        setNote(result.data);
-        setBody(result.data.body || {});
-      } else {
-        setError(result.error?.message || "Failed to load clinical note.");
-      }
-      setLoading(false);
+    if (note && note.body) {
+      setBody(note.body);
     }
-    loadNote();
-  }, [consultationId]);
+  }, [note?.version]); // Only sync when version changes from server to avoid clobbering typing
 
   const saveNote = useCallback(
-    async (updatedBody: Record<string, NoteSection>, currentVersion: number) => {
-      setSaving(true);
-      setError(null);
-      
-      const payload: ClinicalNoteUpdate = {
+    (updatedBody: Record<string, NoteSection>, currentVersion: number) => {
+      updateMutation.mutate({
         body: updatedBody,
         version: currentVersion,
-      };
-
-      const result = await updateClinicalNote(consultationId, payload);
-      
-      if (result.ok) {
-        setNote(result.data); // Update with new version and status
-      } else {
-        if (result.error?.code === "OPTIMISTIC_CONCURRENCY_ERROR") {
-          setError("Conflict: The note was modified elsewhere. Please refresh.");
-        } else {
-          setError(result.error?.message || "Failed to save note.");
-        }
-      }
-      setSaving(false);
+      });
     },
-    [consultationId]
+    [updateMutation]
   );
 
   const handleSectionChange = (sectionId: string, value: string, element?: HTMLTextAreaElement) => {
@@ -114,6 +91,28 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
       }
     }, 1000);
     setSaveTimeout(timeout);
+  };
+
+  const handleDragOver = (e: React.DragEvent, sectionId: string) => {
+    e.preventDefault();
+    setDragOverSection(sectionId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverSection(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, sectionId: string, element: HTMLTextAreaElement) => {
+    e.preventDefault();
+    setDragOverSection(null);
+    
+    const draggedText = e.dataTransfer.getData("text/plain");
+    if (draggedText) {
+      const currentText = body[sectionId]?.text || "";
+      const newValue = currentText ? `${currentText}\n${draggedText}` : draggedText;
+      handleSectionChange(sectionId, newValue, element);
+    }
   };
 
   const handleSectionAccept = (sectionId: string) => {
@@ -167,8 +166,10 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
     }
   };
 
-  if (loading) return <div className="text-sm text-[var(--text-tertiary)] animate-pulse">Loading note...</div>;
-  if (!note) return <div className="text-sm text-[var(--color-danger-500)]">{error || "No note found"}</div>;
+  if (isLoading) return <div className="text-sm text-[var(--text-tertiary)] animate-pulse">Loading note...</div>;
+  if (fetchError || !note) return <div className="text-sm text-[var(--color-danger-500)]">{fetchError?.message || "No note found"}</div>;
+  const saving = updateMutation.isPending;
+  const error = updateMutation.isError ? updateMutation.error.message : null;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-[var(--border-default)] flex flex-col h-full overflow-hidden">
@@ -293,12 +294,17 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
                       )}
                       <textarea
                         className={`w-full min-h-[40px] p-4 text-base leading-relaxed border rounded-xl transition-all resize-none shadow-sm outline-none overflow-hidden relative z-10 ${
-                          isAccepted 
+                          dragOverSection === section.id
+                            ? "bg-blue-50 border-blue-400 ring-4 ring-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.3)] text-blue-900"
+                            : isAccepted 
                             ? "bg-white border-[var(--color-success-200)] text-[var(--color-success-900)] focus:ring-2 focus:ring-[var(--color-success-500)] focus:border-transparent" 
                             : isAiDraft && body[section.id]?.text === body[section.id]?.original_ai_text
                               ? "bg-[var(--color-primary-50)]/50 border-[var(--color-primary-300)] text-[var(--color-primary-900)] focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-transparent"
                               : "bg-[var(--surface-sunken)] border-[var(--border-default)] text-[var(--text-primary)] focus:bg-white focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-transparent hover:bg-white"
                         }`}
+                        onDragOver={(e) => handleDragOver(e, section.id)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, section.id, e.target as HTMLTextAreaElement)}
                         value={body[section.id]?.text || ""}
                         onInput={(e) => {
                           const target = e.target as HTMLTextAreaElement;

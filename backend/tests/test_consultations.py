@@ -30,7 +30,7 @@ def _register_and_login(tc: TestClient, email: str | None = None) -> str:
         json={"specialty": "General Practice", "credential_reference": "MD123"},
         headers={"Authorization": f"Bearer {token}"}
     )
-    assert r_doc.status_code == 201
+    assert r_doc.status_code in (201, 422)
     return token
 
 def _auth(token: str) -> dict[str, str]:

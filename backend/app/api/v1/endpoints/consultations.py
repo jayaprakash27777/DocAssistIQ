@@ -6,7 +6,7 @@ Provides a validated state machine for the consultation lifecycle.
 import uuid
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -24,6 +24,7 @@ from app.services import note_service
 from app.services.audit_service import log_event
 from app.services.export_service import export_service
 from app.schemas.note import ClinicalNoteResponse, ClinicalNoteUpdate
+from app.schemas.consultation import ConsultationEventCreate, ConsultationEventResponse
 
 router = APIRouter(prefix="/consultations", tags=["Consultations"])
 

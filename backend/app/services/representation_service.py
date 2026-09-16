@@ -102,13 +102,13 @@ async def build_clinical_representation(db: AsyncSession, consultation_id: uuid.
             add_item(rep.negations, val, concept, status, prov)  # type: ignore
         elif f.finding_type == "symptom" or concept == "symptom" or concept == "CONDITION" or f.finding_type == "diagnosis":
             add_item(rep.symptoms, val, concept, status, prov)  # type: ignore
-        elif f.finding_type == "measurement" or concept == "vitals":
+        elif f.finding_type == "measurement" or concept == "vitals" or concept == "VITALS":
             add_item(rep.vitals, val, concept, status, prov)  # type: ignore
-        elif concept == "medication":
+        elif concept == "medication" or concept == "MEDICATION":
             add_item(rep.medications, val, concept, status, prov)  # type: ignore
-        elif concept == "allergy":
+        elif concept == "allergy" or concept == "ALLERGY":
             add_item(rep.allergies, val, concept, status, prov)  # type: ignore
-        elif concept == "travel_history" or concept == "travel":
+        elif concept in ("travel_history", "travel", "TRAVEL_HISTORY", "GEOGRAPHIC_EXPOSURE"):
             add_item(rep.travel_history, val, concept, status, prov)  # type: ignore
         elif f.temporality == "past" or concept == "history":
             add_item(rep.history, val, concept, status, prov)  # type: ignore

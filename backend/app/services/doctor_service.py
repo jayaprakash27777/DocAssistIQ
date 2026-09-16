@@ -20,6 +20,7 @@ Audit:
 from __future__ import annotations
 
 import uuid
+import httpx
 from datetime import datetime, timezone
 from typing import cast
 
@@ -163,6 +164,31 @@ async def admin_verify_doctor(
         )
 
     if payload.action == "verify":
+        # LIVE NPI VERIFICATION
+        if doctor.credential_body == "NPI" and doctor.credential_reference:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(
+                        f"https://npiregistry.cms.hhs.gov/api/?number={doctor.credential_reference}&version=2.1"
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        if "Errors" in data or not data.get("results"):
+                            raise ValidationError(
+                                f"Live NPI Verification Failed: NPI {doctor.credential_reference} is invalid or inactive.",
+                                code="NPI_INVALID"
+                            )
+                        # Valid NPI found
+                        npi_result = data["results"][0]
+                        if not npi_result.get("basic", {}).get("status") == "A":
+                            raise ValidationError(
+                                f"Live NPI Verification Failed: NPI {doctor.credential_reference} is not active.",
+                                code="NPI_INACTIVE"
+                            )
+            except httpx.RequestError as e:
+                log.error("npi_api_error", error=str(e))
+                raise ValidationError("Failed to reach NPI registry. Try again later.", code="NPI_API_ERROR")
+                
         doctor.verification_status = "verified"
         doctor.verified_by_id = admin_user.id
         doctor.rejection_reason = None

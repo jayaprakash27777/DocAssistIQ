@@ -82,3 +82,30 @@ async def ingest_travel_notices(
         import structlog
         structlog.get_logger(__name__).error("travel_notices_ingestion_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Travel notices ingestion failed: {str(e)}")
+
+@router.post("/pmc", response_model=Dict[str, Any])
+async def trigger_pmc_ingestion(max_articles: int = Query(100, ge=1, le=1000)):
+    """
+    Trigger background ingestion of PubMed Central Open Access articles.
+    """
+    from app.tasks.ingestion import task_ingest_pmc_corpus
+    task_ingest_pmc_corpus.delay(max_articles)
+    return {"status": "accepted", "message": f"PMC ingestion task started for {max_articles} articles."}
+
+@router.post("/guidelines", response_model=Dict[str, Any])
+async def trigger_guidelines_ingestion():
+    """
+    Trigger background ingestion of Clinical Guidelines (CDC/WHO).
+    """
+    from app.tasks.ingestion import task_ingest_clinical_guidelines
+    task_ingest_clinical_guidelines.delay()
+    return {"status": "accepted", "message": "Clinical guidelines ingestion task started."}
+
+@router.post("/twosides", response_model=Dict[str, Any])
+async def trigger_twosides_ingestion():
+    """
+    Trigger background ingestion of TWOSIDES drug-drug interactions.
+    """
+    from app.tasks.ingestion import task_ingest_twosides_interactions
+    task_ingest_twosides_interactions.delay()
+    return {"status": "accepted", "message": "TWOSIDES dataset ingestion task started."}

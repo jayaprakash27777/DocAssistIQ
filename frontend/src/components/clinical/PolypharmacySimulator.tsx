@@ -75,7 +75,7 @@ export default function PolypharmacySimulator({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white dark:bg-[#111111] w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl border border-[var(--glass-border)] flex flex-col overflow-hidden"
+        className="bg-white [#111111] w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl border border-[var(--glass-border)] flex flex-col overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-[var(--border-default)] bg-[var(--surface-sunken)]">
@@ -125,7 +125,7 @@ export default function PolypharmacySimulator({
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, scale: 0.9 }}
-                      className="flex items-center justify-between bg-white dark:bg-[#1a1a1a] p-3 rounded-xl border border-[var(--border-default)] shadow-sm"
+                      className="flex items-center justify-between bg-white [#1a1a1a] p-3 rounded-xl border border-[var(--border-default)] shadow-sm"
                     >
                       <span className="font-medium text-[var(--text-primary)] text-sm">{med}</span>
                       <button onClick={() => handleRemoveMed(med)} className="text-[var(--text-tertiary)] hover:text-[var(--color-danger-500)] transition-colors">
@@ -159,7 +159,7 @@ export default function PolypharmacySimulator({
             </button>
 
             {error && (
-              <div className="p-4 bg-[var(--color-danger-50)] dark:bg-[var(--color-danger-900)]/20 border border-[var(--color-danger-200)] dark:border-[var(--color-danger-800)] text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] text-sm rounded-xl flex items-start gap-2">
+              <div className="p-4 bg-[var(--color-danger-50)] [var(--color-danger-900)]/20 border border-[var(--color-danger-200)] [var(--color-danger-800)] text-[var(--color-danger-700)] [var(--color-danger-400)] text-sm rounded-xl flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 {error}
               </div>
@@ -183,7 +183,7 @@ export default function PolypharmacySimulator({
             {loading && (
               <div className="h-full flex flex-col items-center justify-center text-center p-8">
                 <div className="relative w-20 h-20 mb-6">
-                  <div className="absolute inset-0 border-4 border-[var(--color-primary-100)] dark:border-[var(--color-primary-900)] rounded-full"></div>
+                  <div className="absolute inset-0 border-4 border-[var(--color-primary-100)] [var(--color-primary-900)] rounded-full"></div>
                   <div className="absolute inset-0 border-4 border-[var(--color-primary-500)] rounded-full border-t-transparent animate-spin"></div>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Activity className="w-8 h-8 text-[var(--color-primary-500)] animate-pulse" />
@@ -201,15 +201,15 @@ export default function PolypharmacySimulator({
                 className="space-y-6"
               >
                 {/* Summary Card */}
-                <div className={`p-5 rounded-2xl border flex items-start gap-4 shadow-sm ${result.is_safe ? 'bg-[var(--color-success-50)] dark:bg-[var(--color-success-900)]/20 border-[var(--color-success-200)] dark:border-[var(--color-success-800)]' : 'bg-[var(--color-danger-50)] dark:bg-[var(--color-danger-900)]/20 border-[var(--color-danger-200)] dark:border-[var(--color-danger-800)]'}`}>
-                  <div className={`p-3 rounded-xl shadow-sm ${result.is_safe ? 'bg-white dark:bg-[var(--color-success-800)] text-[var(--color-success-600)] dark:text-white' : 'bg-white dark:bg-[var(--color-danger-800)] text-[var(--color-danger-600)] dark:text-white'}`}>
+                <div className={`p-5 rounded-2xl border flex items-start gap-4 shadow-sm ${result.is_safe ? 'bg-[var(--color-success-50)] [var(--color-success-900)]/20 border-[var(--color-success-200)] [var(--color-success-800)]' : 'bg-[var(--color-danger-50)] [var(--color-danger-900)]/20 border-[var(--color-danger-200)] [var(--color-danger-800)]'}`}>
+                  <div className={`p-3 rounded-xl shadow-sm ${result.is_safe ? 'bg-white [var(--color-success-800)] text-[var(--color-success-600)] ' : 'bg-white [var(--color-danger-800)] text-[var(--color-danger-600)] '}`}>
                     {result.is_safe ? <CheckCircle className="w-6 h-6" /> : <ShieldAlert className="w-6 h-6" />}
                   </div>
                   <div>
-                    <h3 className={`text-lg font-bold ${result.is_safe ? 'text-[var(--color-success-800)] dark:text-[var(--color-success-300)]' : 'text-[var(--color-danger-800)] dark:text-[var(--color-danger-300)]'}`}>
+                    <h3 className={`text-lg font-bold ${result.is_safe ? 'text-[var(--color-success-800)] [var(--color-success-300)]' : 'text-[var(--color-danger-800)] [var(--color-danger-300)]'}`}>
                       {result.is_safe ? 'Regimen Appears Safe' : 'CRITICAL WARNING'}
                     </h3>
-                    <p className={`text-sm mt-1 leading-relaxed ${result.is_safe ? 'text-[var(--color-success-700)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)]'}`}>
+                    <p className={`text-sm mt-1 leading-relaxed ${result.is_safe ? 'text-[var(--color-success-700)] [var(--color-success-400)]' : 'text-[var(--color-danger-700)] [var(--color-danger-400)]'}`}>
                       {result.summary_assessment}
                     </p>
                   </div>
@@ -226,9 +226,9 @@ export default function PolypharmacySimulator({
                       <div 
                         key={idx}
                         className={`p-5 rounded-2xl border shadow-sm backdrop-blur-sm ${
-                          interaction.severity === 'CRITICAL' ? 'bg-white/80 dark:bg-black/40 border-[var(--color-danger-200)] dark:border-[var(--color-danger-800)]' :
-                          interaction.severity === 'WARNING' ? 'bg-white/80 dark:bg-black/40 border-[var(--color-warning-200)] dark:border-[var(--color-warning-800)]' :
-                          'bg-white/80 dark:bg-black/40 border-[var(--border-default)]'
+                          interaction.severity === 'CRITICAL' ? 'bg-white/80  border-[var(--color-danger-200)] [var(--color-danger-800)]' :
+                          interaction.severity === 'WARNING' ? 'bg-white/80  border-[var(--color-warning-200)] [var(--color-warning-800)]' :
+                          'bg-white/80  border-[var(--border-default)]'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-3">
@@ -263,8 +263,8 @@ export default function PolypharmacySimulator({
                         </div>
 
                         <div className={`mt-4 p-3 rounded-xl text-xs flex gap-3 items-start border ${
-                          interaction.severity === 'CRITICAL' ? 'bg-[var(--color-danger-50)]/50 dark:bg-[var(--color-danger-900)]/20 text-[var(--color-danger-800)] dark:text-[var(--color-danger-300)] border-[var(--color-danger-200)] dark:border-[var(--color-danger-800)]' : 
-                          'bg-[var(--color-primary-50)]/50 dark:bg-[var(--color-primary-900)]/20 text-[var(--color-primary-800)] dark:text-[var(--color-primary-300)] border-[var(--color-primary-200)] dark:border-[var(--color-primary-800)]'
+                          interaction.severity === 'CRITICAL' ? 'bg-[var(--color-danger-50)]/50 [var(--color-danger-900)]/20 text-[var(--color-danger-800)] [var(--color-danger-300)] border-[var(--color-danger-200)] [var(--color-danger-800)]' : 
+                          'bg-[var(--color-primary-50)]/50 [var(--color-primary-900)]/20 text-[var(--color-primary-800)] [var(--color-primary-300)] border-[var(--color-primary-200)] [var(--color-primary-800)]'
                         }`}>
                           <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
                           <div>

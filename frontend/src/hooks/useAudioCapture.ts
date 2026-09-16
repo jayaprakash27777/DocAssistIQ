@@ -113,7 +113,7 @@ const stop = useCallback(() => {
         accumulatedMsRef.current = 0;
         startTimeRef.current = Date.now();
         setElapsedMs(0);
-        timerRef.current = setInterval(updateTimer, 100);
+        timerRef.current = setInterval(updateTimer, 1000);
       };
 
       recorder.onpause = () => {
@@ -126,7 +126,7 @@ const stop = useCallback(() => {
       recorder.onresume = () => {
         setState("recording");
         startTimeRef.current = Date.now();
-        timerRef.current = setInterval(updateTimer, 100);
+        timerRef.current = setInterval(updateTimer, 1000);
       };
 
       recorder.onerror = (e: Event) => {
@@ -139,14 +139,17 @@ const stop = useCallback(() => {
       const wsClient = token ? getSharedRealtimeClient(token) : null;
 
       // We capture blobs in Phase 25 (Streaming ASR).
-      recorder.ondataavailable = async (e) => {
+      recorder.ondataavailable = (e) => {
         if (e.data.size > 0 && wsClient) {
           try {
-            const buffer = await e.data.arrayBuffer();
-            const base64 = btoa(
-              new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-            );
-            wsClient.send("audio_chunk", { data: base64 });
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              if (reader.result) {
+                const base64data = (reader.result as string).split(',')[1];
+                wsClient.send("audio_chunk", { data: base64data });
+              }
+            };
+            reader.readAsDataURL(e.data);
           } catch (err) {
             console.error("Failed to process audio chunk", err);
           }
@@ -162,8 +165,8 @@ const stop = useCallback(() => {
         setState("processing"); // App logic takes over
       };
 
-      // Start recording with a small timeslice to get frequent data (for Phase 25)
-      recorder.start(250); 
+      // Start recording with a larger timeslice (2000ms) to reduce CPU load on backend decoding while maintaining real-time feel
+      recorder.start(2000); 
       
     } catch (err: any) {
       console.error("Audio capture error:", err);

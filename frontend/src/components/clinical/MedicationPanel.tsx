@@ -72,16 +72,16 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-4 p-5 border border-[var(--color-success-200)] dark:border-[var(--color-success-800)] bg-[var(--color-success-50)]/30 dark:bg-[var(--color-success-900)]/10 rounded-2xl shadow-sm backdrop-blur-md"
+      className="mt-4 p-5 border border-[var(--color-success-200)] [var(--color-success-800)] bg-[var(--color-success-50)]/30 [var(--color-success-900)]/10 rounded-2xl shadow-sm backdrop-blur-md"
     >
-      <div className="flex items-start justify-between mb-4 border-b border-[var(--color-success-100)] dark:border-[var(--color-success-800)] pb-4">
+      <div className="flex items-start justify-between mb-4 border-b border-[var(--color-success-100)] [var(--color-success-800)] pb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white dark:bg-[var(--surface-sunken)] rounded-xl shadow-sm border border-[var(--color-success-200)] dark:border-[var(--color-success-800)]">
+          <div className="p-2 bg-white [var(--surface-sunken)] rounded-xl shadow-sm border border-[var(--color-success-200)] [var(--color-success-800)]">
             <Pill className="w-5 h-5 text-[var(--color-success-500)]" />
           </div>
           <div>
-            <h5 className="font-bold text-[var(--color-success-950)] dark:text-[var(--color-success-100)] text-base tracking-tight">Reference Medications</h5>
-            <p className="text-[9px] text-[var(--color-success-700)] dark:text-[var(--color-success-400)] font-bold bg-[var(--color-success-100)] dark:bg-[var(--color-success-900)]/50 inline-flex items-center gap-1 px-2 py-0.5 rounded shadow-sm uppercase tracking-wider mt-1">
+            <h5 className="font-bold text-[var(--color-success-950)] [var(--color-success-100)] text-base tracking-tight">Reference Medications</h5>
+            <p className="text-[9px] text-[var(--color-success-700)] [var(--color-success-400)] font-bold bg-[var(--color-success-100)] [var(--color-success-900)]/50 inline-flex items-center gap-1 px-2 py-0.5 rounded shadow-sm uppercase tracking-wider mt-1">
               <ShieldCheck className="w-3 h-3"/> REFERENCE INFORMATION - CLINICIAN REVIEW REQUIRED
             </p>
           </div>
@@ -112,21 +112,50 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
         )}
       </AnimatePresence>
 
+      {data.ddi_warnings && data.ddi_warnings.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }} 
+          animate={{ opacity: 1, scale: 1 }}
+          className="mb-6 bg-[var(--color-danger-500)] text-white p-4 rounded-xl shadow-lg border-2 border-[var(--color-danger-700)] overflow-hidden relative"
+        >
+          <div className="absolute top-0 left-0 w-full h-1 bg-[var(--color-danger-300)] animate-pulse"></div>
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-6 h-6 animate-bounce" />
+            <h4 className="font-black uppercase tracking-wider text-sm">NIH RxNav Safety Alert: Severe Drug Interaction</h4>
+          </div>
+          <p className="text-xs mb-3 font-medium opacity-90">
+            The AI has generated a medication regimen containing contraindicated generic combinations based on live NIH data.
+          </p>
+          <ul className="list-disc pl-5 text-xs font-bold space-y-1 bg-black/20 p-3 rounded-lg">
+            {data.ddi_warnings.map((warning, wIdx) => (
+              <li key={wIdx}>{warning}</li>
+            ))}
+          </ul>
+        </motion.div>
+      )}
+
       <motion.div variants={containerVars} initial="hidden" animate="show" className="space-y-4">
         {data.suggestions.map((med, idx) => (
           <motion.div 
             variants={itemVars}
             key={idx} 
-            className="bg-white/80 dark:bg-black/40 border border-[var(--glass-border)] rounded-xl p-5 shadow-sm relative overflow-hidden backdrop-blur-sm"
+            draggable={true}
+            onDragStart={(e) => {
+              e.dataTransfer.setData("text/plain", `Plan: Start ${med.generic_name} - ${med.standard_reference_dosing} (Indication: ${med.indication})`);
+            }}
+            className="bg-white/80 border border-[var(--glass-border)] rounded-xl p-5 shadow-sm relative overflow-hidden backdrop-blur-sm cursor-grab active:cursor-grabbing group"
           >
-            <div className="absolute top-0 right-0 px-3 py-1 bg-[var(--color-success-50)] dark:bg-[var(--color-success-900)]/30 text-[var(--color-success-700)] dark:text-[var(--color-success-400)] text-[9px] font-mono border-l border-b border-[var(--color-success-100)] dark:border-[var(--color-success-800)] rounded-bl-xl shadow-sm flex items-center gap-1">
+            <div className="absolute top-0 right-0 px-3 py-1 bg-[var(--color-success-50)] [var(--color-success-900)]/30 text-[var(--color-success-700)] [var(--color-success-400)] text-[9px] font-mono border-l border-b border-[var(--color-success-100)] [var(--color-success-800)] rounded-bl-xl shadow-sm flex items-center gap-1">
               <FileText className="w-3 h-3"/> {med.source_evidence}
             </div>
             
             <div className="flex items-center gap-3 mb-2">
+              <div className="text-slate-300 hover:text-slate-500 cursor-grab px-1 -ml-2" title="Drag to Clinical Note">
+                <span className="text-xl leading-none">⠿</span>
+              </div>
               <h6 className="font-bold text-[var(--text-primary)] text-lg tracking-tight">{med.generic_name}</h6>
               {med.safety_decision && med.safety_decision.decision !== 'ALLOW' && (
-                <span className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 shadow-sm ${med.safety_decision.decision === 'ABSTAIN' ? 'bg-[var(--color-danger-50)] dark:bg-[var(--color-danger-900)]/30 text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] border border-[var(--color-danger-200)] dark:border-[var(--color-danger-800)]' : 'bg-[var(--color-warning-50)] dark:bg-[var(--color-warning-900)]/30 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] border border-[var(--color-warning-200)] dark:border-[var(--color-warning-800)]'}`}>
+                <span className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 shadow-sm ${med.safety_decision.decision === 'ABSTAIN' ? 'bg-[var(--color-danger-50)] [var(--color-danger-900)]/30 text-[var(--color-danger-700)] [var(--color-danger-400)] border border-[var(--color-danger-200)] [var(--color-danger-800)]' : 'bg-[var(--color-warning-50)] [var(--color-warning-900)]/30 text-[var(--color-warning-700)] [var(--color-warning-400)] border border-[var(--color-warning-200)] [var(--color-warning-800)]'}`}>
                   {med.safety_decision.decision === 'ABSTAIN' ? <AlertCircle className="w-3 h-3"/> : <AlertTriangle className="w-3 h-3"/>}
                   {med.safety_decision.decision === 'ABSTAIN' ? 'CONTRAINDICATED' : 'WARNING'}
                 </span>
@@ -136,7 +165,7 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
             {med.safety_decision && med.safety_decision.flags.length > 0 && (
               <div className="mb-4 space-y-2">
                 {med.safety_decision.flags.map((flag, fidx) => (
-                  <div key={fidx} className={`p-2.5 rounded-lg border text-xs flex gap-2 items-start ${flag.severity === 'CRITICAL' ? 'bg-[var(--color-danger-50)] dark:bg-[var(--color-danger-900)]/20 border-[var(--color-danger-200)] dark:border-[var(--color-danger-800)] text-[var(--color-danger-800)] dark:text-[var(--color-danger-300)]' : 'bg-[var(--color-warning-50)] dark:bg-[var(--color-warning-900)]/20 border-[var(--color-warning-200)] dark:border-[var(--color-warning-800)] text-[var(--color-warning-800)] dark:text-[var(--color-warning-300)]'}`}>
+                  <div key={fidx} className={`p-2.5 rounded-lg border text-xs flex gap-2 items-start ${flag.severity === 'CRITICAL' ? 'bg-[var(--color-danger-50)] [var(--color-danger-900)]/20 border-[var(--color-danger-200)] [var(--color-danger-800)] text-[var(--color-danger-800)] [var(--color-danger-300)]' : 'bg-[var(--color-warning-50)] [var(--color-warning-900)]/20 border-[var(--color-warning-200)] [var(--color-warning-800)] text-[var(--color-warning-800)] [var(--color-warning-300)]'}`}>
                     <AlertTriangle className={`w-4 h-4 shrink-0 ${flag.severity === 'CRITICAL' ? 'text-[var(--color-danger-500)]' : 'text-[var(--color-warning-500)]'}`} />
                     <div>
                       <span className="font-bold block uppercase tracking-wider text-[9px] opacity-80 mb-0.5">{flag.category}</span>
@@ -153,25 +182,25 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4 text-xs">
-              <div className="bg-white dark:bg-black/20 p-4 rounded-xl border border-[var(--glass-border)] shadow-sm">
+              <div className="bg-white  p-4 rounded-xl border border-[var(--glass-border)] shadow-sm">
                 <span className="block text-[10px] uppercase font-bold text-[var(--text-tertiary)] mb-1 tracking-wider">Indication</span>
                 <p className="text-[var(--text-secondary)] font-medium leading-relaxed">{med.indication}</p>
               </div>
 
-              <div className="bg-white dark:bg-black/20 p-4 rounded-xl border border-[var(--glass-border)] shadow-sm">
+              <div className="bg-white  p-4 rounded-xl border border-[var(--glass-border)] shadow-sm">
                 <span className="block text-[10px] uppercase font-bold text-[var(--text-tertiary)] mb-2 tracking-wider">Standard Reference Dosing</span>
-                <p className="text-[var(--color-success-800)] dark:text-[var(--color-success-300)] bg-[var(--color-success-50)] dark:bg-[var(--color-success-900)]/20 border border-[var(--color-success-200)] dark:border-[var(--color-success-800)] px-2.5 py-1.5 rounded-md inline-block font-mono text-[11px] shadow-sm">
+                <p className="text-[var(--color-success-800)] [var(--color-success-300)] bg-[var(--color-success-50)] [var(--color-success-900)]/20 border border-[var(--color-success-200)] [var(--color-success-800)] px-2.5 py-1.5 rounded-md inline-block font-mono text-[11px] shadow-sm">
                   {med.standard_reference_dosing}
                 </p>
               </div>
 
-              <div className="bg-white dark:bg-black/20 p-4 rounded-xl border border-[var(--color-danger-200)] dark:border-[var(--color-danger-800)] shadow-sm relative overflow-hidden">
+              <div className="bg-white  p-4 rounded-xl border border-[var(--color-danger-200)] [var(--color-danger-800)] shadow-sm relative overflow-hidden">
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--color-danger-500)]"></div>
-                <span className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] mb-3 tracking-wider">
+                <span className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-[var(--color-danger-600)] [var(--color-danger-400)] mb-3 tracking-wider">
                   <AlertTriangle className="w-3 h-3"/> Contraindications
                 </span>
                 {med.contraindications.length > 0 ? (
-                  <ul className="list-disc pl-5 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] space-y-1.5 font-medium text-[11px]">
+                  <ul className="list-disc pl-5 text-[var(--color-danger-700)] [var(--color-danger-300)] space-y-1.5 font-medium text-[11px]">
                     {med.contraindications.map((c, i) => <li key={i}>{c}</li>)}
                   </ul>
                 ) : (
@@ -179,13 +208,13 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
                 )}
               </div>
 
-              <div className="bg-white dark:bg-black/20 p-4 rounded-xl border border-[var(--color-warning-200)] dark:border-[var(--color-warning-800)] shadow-sm relative overflow-hidden">
+              <div className="bg-white  p-4 rounded-xl border border-[var(--color-warning-200)] [var(--color-warning-800)] shadow-sm relative overflow-hidden">
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--color-warning-500)]"></div>
-                <span className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] mb-3 tracking-wider">
+                <span className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-[var(--color-warning-600)] [var(--color-warning-400)] mb-3 tracking-wider">
                   <Activity className="w-3 h-3"/> Interactions
                 </span>
                 {med.interactions.length > 0 ? (
-                  <ul className="list-disc pl-5 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] space-y-1.5 font-medium text-[11px]">
+                  <ul className="list-disc pl-5 text-[var(--color-warning-700)] [var(--color-warning-300)] space-y-1.5 font-medium text-[11px]">
                     {med.interactions.map((i, k) => <li key={k}>{i}</li>)}
                   </ul>
                 ) : (
@@ -211,10 +240,10 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
                 <span className="block font-bold text-[var(--text-tertiary)] uppercase tracking-wider text-[9px] mb-1">Pregnancy & Age</span>
                 <span className={med.pregnancy_lactation_considerations === "Unavailable" ? "text-[var(--text-tertiary)] italic" : "text-[var(--text-secondary)] font-medium"}>{med.pregnancy_lactation_considerations} / {med.age_considerations}</span>
               </div>
-              <div className="col-span-2 lg:col-span-4 bg-[var(--color-primary-50)]/50 dark:bg-[var(--color-primary-900)]/20 p-3 rounded-lg border border-[var(--color-primary-100)] dark:border-[var(--color-primary-800)] shadow-sm flex items-start gap-3">
+              <div className="col-span-2 lg:col-span-4 bg-[var(--color-primary-50)]/50 [var(--color-primary-900)]/20 p-3 rounded-lg border border-[var(--color-primary-100)] [var(--color-primary-800)] shadow-sm flex items-start gap-3">
                 <Beaker className="w-4 h-4 text-[var(--color-primary-500)] shrink-0 mt-0.5" />
                 <div>
-                  <span className="block font-bold text-[var(--color-primary-700)] dark:text-[var(--color-primary-400)] uppercase tracking-wider text-[9px] mb-1">Monitoring & Labs</span>
+                  <span className="block font-bold text-[var(--color-primary-700)] [var(--color-primary-400)] uppercase tracking-wider text-[9px] mb-1">Monitoring & Labs</span>
                   <span className={med.monitoring_reference_information === "Unavailable" ? "text-[var(--text-tertiary)] italic text-xs" : "text-[var(--text-primary)] font-medium text-xs leading-relaxed"}>{med.monitoring_reference_information}</span>
                 </div>
               </div>

@@ -59,6 +59,27 @@ async def _run_ingestion_pipeline(job_id: uuid.UUID) -> None:
                 raise ValueError(f"No ingestion handler implemented for source code: {source.code}")
             if not db.in_transaction():
                 await db.begin()
+            
+            # Phase 48 Deduplication Logic
+            if job.content_hash:
+                prev_stmt = select(IngestionJob).where(
+                    IngestionJob.source_id == source.id,
+                    IngestionJob.id != job.id,
+                    IngestionJob.status == "completed",
+                    IngestionJob.review_status == "approved"
+                ).order_by(IngestionJob.created_at.desc()).limit(1)
+                prev_job = (await db.execute(prev_stmt)).scalar_one_or_none()
+                
+                if prev_job and prev_job.content_hash == job.content_hash:
+                    job.status = "completed"
+                    job.review_status = "approved"
+                    if not job.validation_result:
+                        job.validation_result = {}
+                    job.validation_result["deduplication"] = "Content hash matches previous approved version. Skipped review."
+                    await db.commit()
+                    log.info("ingestion_pipeline_deduplicated", job_id=str(job_id), source=source.code)
+                    return
+
             job.status = "completed"
             job.review_status = "unreviewed" if source.code != "MEDQUAD" else "approved"
             await db.commit()
@@ -392,3 +413,64 @@ def run_ingestion_job(self, job_id_str: str):
     except Exception as exc:
         log.error("ingestion_job_retry", job_id=str(job_id), exc=str(exc))
         raise self.retry(exc=exc)
+
+@celery_app.task(bind=True, time_limit=3600)
+def task_ingest_pmc_corpus(self, max_articles: int = 100):
+    from app.services.ingestion.pmc_rag_ingester import pmc_ingester
+    from app.infrastructure.database import get_session_factory
+    
+    async def _run():
+        db = get_session_factory()()
+        try:
+            await pmc_ingester.ingest_corpus(db, max_articles=max_articles)
+        finally:
+            await db.close()
+    
+    log.info("task_ingest_pmc_corpus_started")
+    asyncio.run(_run())
+
+@celery_app.task(bind=True, time_limit=3600)
+def task_ingest_clinical_guidelines(self):
+    from app.services.ingestion.guidelines_ingester import guidelines_ingester
+    from app.infrastructure.database import get_session_factory
+    
+    async def _run():
+        db = get_session_factory()()
+        try:
+            await guidelines_ingester.ingest_cdc_stub(db)
+        finally:
+            await db.close()
+            
+    log.info("task_ingest_clinical_guidelines_started")
+    asyncio.run(_run())
+
+@celery_app.task(bind=True, time_limit=3600)
+def task_ingest_twosides_interactions(self):
+    from app.services.ingestion.twosides_ingester import twosides_ingester
+    from app.infrastructure.database import get_session_factory
+    
+    async def _run():
+        db = get_session_factory()()
+        try:
+            await twosides_ingester.ingest_dataset_stub(db)
+        finally:
+            await db.close()
+            
+    log.info("task_ingest_twosides_interactions_started")
+    asyncio.run(_run())
+
+@celery_app.task(bind=True, time_limit=3600)
+def task_ingest_lab_tests(self):
+    from app.services.ingestion.medlineplus_lab_tests_ingester import lab_tests_ingester
+    from app.infrastructure.database import get_session_factory
+    
+    async def _run():
+        db = get_session_factory()()
+        try:
+            await lab_tests_ingester.ingest_lab_tests_stub(db)
+        finally:
+            await db.close()
+            
+    log.info("task_ingest_lab_tests_started")
+    asyncio.run(_run())
+

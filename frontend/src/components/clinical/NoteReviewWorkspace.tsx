@@ -58,9 +58,9 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
   if (!consultation) return <div className="p-8 text-gray-500">Consultation not found.</div>;
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-100px)] gap-4 w-full">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-100px)] gap-6 w-full p-6">
       {/* LEFT PANE: Transcript and Extracted Facts */}
-      <div className="w-full lg:w-1/2 flex flex-col gap-4 overflow-hidden border rounded-md shadow-sm bg-white">
+      <div className="w-full lg:w-1/2 flex flex-col gap-4 overflow-hidden rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.06)] border border-white/60 bg-white/60 backdrop-blur-3xl relative">
         
         {/* Facts / Findings */}
         <div className="flex-1 overflow-y-auto border-b">
@@ -150,9 +150,9 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
       </div>
 
       {/* RIGHT PANE: Note Editor (and toggleable Assistants) */}
-      <div className="w-full lg:w-1/2 flex flex-col overflow-hidden h-full border rounded-md shadow-sm bg-white relative">
+      <div className="w-full lg:w-1/2 flex flex-col overflow-hidden h-full rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.06)] border border-white/60 bg-white/60 backdrop-blur-3xl relative">
         {/* Toolbar to toggle RAG/Verifier */}
-        <div className="bg-gray-100 border-b p-2 flex justify-end gap-2">
+        <div className="bg-white/40 backdrop-blur-md border-b border-white/50 p-3 flex justify-end gap-3 rounded-t-3xl relative z-20">
           <button
             onClick={() => setRightPanel(rightPanel === "verify" ? "none" : "verify")}
             className={`px-3 py-1 text-sm font-medium rounded transition-colors ${rightPanel === "verify" ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : 'bg-white text-gray-700 hover:bg-gray-50 border shadow-sm'}`}

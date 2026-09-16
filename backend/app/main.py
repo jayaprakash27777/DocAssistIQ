@@ -55,14 +55,36 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application-level resources across startup and shutdown."""
     logger.info("docassistiq_startup", version=application.version)
+
+    # Start real-time disease outbreak scanner (background task)
+    try:
+        from app.services.live_disease_scanner import outbreak_scanner, get_merged_disease_kb
+        await outbreak_scanner.start()
+        merged_kb = get_merged_disease_kb()
+        logger.info("outbreak_scanner_active",
+                    static_diseases=len(merged_kb),
+                    poll_interval_min=15)
+    except Exception as e:
+        logger.warning("outbreak_scanner_start_failed", error=str(e))
+
     yield
+
     logger.info("docassistiq_shutdown")
+
+    # Stop scanner gracefully
+    try:
+        from app.services.live_disease_scanner import outbreak_scanner
+        await outbreak_scanner.stop()
+    except Exception:
+        pass
+
     from app.infrastructure.database import close_engine
     from app.infrastructure.redis import close_async_client
 
     await close_engine()
     await close_async_client()
     logger.info("shutdown_complete")
+
 
 
 def create_app() -> FastAPI:

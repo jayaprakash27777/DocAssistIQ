@@ -68,7 +68,7 @@ export default function DiseaseIntelligencePanel({ consultationId, disease }: { 
                     <Globe className="w-5 h-5 text-[var(--color-primary-600)]" />
                     <h4 className="text-lg font-bold text-[var(--color-primary-950)]">Geographic Disease Intelligence</h4>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full border border-green-200 dark:border-green-800 shadow-sm self-start">
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700   rounded-full border border-green-200  shadow-sm self-start">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                     <span className="text-[10px] font-bold uppercase tracking-widest">Live Sync</span>
                 </div>

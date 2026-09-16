@@ -24,7 +24,7 @@ export default function ControversyScanner({ consultationId, disease }: { consul
 
   if (loading) {
     return (
-      <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg animate-pulse flex items-center gap-3">
+      <div className="mt-4 p-3 bg-gray-50  rounded-lg animate-pulse flex items-center gap-3">
         <BookOpen className="w-5 h-5 text-gray-400" />
         <span className="text-sm text-gray-500 font-medium">Scanning PubMed for controversies...</span>
       </div>
@@ -34,54 +34,67 @@ export default function ControversyScanner({ consultationId, disease }: { consul
   if (!data || !data.controversy_found) return null;
 
   return (
-    <div className="mt-4 border rounded-xl overflow-hidden bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50">
+    <div className="mt-6 border rounded-2xl overflow-hidden bg-[var(--color-danger-50)] border-[var(--color-danger-200)] shadow-sm">
       <button 
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-rose-100/50 dark:hover:bg-rose-900/40 transition-colors"
+        className="w-full px-5 py-4 flex items-center justify-between hover:bg-[var(--color-danger-100)] transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-rose-100 text-rose-600 dark:bg-rose-900 dark:text-rose-300 rounded-lg">
-            <AlertCircle className="w-4 h-4" />
+          <div className="p-2 bg-[var(--color-danger-100)] text-[var(--color-danger-700)] rounded-xl shadow-inner border border-[var(--color-danger-200)]">
+            <AlertCircle className="w-5 h-5" />
           </div>
-          <span className="text-sm font-bold text-rose-900 dark:text-rose-200">
-            PubMed Alert: Recent Controversies Found
-          </span>
-          <span className="px-2 py-0.5 rounded-full bg-rose-200 text-rose-800 dark:bg-rose-800 dark:text-rose-200 text-[10px] font-bold">
-            {data.articles.length} ARTICLES
-          </span>
+          <div className="text-left">
+            <span className="block text-base font-bold text-[var(--color-danger-900)]">
+              PubMed Alert: Recent Controversies Found
+            </span>
+            <span className="block text-xs font-semibold text-[var(--color-danger-700)] mt-0.5">
+              AI identified conflicting literature for {disease}
+            </span>
+          </div>
         </div>
-        {expanded ? <ChevronUp className="w-4 h-4 text-rose-500" /> : <ChevronDown className="w-4 h-4 text-rose-500" />}
+        <div className="flex items-center gap-4">
+          <span className="px-3 py-1 rounded-full bg-[var(--color-danger-600)] text-white text-[10px] font-black uppercase tracking-widest shadow-sm">
+            {data.articles.length} SOURCES
+          </span>
+          {expanded ? <ChevronUp className="w-5 h-5 text-[var(--color-danger-500)]" /> : <ChevronDown className="w-5 h-5 text-[var(--color-danger-500)]" />}
+        </div>
       </button>
 
       <AnimatePresence>
         {expanded && (
           <motion.div
-            initial={{ height: 0 }}
-            animate={{ height: "auto" }}
-            exit={{ height: 0 }}
-            className="overflow-hidden border-t border-rose-200 dark:border-rose-900/50"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden border-t border-[var(--color-danger-200)] bg-white/60 backdrop-blur-md"
           >
-            <div className="p-4 space-y-4">
-              <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-rose-100 dark:border-rose-900/50 shadow-sm">
-                <h4 className="text-xs font-bold text-rose-800 dark:text-rose-400 uppercase tracking-wider mb-2">AI Summary of Controversy</h4>
-                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
+            <div className="p-5 md:p-6 space-y-6">
+              <div className="bg-white p-5 rounded-xl border border-[var(--color-danger-100)] shadow-[var(--shadow-subtle)]">
+                <div className="flex items-center gap-2 mb-3">
+                  <h4 className="text-xs font-bold text-[var(--color-danger-800)] uppercase tracking-widest">AI Synthesis of Controversy</h4>
+                </div>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed font-medium">
                   {data.ai_summary}
                 </p>
               </div>
 
               <div>
-                <h4 className="text-xs font-bold text-rose-800 dark:text-rose-400 uppercase tracking-wider mb-2 px-1">Source Literature</h4>
-                <ul className="space-y-2">
+                <h4 className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-widest mb-3 px-1">Source Literature</h4>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {data.articles.map((article, i) => (
-                    <li key={i} className="flex gap-3 p-2 hover:bg-rose-100/30 dark:hover:bg-rose-900/20 rounded-lg transition-colors group">
-                      <BookOpen className="w-4 h-4 text-rose-400 dark:text-rose-600 mt-1 flex-shrink-0" />
+                    <li key={i} className="flex gap-3 p-4 bg-white hover:bg-[var(--surface-sunken)] border border-[var(--border-subtle)] rounded-xl transition-all group shadow-sm hover:shadow-md">
+                      <div className="mt-0.5 p-2 bg-[var(--surface-raised)] border border-[var(--border-default)] rounded-lg flex-shrink-0 h-fit">
+                        <BookOpen className="w-4 h-4 text-[var(--text-tertiary)]" />
+                      </div>
                       <div>
-                        <a href={article.url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-rose-900 dark:text-rose-200 hover:underline flex items-center gap-1 leading-tight">
+                        <a href={article.url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-[var(--text-primary)] hover:text-[var(--color-primary-600)] transition-colors flex items-start gap-1.5 leading-tight mb-2">
                           {article.title}
-                          <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
                         </a>
-                        <p className="text-xs text-rose-700 dark:text-rose-400 mt-1 font-medium">
-                          {article.source} • {article.pub_date}
+                        <p className="text-xs text-[var(--text-tertiary)] font-medium flex items-center gap-2">
+                          <span className="truncate max-w-[120px]">{article.source}</span>
+                          <span className="w-1 h-1 rounded-full bg-[var(--border-default)]" />
+                          <span>{article.pub_date}</span>
                         </p>
                       </div>
                     </li>

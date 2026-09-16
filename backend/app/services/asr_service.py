@@ -44,7 +44,8 @@ class ASRService:
                             self.model_size,
                             device=self.device,
                             compute_type=self.compute_type,
-                            download_root="./model_cache"
+                            download_root="./model_cache",
+                            cpu_threads=2
                         )
                         log.info("asr_model_loaded_gpu")
                     except Exception as e:
@@ -54,7 +55,8 @@ class ASRService:
                             self.model_size,
                             device="cpu",
                             compute_type="int8",
-                            download_root="./model_cache"
+                            download_root="./model_cache",
+                            cpu_threads=2
                         )
                         log.info("asr_model_loaded_cpu")
 
@@ -124,14 +126,18 @@ class ASRService:
             
             # If buffer is >= 2 seconds, transcribe
             if len(buffer) >= self.sample_rate * 2:
-                # Transcribe
-                segments, info = await asyncio.to_thread(
-                    self.model.transcribe,
-                    buffer,
-                    beam_size=1,
-                    language="en",
-                    vad_filter=True,
-                )
+                # Transcribe inside to_thread to prevent blocking event loop during generator iteration
+                def run_transcription(audio_buffer):
+                    segments_gen, _ = self.model.transcribe(
+                        audio_buffer,
+                        beam_size=1,
+                        language="en",
+                        vad_filter=True,
+                    )
+                    # Consume the generator inside the thread
+                    return list(segments_gen)
+
+                segments = await asyncio.to_thread(run_transcription, buffer)
                 
                 text = " ".join([segment.text for segment in segments])
                 if text.strip():
@@ -150,7 +156,8 @@ class ASRService:
                         for s in segments
                     ]
                     
-                    diarized_segments = default_diarization_provider.diarize(
+                    diarized_segments = await asyncio.to_thread(
+                        default_diarization_provider.diarize,
                         audio_buffer=buffer,
                         sample_rate=self.sample_rate,
                         whisper_segments=whisper_segments_dicts,

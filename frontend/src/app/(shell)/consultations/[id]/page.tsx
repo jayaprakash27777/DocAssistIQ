@@ -70,6 +70,7 @@ export default function ConsultationDetailPage() {
   
   // Consent Form State
   const [showConsentForm, setShowConsentForm] = useState(false);
+  const [pendingTransition, setPendingTransition] = useState<string | null>(null);
   const [consentActor, setConsentActor] = useState("");
   const [consentRelation, setConsentRelation] = useState("self");
   
@@ -123,9 +124,10 @@ export default function ConsultationDetailPage() {
     const res = await getConsultation(id);
     if (res.ok) {
       setConsultation(res.data);
-      if (!inputText && res.data.input_text) {
-        setInputText(res.data.input_text);
-      }
+      setInputText(prev => {
+        if (!prev && res.data.input_text) return res.data.input_text;
+        return prev;
+      });
       
       // Fetch Consent
       const consentRes = await getActiveConsent(id);
@@ -150,7 +152,7 @@ export default function ConsultationDetailPage() {
       router.push("/consultations");
     }
     setLoading(false);
-  }, [id, router, toast, inputText]);
+  }, [id, router, toast]);
 
   // Handle WebSocket ASR events
   useEffect(() => {
@@ -185,6 +187,7 @@ export default function ConsultationDetailPage() {
     // UI Consent Guard
     if (newStatus === "recording" && (!consent || !consent.recording_permitted)) {
       toast.error("Explicit consent is required to start recording.");
+      setPendingTransition(newStatus);
       setShowConsentForm(true);
       return;
     }
@@ -285,6 +288,12 @@ export default function ConsultationDetailPage() {
       toast.success("Consent granted & recorded.");
       setConsent(res.data);
       setShowConsentForm(false);
+      
+      if (pendingTransition) {
+        const transition = pendingTransition;
+        setPendingTransition(null);
+        handleTransition(transition);
+      }
     } else {
       toast.error(res.error.message || "Failed to grant consent.");
     }

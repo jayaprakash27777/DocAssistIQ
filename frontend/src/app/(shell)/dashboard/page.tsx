@@ -3,10 +3,11 @@
 /* eslint-disable react/no-unescaped-entities */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { listConsultations, type ConsultationSummary } from "@/lib/api";
+import { type ConsultationSummary } from "@/lib/api";
+import { useConsultations } from "@/hooks/useConsultations";
 import { motion, Variants } from "framer-motion";
 import CountUp from "react-countup";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -30,39 +31,44 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }
   amended: { label: "Amended", color: "var(--text-secondary)", bg: "rgba(0,0,0,0.05)" },
 };
 
-const mockChartData = [
-  { name: 'Mon', consultations: 4 },
-  { name: 'Tue', consultations: 7 },
-  { name: 'Wed', consultations: 5 },
-  { name: 'Thu', consultations: 11 },
-  { name: 'Fri', consultations: 8 },
-  { name: 'Sat', consultations: 3 },
-  { name: 'Sun', consultations: 6 },
-];
-
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalConsultations: 0,
-    recentConsultations: [],
-    loading: true,
-  });
+  
+  // Use the React Query hook from Phase 1
+  const { data: listData, isLoading: loading } = useConsultations();
 
-  useEffect(() => {
-    async function loadStats() {
-      const res = await listConsultations(1, 5);
-      if (res.ok) {
-        setStats({
-          totalConsultations: res.data.total,
-          recentConsultations: res.data.items,
-          loading: false,
-        });
-      } else {
-        setStats((s) => ({ ...s, loading: false }));
-      }
+  const totalConsultations = listData?.length || 0;
+  const recentConsultations = listData?.slice(0, 5) || [];
+
+  // Compute real chart data over the last 7 days (No mock data!)
+  const chartData = useMemo(() => {
+    if (!listData) return [];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const now = new Date();
+    const result: { name: string; dateStr: string; consultations: number }[] = [];
+    
+    // Initialize the last 7 days with 0 consultations
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      result.push({
+        name: days[d.getDay()],
+        dateStr: d.toISOString().split('T')[0],
+        consultations: 0
+      });
     }
-    loadStats();
-  }, []);
+
+    // Populate actual data
+    listData.forEach(c => {
+      const cDate = new Date(c.created_at).toISOString().split('T')[0];
+      const match = result.find(r => r.dateStr === cDate);
+      if (match) {
+        match.consultations += 1;
+      }
+    });
+
+    return result;
+  }, [listData]);
 
   if (!user) return null;
 
@@ -131,7 +137,7 @@ export default function DashboardPage() {
         {[
           { 
             label: "Total Consultations", 
-            value: stats.loading ? 0 : stats.totalConsultations, 
+            value: loading ? 0 : totalConsultations, 
             icon: Activity,
             color: "text-[var(--color-primary-600)]",
             bg: "bg-[var(--color-primary-50)]",
@@ -187,7 +193,7 @@ export default function DashboardPage() {
           
           <div className="h-[300px] w-full relative z-10">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mockChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorConsults" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--color-primary-500)" stopOpacity={0.4}/>
@@ -217,7 +223,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex-1 overflow-hidden relative z-10">
-            {stats.loading ? (
+            {loading ? (
               <div className="space-y-4">
                 {[1, 2, 3, 4].map(i => (
                   <div key={i} className="flex gap-4 items-center">
@@ -229,14 +235,14 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-            ) : stats.recentConsultations.length === 0 ? (
+            ) : recentConsultations.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-[var(--color-neutral-50)] rounded-2xl border border-dashed border-[var(--border-default)]">
                 <FileEdit className="w-12 h-12 text-[var(--text-tertiary)] mb-4 opacity-50" />
                 <p className="text-[var(--text-secondary)] font-medium">No recent consultations found.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {stats.recentConsultations.map((c, i) => {
+                {recentConsultations.map((c, i) => {
                   const status = STATUS_LABELS[c.status] || { label: c.status, color: "var(--text-secondary)", bg: "var(--color-neutral-100)" };
                   return (
                     <motion.div 

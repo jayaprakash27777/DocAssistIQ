@@ -25,6 +25,8 @@ export const metadata: Metadata = {
     "Evidence-grounded Clinical Decision Support for qualified healthcare professionals",
 };
 
+import { QueryProvider } from "@/components/QueryProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,16 +35,18 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>
       <body className="antialiased font-sans bg-[var(--surface-primary)] text-[var(--text-primary)] transition-colors duration-300">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {/* System status bar — shown only when services are degraded or offline */}
-          <SystemStatus />
-          {children}
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            forcedTheme="light"
+            disableTransitionOnChange
+          >
+            {/* System status bar — shown only when services are degraded or offline */}
+            <SystemStatus />
+            {children}
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );

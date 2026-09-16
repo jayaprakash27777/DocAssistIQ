@@ -26,6 +26,7 @@ import { Sidebar } from "@/components/shell/Sidebar";
 import { Header } from "@/components/shell/Header";
 import { DashboardSkeleton } from "@/components/shell/LoadingSkeleton";
 import { CommandPalette } from "@/components/shell/CommandPalette";
+import { LiveOutbreakBanner } from "@/components/clinical/LiveOutbreakBanner";
 
 // ── Inner layout (reads auth context) ────────────────────────
 
@@ -91,6 +92,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
       <div className="shell-content">
         <Header onMenuToggle={() => setMobileNavOpen((o) => !o)} />
         <main className="shell-main" id="main-content" tabIndex={-1}>
+          <LiveOutbreakBanner />
           <ErrorBoundary>
             {children}
           </ErrorBoundary>

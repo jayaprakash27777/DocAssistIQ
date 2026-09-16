@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authLogin, storeToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface FieldError {
   email?: string;
@@ -57,10 +58,20 @@ function LoginContent() {
   }
 
   return (
-    <div className="auth-card">
-      <div className="auth-card-header">
-        <h1 className="auth-card-title">Sign in</h1>
-        <p className="auth-card-subtitle">Access your clinical workspace</p>
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.6, type: "spring", bounce: 0.4 }}
+      className="auth-card relative overflow-hidden"
+    >
+      <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-[var(--color-primary-200)] opacity-20 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-[var(--color-primary-100)] opacity-10 blur-3xl pointer-events-none" />
+
+      <div className="auth-card-header text-center relative z-10 mb-8">
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-2">
+          Welcome Back
+        </h1>
+        <p className="text-sm font-medium text-[var(--text-secondary)]">Sign in to your clinical workspace</p>
       </div>
 
       {serverError && (
@@ -132,13 +143,13 @@ function LoginContent() {
         </Button>
       </form>
 
-      <p className="auth-redirect-hint">
+      <p className="auth-redirect-hint relative z-10 mt-8">
         Don&apos;t have an account?{" "}
-        <Link href="/register" className="auth-link">
+        <Link href="/register" className="auth-link font-bold text-[var(--color-primary-600)] hover:text-[var(--color-primary-700)] transition-colors">
           Create one
         </Link>
       </p>
-    </div>
+    </motion.div>
   );
 }
 

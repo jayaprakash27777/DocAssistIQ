@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import time
 from typing import List, Optional
 
 from sqlalchemy import select, and_, cast, String
@@ -10,6 +11,7 @@ from sqlalchemy.orm import aliased
 from app.models.embedding import EmbeddingRecord
 from app.models.provenance import Evidence, Article, Source
 from app.models.knowledge import Disease, Symptom, Investigation, Medicine
+from app.models.experiment import MLExperiment
 from app.schemas.rag import RAGQueryRequest, RAGCitation, RAGResponse
 from app.infrastructure.ai.factory import get_embedding_provider, get_generation_provider
 from app.infrastructure.ai.interfaces import GenerationRequest
@@ -39,6 +41,7 @@ async def retrieve_evidence(
     4. Apply metadata filters (status, credibility)
     5. Mock generative answer
     """
+    start_time = time.time()
     provider = get_embedding_provider()
     
     # 1. Embed query
@@ -139,10 +142,15 @@ async def retrieve_evidence(
 The user has provided input which may be a direct clinical question OR a long, unstructured paragraph describing a patient case.
 
 Your task:
-1. Analyze the unstructured input. If the user is describing a patient, identify the implicit clinical questions (e.g., potential diagnoses, management steps, or red flags).
+1. Analyze the unstructured input. If the user is describing a patient, identify the implicit clinical questions.
 2. Answer the user's explicit or implicit questions.
 3. You MUST ground your clinical assessment strictly in the provided evidence citations. Do not make up medical facts. 
 4. If the provided evidence is insufficient to fully address the complex case, state what is supported and what requires further clinical judgement outside the knowledge base.
+
+CRITICAL INSTRUCTION:
+Before answering, you MUST write a `<clinical_reasoning>` block where you think step-by-step.
+In this block, evaluate the user's query, review the provided citations, and determine exactly how to synthesize them.
+After the `</clinical_reasoning>` closing tag, write your final, confident, and professional response to the user.
 
 User Input / Clinical Case:
 {request.query}
@@ -159,6 +167,29 @@ Expert Clinical Assessment:"""
         except Exception as e:
             logger.error(f"Failed to generate answer: {e}")
             answer = "System error: The AI provider failed to generate a response. Ensure your local models are running."
+
+    duration = time.time() - start_time
+    
+    # LIVE INFERENCE TELEMETRY: Log this real RAG query to MLExperiment tracking
+    try:
+        experiment = MLExperiment(
+            name=f"Live-RAG-Query",
+            status="completed" if not insufficient else "failed",
+            code_commit="LIVE-INFERENCE",
+            dataset_version="live",
+            dataset_hash="dynamic",
+            preprocessing_version="1.0",
+            model_name=provider.metadata.model_name,
+            configuration={"top_k": request.top_k, "filters": request.filters.model_dump()},
+            random_seed=0.0,
+            hardware={"type": "Inference Endpoint"},
+            execution_duration_sec=duration,
+            metrics={"citations_retrieved": len(citations), "latency_ms": duration * 1000}
+        )
+        db.add(experiment)
+        await db.commit()
+    except Exception as e:
+        logger.error(f"Failed to log telemetry to MLExperiment: {e}")
 
     return RAGResponse(
         query=request.query,
@@ -211,5 +242,131 @@ async def retrieve_medical_context(db: AsyncSession, query: str, top_k: int = 3)
             if getattr(ev, 'context', getattr(ev, 'text', '')):
                 context += f"Context: {getattr(ev, 'context', getattr(ev, 'text', ''))}\n"
             context += f"Findings: {ev.claim}\n\n"
+                
+    return context
+
+async def retrieve_investigation_context(db: AsyncSession, query: str, top_k: int = 5) -> str:
+    """
+    RAG utility to retrieve specific Investigation records (e.g. lab tests, imaging)
+    based on the clinical query.
+    """
+    provider = get_embedding_provider()
+    
+    try:
+        query_vector = await provider.embed(query)
+    except Exception as e:
+        logger.error(f"Failed to embed query for investigation retrieval: {e}")
+        return ""
+
+    distance_col = EmbeddingRecord.embedding.cosine_distance(query_vector).label("distance")
+    
+    stmt = (
+        select(EmbeddingRecord, distance_col)
+        .where(
+            and_(
+                EmbeddingRecord.embedding_model == provider.metadata.model_name,
+                EmbeddingRecord.source_record_type == "investigation"
+            )
+        )
+        .order_by(distance_col)
+        .limit(top_k)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    context = ""
+    for emb_record, dist in rows:
+        inv_id = emb_record.source_record_id
+        inv = await db.scalar(
+            select(Investigation).where(cast(Investigation.id, String) == str(inv_id))
+        )
+        if inv:
+            context += f"INVESTIGATION: {inv.name} (Code: {inv.code})\n"
+            context += f"Description: {inv.description}\n\n"
+                
+    return context
+
+async def retrieve_medicine_context(db: AsyncSession, query: str, top_k: int = 5) -> str:
+    """
+    RAG utility to retrieve specific Medicine records (e.g. from OpenFDA).
+    """
+    provider = get_embedding_provider()
+    
+    try:
+        query_vector = await provider.embed(query)
+    except Exception as e:
+        logger.error(f"Failed to embed query for medicine retrieval: {e}")
+        return ""
+
+    distance_col = EmbeddingRecord.embedding.cosine_distance(query_vector).label("distance")
+    
+    stmt = (
+        select(EmbeddingRecord, distance_col)
+        .where(
+            and_(
+                EmbeddingRecord.embedding_model == provider.metadata.model_name,
+                EmbeddingRecord.source_record_type == "medicine"
+            )
+        )
+        .order_by(distance_col)
+        .limit(top_k)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    context = ""
+    for emb_record, dist in rows:
+        med_id = emb_record.source_record_id
+        med = await db.scalar(
+            select(Medicine).where(cast(Medicine.id, String) == str(med_id))
+        )
+        if med:
+            context += f"MEDICINE: {med.name} (Brand: {med.brand_names})\n"
+            # The embedding record might contain the indications/warnings directly in its content hash, but usually the text is not saved raw.
+            # If we need text, ideally we'd get it from the embedding object or re-read the knowledge, but for now we just show what we have.
+            context += f"Code/RXCUI: {med.code}\n\n"
+                
+    return context
+
+async def retrieve_disease_context(db: AsyncSession, query: str, top_k: int = 5) -> str:
+    """
+    RAG utility to retrieve specific Disease records (e.g. from SymCat or MedlinePlus).
+    """
+    provider = get_embedding_provider()
+    
+    try:
+        query_vector = await provider.embed(query)
+    except Exception as e:
+        logger.error(f"Failed to embed query for disease retrieval: {e}")
+        return ""
+
+    distance_col = EmbeddingRecord.embedding.cosine_distance(query_vector).label("distance")
+    
+    stmt = (
+        select(EmbeddingRecord, distance_col)
+        .where(
+            and_(
+                EmbeddingRecord.embedding_model == provider.metadata.model_name,
+                EmbeddingRecord.source_record_type == "disease"
+            )
+        )
+        .order_by(distance_col)
+        .limit(top_k)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+    
+    context = ""
+    for emb_record, dist in rows:
+        dis_id = emb_record.source_record_id
+        dis = await db.scalar(
+            select(Disease).where(cast(Disease.id, String) == str(dis_id))
+        )
+        if dis:
+            context += f"DISEASE/SYNDROME: {dis.name}\n"
+            context += f"Description/Context: {dis.description}\n\n"
                 
     return context

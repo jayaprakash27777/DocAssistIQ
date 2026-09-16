@@ -105,16 +105,18 @@ export default function DifferentialDiagnosis({ consultationId, trigger }: { con
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-panel mb-8 overflow-hidden rounded-2xl shadow-xl shadow-[var(--glass-shadow)] border border-[var(--glass-border)]"
+        className="mb-8 overflow-hidden rounded-3xl shadow-[0_8px_40px_rgb(0,0,0,0.04)] border border-white/60 bg-white/40 backdrop-blur-2xl relative"
       >
-      <div className="bg-gradient-to-r from-[var(--color-primary-50)] to-transparent px-5 py-4 border-b border-[var(--glass-border)] flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-xl shadow-sm border border-[var(--glass-border)]">
-            <Bot className="w-5 h-5 text-[var(--color-primary-600)]" />
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 opacity-70"></div>
+      
+      <div className="bg-gradient-to-r from-blue-50/80 to-transparent px-6 py-5 border-b border-white/50 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <div className="p-2.5 bg-white rounded-2xl shadow-sm border border-blue-100/50">
+            <Bot className="w-6 h-6 text-blue-600" />
           </div>
-          <h3 className="font-bold text-[var(--color-primary-950)] tracking-wide">AI DIFFERENTIAL SUGGESTION</h3>
+          <h3 className="font-black text-slate-800 text-lg tracking-tight">AI DIFFERENTIAL SUGGESTION</h3>
         </div>
-        <span className="text-xs text-[var(--color-primary-700)] bg-white/60 px-3 py-1.5 rounded-full font-bold shadow-sm border border-[var(--glass-border)] backdrop-blur-md">
+        <span className="text-xs text-blue-700 bg-white/80 px-4 py-1.5 rounded-full font-bold shadow-sm border border-blue-100 backdrop-blur-md">
           Top {data.top_candidates.length} Candidates
         </span>
       </div>
@@ -134,13 +136,13 @@ export default function DifferentialDiagnosis({ consultationId, trigger }: { con
       </div>
 
       {/* AI Synthesis Summary - Enterprise Style */}
-      <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-[var(--border-subtle)]">
+      <div className="px-6 py-6 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/40 bg-white/20">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-[var(--color-primary-50)] dark:bg-[var(--color-primary-900)]/30 border border-[var(--color-primary-100)] dark:border-[var(--color-primary-800)]">
-            <Bot className="w-4 h-4 text-[var(--color-primary-600)] dark:text-[var(--color-primary-400)]" />
-            <span className="text-xs font-bold text-[var(--color-primary-700)] dark:text-[var(--color-primary-300)] uppercase tracking-widest">AI Intelligence</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-blue-50/80 border border-blue-100/50">
+            <Bot className="w-4 h-4 text-blue-600" />
+            <span className="text-[10px] font-black text-blue-700 uppercase tracking-widest">AI Intelligence Synthesis</span>
           </div>
-          <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-2">Clinical Synthesis</h3>
+          <h3 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 mb-3">Clinical Synthesis</h3>
           <p className="text-base text-[var(--text-secondary)] max-w-3xl leading-relaxed">
             Based on the clinical representation, the AI identifies <strong className="text-[var(--text-primary)] font-semibold">{data.top_candidates[0].disease}</strong> as the primary differential. 
             {data.top_candidates.length > 1 ? ` Several other etiologies, including ${data.top_candidates[1].disease}, must also be ruled out.` : ` Clinical correlation is required.`}
@@ -148,7 +150,7 @@ export default function DifferentialDiagnosis({ consultationId, trigger }: { con
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 px-6 pb-8">
         <AnimatePresence>
         {data.top_candidates.map((candidate, idx) => {
           const scorePercent = Math.round(candidate.score * 100);
@@ -157,23 +159,30 @@ export default function DifferentialDiagnosis({ consultationId, trigger }: { con
 
           return (
           <motion.div 
-            key={idx} 
+            key={idx}
+            draggable={true}
+            onDragStart={(e) => {
+              e.dataTransfer.setData("text/plain", `Assessment: ${candidate.disease} (AI Confidence: ${scorePercent}%)`);
+            }}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.08, duration: 0.4, ease: "easeOut" }}
-            className="group bg-white/70 dark:bg-[var(--surface-overlay)] backdrop-blur-md rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--color-primary-300)] dark:hover:border-[var(--color-primary-700)] shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
+            className="group bg-white/60 backdrop-blur-2xl rounded-2xl border border-white/80 hover:border-blue-300 shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(59,130,246,0.1)] transition-all duration-300 overflow-hidden relative cursor-grab active:cursor-grabbing"
           >
             {/* Clickable Header Area */}
             <div 
-              className="p-5 md:p-6 flex items-center justify-between cursor-pointer"
+              className="p-5 md:p-6 flex items-center justify-between cursor-pointer relative z-10"
               onClick={() => setExpandedIndex(expandedIndex === idx ? null : idx)}
             >
               <div className="flex items-center gap-5 w-full">
+                <div className="text-slate-300 hover:text-slate-500 cursor-grab px-1 -ml-2" title="Drag to Clinical Note">
+                  <span className="text-xl leading-none">⠿</span>
+                </div>
                 
                 {/* SVG Circular Progress */}
                 <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 48 48">
-                    <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-[var(--surface-sunken)] dark:text-gray-800" />
+                    <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-[var(--surface-sunken)]" />
                     <motion.circle 
                       initial={{ strokeDashoffset: circumference }}
                       animate={{ strokeDashoffset }}
@@ -184,21 +193,21 @@ export default function DifferentialDiagnosis({ consultationId, trigger }: { con
                       fill="transparent" 
                       strokeLinecap="round"
                       strokeDasharray={circumference}
-                      className={idx === 0 ? "text-[var(--color-primary-500)]" : "text-gray-400 dark:text-gray-600"} 
+                      className={idx === 0 ? "text-[var(--color-primary-500)]" : "text-slate-300"} 
                     />
                   </svg>
-                  <span className={`absolute text-sm font-bold ${idx === 0 ? 'text-[var(--color-primary-700)] dark:text-[var(--color-primary-400)]' : 'text-[var(--text-secondary)]'}`}>
+                  <span className={`absolute text-sm font-bold ${idx === 0 ? 'text-[var(--color-primary-700)]' : 'text-[var(--text-secondary)]'}`}>
                     {scorePercent}
                   </span>
                 </div>
                 
                 <div className="flex-grow">
                   <div className="flex items-center gap-3 mb-1">
-                    <h4 className={`text-xl font-bold tracking-tight transition-colors ${idx === 0 ? 'text-[var(--color-primary-700)] dark:text-[var(--color-primary-400)]' : 'text-[var(--text-primary)]'}`}>
+                    <h4 className={`text-xl font-bold tracking-tight transition-colors ${idx === 0 ? 'text-[var(--color-primary-700)]' : 'text-[var(--text-primary)]'}`}>
                       {candidate.disease}
                     </h4>
                     {idx === 0 && (
-                      <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-[var(--color-primary-100)] text-[var(--color-primary-700)] dark:bg-[var(--color-primary-900)] dark:text-[var(--color-primary-300)] rounded-full">
+                      <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-[var(--color-primary-100)] text-[var(--color-primary-700)] rounded-full">
                         Primary
                       </span>
                     )}
@@ -235,7 +244,7 @@ export default function DifferentialDiagnosis({ consultationId, trigger }: { con
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden border-t border-[var(--border-subtle)] bg-[var(--surface-sunken)]/50 dark:bg-[var(--surface-sunken)]"
+                className="overflow-hidden border-t border-[var(--border-subtle)] bg-[var(--surface-sunken)]"
               >
                 <div className="p-6 md:p-8">
                   

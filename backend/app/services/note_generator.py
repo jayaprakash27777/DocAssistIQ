@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.clinical import ClinicalFinding, ClinicalNote
+from app.models.consultation import Consultation
 from app.infrastructure.ai.factory import get_generation_provider
 from app.services.embedding_service import generate_and_store_embedding
 
@@ -59,10 +60,18 @@ class NoteGeneratorService:
             for f in findings
         ])
 
+        # Get consultation for raw input_text
+        consultation = await db.scalar(
+            select(Consultation).where(Consultation.id == consultation_id)
+        )
+        unstructured_text = consultation.input_text if consultation else ""
+
         system_prompt = (
-            "You are an Expert Clinical Note Generator AI. "
-            "Your task is to write a highly professional, accurate, and concise clinical note from the provided unstructured clinical findings. "
-            "You MUST ONLY use the provided extracted findings to write factual sections. "
+            "You are an Expert Clinical Note Parser AI. "
+            "Your task is to write a highly professional, accurate, and concise clinical note from the provided raw unstructured clinical text and extracted findings. "
+            "You MUST parse the unstructured text intelligently to capture all nuances, symptoms, vitals, and history. "
+            "CRITICAL: The input text may contain severe spelling mistakes, phonetic misspellings, medical typos, and messy shorthand. You must intelligently decipher and autocorrect these to their proper medical terms (e.g., 'lisinpril' -> 'Lisinopril', 'chxt pain' -> 'chest pain'). "
+            "SAFETY BARRIER: If you are less than 99% confident in a deciphered word (e.g., if a typo could ambiguously refer to multiple dangerous drugs like 'Prednisone' vs 'Prednisolone'), DO NOT guess. Transcribe it exactly as written and append '[SIC]' to flag it for clinician review. Patient safety is paramount. "
             "DO NOT invent facts, vitals, or examination findings. DO NOT hallucinate patient history. "
             "Use standard medical abbreviations where appropriate. "
             "Leave sections blank if there is absolutely no supporting data. "
@@ -72,7 +81,10 @@ class NoteGeneratorService:
             '"social_history": "", "examination": "", "investigations": ""}'
         )
 
-        prompt = f"Extracted Findings:\\n{findings_context}"
+        prompt = (
+            f"Raw Unstructured Clinical Notes:\n{unstructured_text}\n\n"
+            f"Extracted Findings (for cross-reference):\n{findings_context}"
+        )
         
         log.info("note_generator_request", consultation_id=str(consultation_id))
         
@@ -92,7 +104,7 @@ class NoteGeneratorService:
         except Exception as e:
             log.error("note_generator_failed", error=str(e))
             # Fallback to simple deterministic formatting if AI fails
-            drafted_sections = self._fallback_deterministic_draft(findings)  # type: ignore
+            drafted_sections = self._fallback_deterministic_draft(findings, unstructured_text)  # type: ignore
 
         # Store NoteSection objects per section (text, original_ai_text, status)
         # assessment and plan are left blank — clinician fills those in
@@ -175,13 +187,16 @@ class NoteGeneratorService:
             
         return note
 
-    def _fallback_deterministic_draft(self, findings: List[ClinicalFinding]) -> Dict[str, str]:
+    def _fallback_deterministic_draft(self, findings: List[ClinicalFinding], unstructured_text: str = "") -> Dict[str, str]:
         """Simple deterministic fallback to populate structured note if AI fails."""
         sections = {s: "" for s in SECTIONS}
         
         pmh = []
         meds = []
         hpi = []
+        
+        if unstructured_text:
+            hpi.append(f"Raw Note Input: {unstructured_text}")
         
         for f in findings:
             val = f.canonical_concept or f.value

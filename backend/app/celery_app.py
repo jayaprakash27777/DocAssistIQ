@@ -18,8 +18,22 @@ celery_app = Celery(
     "docassistiq",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["app.tasks.ingestion"],  # Phase 13 Ingestion Framework
+    include=[
+        "app.tasks.ingestion",  # Phase 13 Ingestion Framework
+        "app.tasks.scheduler"   # Phase 48 Continuous Update Scheduler
+    ],
 )
+
+celery_app.conf.beat_schedule = {
+    "continuous_knowledge_update_every_5_mins": {
+        "task": "app.tasks.scheduler.task_schedule_continuous_updates",
+        "schedule": 300.0,  # 300 seconds = 5 minutes
+    },
+    "sync_live_fda_warnings_hourly": {
+        "task": "app.tasks.scheduler.task_sync_fda_warnings",
+        "schedule": 3600.0,  # Hourly
+    },
+}
 
 celery_app.conf.update(
     task_serializer="json",

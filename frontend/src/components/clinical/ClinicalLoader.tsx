@@ -35,7 +35,7 @@ export default function ClinicalLoader({ label = "Synthesizing Clinical Data..."
       
       <div className="flex flex-col items-center justify-center text-center space-y-6 relative z-10">
         <div className="relative">
-          <div className="w-16 h-16 rounded-full border-4 border-[var(--color-primary-100)] border-t-[var(--color-primary-500)] animate-spin dark:border-[var(--color-primary-900)] dark:border-t-[var(--color-primary-400)]" />
+          <div className="w-16 h-16 rounded-full border-4 border-[var(--color-primary-100)] border-t-[var(--color-primary-500)] animate-spin [var(--color-primary-900)] [var(--color-primary-400)]" />
           <div className="absolute inset-0 flex items-center justify-center">
             <Brain className="w-6 h-6 text-[var(--color-primary-500)] animate-pulse" />
           </div>
@@ -51,7 +51,7 @@ export default function ClinicalLoader({ label = "Synthesizing Clinical Data..."
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -5 }}
-                className="text-[11px] font-mono text-[var(--color-primary-700)] flex items-center gap-2 bg-[var(--color-primary-50)] dark:bg-[var(--color-primary-900)]/40 px-3 py-1.5 rounded-full border border-[var(--color-primary-200)] dark:border-[var(--color-primary-800)] shadow-sm"
+                className="text-[11px] font-mono text-[var(--color-primary-700)] flex items-center gap-2 bg-[var(--color-primary-50)] [var(--color-primary-900)]/40 px-3 py-1.5 rounded-full border border-[var(--color-primary-200)] [var(--color-primary-800)] shadow-sm"
               >
                 <Activity className="w-3 h-3" />
                 {steps[currentStep]}

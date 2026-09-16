@@ -26,3 +26,4 @@ class MedicationResponse(BaseModel):
 
     disease: str
     suggestions: List[MedicationSuggestion] = Field(default_factory=list)
+    ddi_warnings: List[str] = Field(default_factory=list, description="NIH drug interaction warnings")
