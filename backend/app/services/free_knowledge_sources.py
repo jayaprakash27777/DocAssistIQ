@@ -306,3 +306,40 @@ def build_free_sources_context(results: Dict[str, str], max_chars: int = 800) ->
 class _empty:
     """Minimal placeholder for missing XML elements."""
     text = ""
+
+
+# ─── Aliases for intelligence_engine compatibility ──────────────────────────
+
+async def fetch_openfda_drug_events(disease_or_drug_terms: List[str]) -> str:
+    """
+    Alias for batch OpenFDA queries — accepts a list of terms.
+    Returns combined adverse event summary for the intelligence engine.
+    """
+    results = []
+    for term in disease_or_drug_terms[:3]:
+        result = await fetch_openfda_adverse_events(term)
+        if result:
+            results.append(result)
+    return "\n".join(results)
+
+
+async def merge_all_free_sources(
+    disease_name: str,
+    country_keywords: List[str],
+    max_chars: int = 2000,
+) -> str:
+    """
+    Fully aggregated free knowledge context string.
+    Calls all 8 free APIs in parallel, merges, and returns a single context string.
+    Capped at max_chars for LLM consumption.
+    """
+    source_results = await fetch_all_free_sources(disease_name, country_keywords)
+    base = build_free_sources_context(source_results, max_chars=max_chars)
+
+    # Also include OpenFDA for this disease
+    fda_result = await fetch_openfda_drug_events([disease_name])
+    if fda_result:
+        base = (base + "\n" + fda_result)[:max_chars]
+
+    return base
+

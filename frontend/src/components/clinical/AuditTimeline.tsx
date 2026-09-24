@@ -41,29 +41,30 @@ export default function AuditTimeline({ consultationId }: { consultationId: stri
   ].sort((a, b) => b.date.getTime() - a.date.getTime()); // newest first
 
   return (
-    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 backdrop-blur-xl h-full">
-      <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-6 border-b border-gray-700 pb-3">
-        <Clock className="w-5 h-5 text-purple-400" />
+    <div className="glass-panel-4k gpu-accelerated border border-slate-200/90 rounded-3xl p-6 bg-white/85 backdrop-blur-2xl shadow-[0_12px_36px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.9)] h-full ring-1 ring-black/5">
+      <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2 mb-6 border-b border-slate-200/80 pb-3">
+        <Clock className="w-5 h-5 text-teal-600" />
         Clinical Audit Trail
       </h2>
 
       {events.length > 0 ? (
-        <div className="relative border-l border-gray-700 ml-3 space-y-6">
+        <div className="relative border-l-2 border-slate-200 ml-3 space-y-6">
           {events.map((event, idx) => (
             <div key={idx} className="relative pl-6">
-              <div className="absolute -left-2.5 top-1 w-5 h-5 bg-gray-900 rounded-full flex items-center justify-center ring-4 ring-gray-900 border border-gray-700">
-                {event.icon}
+              <div className="absolute -left-[9px] top-1 w-4 h-4 bg-white rounded-full flex items-center justify-center ring-4 ring-teal-50 border-2 border-teal-500 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />
               </div>
-              <div className="bg-gray-900/50 border border-gray-700/50 rounded-lg p-3">
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-medium text-sm text-gray-200">
+              <div className="bg-white/70 hover:bg-white border border-slate-200/80 hover:border-teal-300 rounded-2xl p-4 transition-all shadow-sm">
+                <div className="flex justify-between items-start mb-1 gap-2">
+                  <span className="font-bold text-sm text-slate-800 flex items-center gap-2">
+                    {event.icon}
                     {event.title}
                   </span>
-                  <span className="text-[10px] text-gray-500">
+                  <span className="text-[11px] font-mono text-slate-400 font-semibold shrink-0">
                     {event.date.toLocaleString()}
                   </span>
                 </div>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-slate-600 leading-relaxed m-0 font-medium">
                   {event.desc}
                 </p>
               </div>
@@ -71,7 +72,7 @@ export default function AuditTimeline({ consultationId }: { consultationId: stri
           ))}
         </div>
       ) : (
-        <p className="text-sm text-gray-500 text-center py-6">No audit records found.</p>
+        <p className="text-sm text-slate-400 text-center py-6 font-medium">No audit records found.</p>
       )}
     </div>
   );

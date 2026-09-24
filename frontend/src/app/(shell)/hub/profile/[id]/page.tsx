@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { getStoredToken } from "@/lib/api";
 
 export default function DoctorProfile() {
   const { id } = useParams();
@@ -13,9 +14,9 @@ export default function DoctorProfile() {
   useEffect(() => {
     const fetchProfilePosts = async () => {
       try {
-        const token = localStorage.getItem("access_token");
+        const token = getStoredToken() || (typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null) || "";
         const res = await fetch(`/api/v1/hub/profiles/${id}/posts`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
         });
         if (res.ok) {
           const data = await res.json();

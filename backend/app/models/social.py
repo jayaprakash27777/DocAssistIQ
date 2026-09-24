@@ -1,7 +1,7 @@
 """DocAssistIQ - Social Hub Models for Verified Doctors."""
 
 import uuid
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint, JSON
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,8 +24,8 @@ class DoctorPost(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     clinical_findings: Mapped[str] = mapped_column(Text, nullable=False)
     diagnosis: Mapped[str] = mapped_column(Text, nullable=False)
     treatment_plan: Mapped[str] = mapped_column(Text, nullable=False)
-    drugs_used: Mapped[list] = mapped_column(JSONB, nullable=False, server_default="[]")
-    specialty_tags: Mapped[list] = mapped_column(JSONB, nullable=False, server_default="[]")
+    drugs_used: Mapped[list] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=False, server_default="[]")
+    specialty_tags: Mapped[list] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=False, server_default="[]")
 
     # Relationships
     attachments: Mapped[list["PostAttachment"]] = relationship("PostAttachment", back_populates="post", cascade="all, delete-orphan")

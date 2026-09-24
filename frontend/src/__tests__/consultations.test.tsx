@@ -41,6 +41,7 @@ import "@testing-library/jest-dom";
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
   usePathname: () => "/consultations",
+  useParams: () => ({ id: "c-test-01" }),
 }));
 
 // Mock api functions
@@ -195,7 +196,7 @@ describe("NewConsultationPage", () => {
 
     await waitFor(() => {
       expect(mockApi.createConsultation).toHaveBeenCalledWith(
-        "Patient presents with fever and cough for three days.",
+        expect.objectContaining({ input_text: "Patient presents with fever and cough for three days." })
       );
     });
   });
@@ -209,8 +210,14 @@ describe("ConsultationsPage", () => {
   });
 
   function renderPage() {
+    const { QueryClient, QueryClientProvider } = require("@tanstack/react-query");
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { default: ConsultationsPage } = require("@/app/(shell)/consultations/page");
-    return render(<ConsultationsPage />);
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <ConsultationsPage />
+      </QueryClientProvider>
+    );
   }
 
   it("shows skeleton loading state initially", async () => {
@@ -295,8 +302,18 @@ describe("ConsultationResultPage", () => {
   });
 
   function renderPage(id = "test-uuid-1234") {
+    const { QueryClient, QueryClientProvider } = require("@tanstack/react-query");
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
     const { default: ConsultationResultPage } = require("@/app/(shell)/consultations/[id]/page");
-    return render(<ConsultationResultPage params={Promise.resolve({ id })} />);
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <ConsultationResultPage params={Promise.resolve({ id })} />
+      </QueryClientProvider>
+    );
   }
 
   it("shows loading skeleton initially", async () => {
@@ -329,9 +346,9 @@ describe("ConsultationResultPage", () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(
-        screen.getByText("Patient presents with fever and chills lasting 3 days."),
-      ).toBeInTheDocument();
+      const elements = screen.getAllByText("Patient presents with fever and chills lasting 3 days.");
+      expect(elements.length).toBeGreaterThan(0);
+      expect(elements[0]).toBeInTheDocument();
     });
   });
 

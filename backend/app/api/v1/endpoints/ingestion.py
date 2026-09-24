@@ -10,6 +10,7 @@ Endpoints:
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -48,8 +49,8 @@ class IngestionJobResponse(BaseModel):
     validation_result: dict | None
     error_message: str | None
     review_status: str
-    created_at: str
-    updated_at: str
+    created_at: datetime | str
+    updated_at: datetime | str
 
     model_config = ConfigDict(from_attributes=True)
 

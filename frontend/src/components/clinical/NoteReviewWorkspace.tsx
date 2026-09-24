@@ -58,62 +58,63 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
   if (!consultation) return <div className="p-8 text-gray-500">Consultation not found.</div>;
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-100px)] gap-6 w-full p-6">
+    <div className="flex flex-col lg:flex-row h-full gap-6 w-full">
       {/* LEFT PANE: Transcript and Extracted Facts */}
-      <div className="w-full lg:w-1/2 flex flex-col gap-4 overflow-hidden rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.06)] border border-white/60 bg-white/60 backdrop-blur-3xl relative">
+      <div className="w-full lg:w-1/2 flex flex-col gap-4 overflow-hidden rounded-3xl glass-panel-4k gpu-accelerated border border-slate-200/90 bg-white/85 backdrop-blur-2xl shadow-[0_12px_36px_rgba(0,0,0,0.06)] ring-1 ring-black/5 relative">
         
         {/* Facts / Findings */}
-        <div className="flex-1 overflow-y-auto border-b">
-          <div className="sticky top-0 bg-gray-50 p-3 border-b font-semibold text-sm text-gray-700 z-10">
-            Extracted Facts & Findings
+        <div className="flex-1 overflow-y-auto border-b border-slate-100">
+          <div className="sticky top-0 bg-slate-50/90 backdrop-blur-md p-4 border-b border-slate-100 font-bold text-sm text-slate-800 font-heading z-10 flex items-center justify-between">
+            <span>Extracted Clinical Facts & Findings</span>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-200/80 text-slate-700 font-medium">{consultation.findings.length} findings</span>
           </div>
           <div className="p-4 space-y-3">
             {consultation.findings.length === 0 ? (
-              <p className="text-sm text-gray-500">No findings extracted.</p>
+              <p className="text-sm text-slate-500 italic p-4 text-center">No findings extracted yet.</p>
             ) : (
               consultation.findings.map((finding) => (
-                <div key={finding.id} className="border rounded-md p-3 bg-gray-50 hover:bg-white transition-colors text-sm">
+                <div key={finding.id} className="border border-slate-200/80 rounded-2xl p-4 bg-white/90 hover:bg-white hover:border-slate-300 shadow-sm transition-all text-sm">
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <span className="font-medium text-gray-800">{finding.finding_text}</span>
+                      <span className="font-semibold text-slate-900">{finding.finding_text}</span>
                       {finding.concept && (
-                        <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded border border-blue-200">
+                        <span className="ml-2 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200">
                           {finding.concept}
                         </span>
                       )}
                     </div>
-                    <div className="flex gap-2 shrink-0 ml-4">
+                    <div className="flex items-center gap-1.5 shrink-0 ml-4">
                       <button
                         onClick={() => {
                           setExplainFindingId(finding.id);
                           setRightPanel("explain");
                         }}
-                        className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition-colors mr-2"
+                        className="text-xs px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 font-medium transition-colors"
                         title="Why was this finding suggested?"
                       >
-                        🧠 Why?
+                        🧠 Evidence
                       </button>
                       {finding.status === 'suggested' && (
                         <>
                           <button 
                             onClick={() => handleFindingReview(finding.id, "confirm")}
-                            className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                            className="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 font-semibold transition-colors"
                           >
                             Accept
                           </button>
                           <button 
                             onClick={() => handleFindingReview(finding.id, "reject")}
-                            className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                            className="text-xs px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg hover:bg-rose-100 font-semibold transition-colors"
                           >
                             Reject
                           </button>
                         </>
                       )}
                       {finding.status === 'confirmed' && (
-                        <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-1 rounded">✓ Confirmed</span>
+                        <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">✓ Confirmed</span>
                       )}
                       {finding.status === 'rejected' && (
-                        <span className="text-xs text-red-600 font-medium bg-red-50 px-2 py-1 rounded">✗ Rejected</span>
+                        <span className="text-xs text-rose-700 font-semibold bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg">✗ Rejected</span>
                       )}
                     </div>
                   </div>
@@ -124,23 +125,23 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
         </div>
 
         {/* Transcript Reference */}
-        <div className="h-1/3 min-h-[200px] overflow-y-auto bg-gray-50">
-          <div className="sticky top-0 bg-gray-100 p-2 border-b font-semibold text-xs text-gray-600 uppercase tracking-wider z-10 shadow-sm">
-            Source Transcript
+        <div className="h-1/3 min-h-[180px] overflow-y-auto bg-slate-50/60">
+          <div className="sticky top-0 bg-slate-100/90 backdrop-blur-md p-3 border-b border-slate-200/80 font-bold text-xs text-slate-700 uppercase tracking-wider z-10">
+            Source Consultation Transcript
           </div>
           <div className="p-4 space-y-2 text-sm">
             {!transcript || transcript.segments.length === 0 ? (
-              <p className="text-gray-500 italic">No transcript available.</p>
+              <p className="text-slate-400 italic text-center py-4">No transcript available.</p>
             ) : (
               transcript.segments.map((seg) => (
                 <div 
                   key={seg.id} 
-                  className={`p-2 rounded transition-colors ${activeSegmentId === seg.id ? 'bg-yellow-100 border border-yellow-300 shadow-sm' : 'hover:bg-gray-100'}`}
+                  className={`p-2.5 rounded-xl transition-colors ${activeSegmentId === seg.id ? 'bg-amber-50 border border-amber-300 shadow-sm' : 'hover:bg-white'}`}
                 >
-                  <span className="font-semibold text-gray-600 text-xs mr-2 w-16 inline-block">
+                  <span className="font-bold text-slate-600 text-xs mr-2 w-16 inline-block">
                     {seg.speaker_label || 'Unknown'}:
                   </span>
-                  <span className="text-gray-800">{seg.clinician_corrected_text || seg.processed_text || seg.raw_text}</span>
+                  <span className="text-slate-800">{seg.clinician_corrected_text || seg.processed_text || seg.raw_text}</span>
                 </div>
               ))
             )}
@@ -150,18 +151,18 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
       </div>
 
       {/* RIGHT PANE: Note Editor (and toggleable Assistants) */}
-      <div className="w-full lg:w-1/2 flex flex-col overflow-hidden h-full rounded-3xl shadow-[0_12px_40px_rgb(0,0,0,0.06)] border border-white/60 bg-white/60 backdrop-blur-3xl relative">
+      <div className="w-full lg:w-1/2 flex flex-col overflow-hidden h-full rounded-3xl glass-panel-4k gpu-accelerated border border-slate-200/90 bg-white/85 backdrop-blur-2xl shadow-[0_12px_36px_rgba(0,0,0,0.06)] ring-1 ring-black/5 relative">
         {/* Toolbar to toggle RAG/Verifier */}
-        <div className="bg-white/40 backdrop-blur-md border-b border-white/50 p-3 flex justify-end gap-3 rounded-t-3xl relative z-20">
+        <div className="bg-slate-50/80 backdrop-blur-md border-b border-slate-200/80 p-3 flex justify-end gap-2.5 relative z-20">
           <button
             onClick={() => setRightPanel(rightPanel === "verify" ? "none" : "verify")}
-            className={`px-3 py-1 text-sm font-medium rounded transition-colors ${rightPanel === "verify" ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : 'bg-white text-gray-700 hover:bg-gray-50 border shadow-sm'}`}
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all shadow-sm ${rightPanel === "verify" ? 'bg-purple-600 text-white shadow-purple-600/20' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
           >
             {rightPanel === "verify" ? "Hide Verifier" : "🛡️ Verify Citation"}
           </button>
           <button
             onClick={() => setRightPanel(rightPanel === "rag" ? "none" : "rag")}
-            className={`px-3 py-1 text-sm font-medium rounded transition-colors ${rightPanel === "rag" ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-white text-gray-700 hover:bg-gray-50 border shadow-sm'}`}
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all shadow-sm ${rightPanel === "rag" ? 'bg-teal-600 text-white shadow-teal-600/20' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
           >
             {rightPanel === "rag" ? "Hide Assistant" : "✨ Knowledge Assistant"}
           </button>

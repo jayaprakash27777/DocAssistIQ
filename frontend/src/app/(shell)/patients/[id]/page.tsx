@@ -40,46 +40,55 @@ export default function PatientDetail() {
   }, [id]);
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-400">Loading patient profile...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center p-16 text-slate-500 font-medium">
+        <div className="w-10 h-10 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin mb-4" />
+        Loading patient profile...
+      </div>
+    );
   }
 
   if (error || !patient) {
-    return <div className="p-8 text-center text-red-400">{error || "Patient not found"}</div>;
+    return (
+      <div className="max-w-md mx-auto my-12 p-6 bg-red-50 border border-red-200 rounded-2xl text-center text-red-700 font-medium">
+        {error || "Patient not found"}
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-entrance pb-12">
+    <div className="max-w-5xl mx-auto space-y-8 animate-entrance pb-12 px-4 py-6">
       <header className="flex flex-col gap-6">
         <button
           onClick={() => router.push("/patients")}
-          className="flex items-center gap-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors w-fit font-medium"
+          className="flex items-center gap-2 text-sm text-slate-500 hover:text-teal-700 transition-colors w-fit font-semibold"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Patients
         </button>
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 bg-[var(--surface-secondary)] p-8 rounded-2xl border border-[var(--border-default)] shadow-sm relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 glass-panel-4k gpu-accelerated p-8 rounded-3xl border border-slate-200/90 bg-white/85 backdrop-blur-2xl shadow-[0_12px_36px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] relative overflow-hidden ring-1 ring-black/5">
           {/* Decorative mesh gradient background */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[var(--color-primary-100)] to-[var(--color-primary-50)] rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-teal-200 to-indigo-100 rounded-full blur-3xl opacity-40 -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           
           <div className="flex items-center gap-6 relative z-10">
             {/* Dynamic Avatar */}
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--color-primary-400)] to-[var(--color-primary-600)] flex items-center justify-center text-white text-3xl font-bold font-heading shadow-md border-4 border-white">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-black font-heading shadow-md border-2 border-white/80 shrink-0">
               {patient.patient_ref.substring(0, 2).toUpperCase()}
             </div>
             
             <div>
-              <h1 className="text-3xl font-bold font-heading text-[var(--text-primary)] flex items-center gap-3">
+              <h1 className="text-3xl font-black font-heading text-slate-900 flex items-center gap-3 tracking-tight">
                 {patient.patient_ref}
               </h1>
-              <div className="flex gap-4 mt-2 text-sm text-[var(--text-secondary)]">
-                <span className="flex items-center gap-1.5 bg-[var(--surface-sunken)] px-3 py-1 rounded-full border border-[var(--border-default)] shadow-sm">
-                  <span className="font-bold text-[var(--text-tertiary)] uppercase text-[10px] tracking-wider">Age Group:</span>
-                  <span className="font-semibold text-[var(--text-primary)]">{patient.age_group || "Unknown"}</span>
+              <div className="flex gap-3 mt-2 text-xs font-semibold text-slate-600">
+                <span className="flex items-center gap-1.5 bg-white/80 px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+                  <span className="font-bold text-slate-400 uppercase text-[10px] tracking-wider">Age Group:</span>
+                  <span className="text-slate-900">{patient.age_group || "Unknown"}</span>
                 </span>
-                <span className="flex items-center gap-1.5 bg-[var(--surface-sunken)] px-3 py-1 rounded-full border border-[var(--border-default)] shadow-sm">
-                  <span className="font-bold text-[var(--text-tertiary)] uppercase text-[10px] tracking-wider">Sex:</span>
-                  <span className="capitalize font-semibold text-[var(--text-primary)]">{patient.biological_sex || "Unknown"}</span>
+                <span className="flex items-center gap-1.5 bg-white/80 px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+                  <span className="font-bold text-slate-400 uppercase text-[10px] tracking-wider">Sex:</span>
+                  <span className="capitalize text-slate-900">{patient.biological_sex || "Unknown"}</span>
                 </span>
               </div>
             </div>
@@ -87,7 +96,7 @@ export default function PatientDetail() {
           
           <Link
             href={`/consultations/new?patient_id=${patient.id}`}
-            className="bg-gradient-to-r from-[var(--color-primary-500)] to-[var(--color-primary-600)] hover:from-[var(--color-primary-600)] hover:to-[var(--color-primary-700)] text-white px-6 py-3 rounded-xl flex items-center gap-2 transition-all font-bold shadow-md hover:shadow-lg relative z-10"
+            className="bg-gradient-to-r from-teal-500 to-indigo-600 hover:brightness-110 text-white px-6 py-3 rounded-2xl flex items-center gap-2 transition-all font-bold text-sm shadow-md shadow-teal-500/20 active:scale-95 relative z-10"
           >
             <PlusCircle className="w-5 h-5" />
             New Encounter
@@ -97,9 +106,9 @@ export default function PatientDetail() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Sidebar: Conditions */}
-        <div className="bg-white border border-[var(--border-default)] rounded-2xl p-6 shadow-sm h-fit">
-          <h2 className="text-lg font-bold font-heading text-[var(--text-primary)] flex items-center gap-2 mb-5">
-            <Activity className="w-5 h-5 text-[var(--color-primary-500)]" />
+        <div className="glass-panel-4k gpu-accelerated border border-slate-200/90 rounded-3xl p-6 bg-white/85 backdrop-blur-xl shadow-sm h-fit ring-1 ring-black/5">
+          <h2 className="text-lg font-black font-heading text-slate-900 flex items-center gap-2 mb-5 tracking-tight">
+            <Activity className="w-5 h-5 text-teal-600" />
             Baseline Conditions
           </h2>
           {Object.keys(patient.baseline_conditions || {}).length > 0 ? (

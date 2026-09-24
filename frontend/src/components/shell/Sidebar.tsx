@@ -66,6 +66,12 @@ const Icons = {
       <line x1="9" y1="15" x2="15" y2="15" />
     </svg>
   ),
+  ai: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
+      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
+    </svg>
+  ),
 };
 
 interface Props {
@@ -122,15 +128,33 @@ export function Sidebar({ mobileOpen, onMobileClose }: Props) {
         aria-label="Main navigation"
       >
         {/* Brand + toggle */}
-        <div className="sidebar-header">
+        <div className="sidebar-header flex items-center justify-between px-3.5 border-b border-[var(--border-default)]">
           {!collapsed && (
-            <div className="sidebar-brand">
-              <span className="sidebar-brand-name">DocAssistIQ</span>
-              <span className="sidebar-brand-tag">Clinical Decision Support</span>
+            <div className="sidebar-brand flex items-center gap-3 overflow-hidden">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-teal-500/20 ring-1 ring-white/40 shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 4v16m-8-8h16" />
+                </svg>
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="sidebar-brand-name font-black tracking-tight text-[1.05rem] bg-gradient-to-r from-teal-800 to-slate-900 bg-clip-text text-transparent leading-snug truncate">
+                  DocAssistIQ
+                </span>
+                <span className="sidebar-brand-tag text-[9px] font-bold tracking-wider text-slate-400 uppercase leading-none truncate">
+                  Clinical Decision Support
+                </span>
+              </div>
+            </div>
+          )}
+          {collapsed && (
+            <div className="w-9 h-9 mx-auto rounded-xl bg-gradient-to-tr from-teal-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-teal-500/20 ring-1 ring-white/40 shrink-0" title="DocAssistIQ">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 4v16m-8-8h16" />
+              </svg>
             </div>
           )}
           <button
-            className="sidebar-toggle"
+            className="sidebar-toggle p-2 rounded-xl text-slate-500 hover:text-[var(--color-primary-700)] hover:bg-[var(--sidebar-hover-bg)] border border-transparent hover:border-[var(--color-primary-200)] transition-all"
             onClick={toggleCollapse}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!collapsed}
@@ -141,7 +165,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: Props) {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="2.5"
               strokeLinecap="round"
               aria-hidden="true"
             >
@@ -160,6 +184,12 @@ export function Sidebar({ mobileOpen, onMobileClose }: Props) {
             href="/dashboard"
             label="Dashboard"
             icon={Icons.dashboard}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            href="/ai"
+            label="AI Intelligence"
+            icon={Icons.ai}
             collapsed={collapsed}
           />
           <SidebarItem
@@ -204,9 +234,12 @@ export function Sidebar({ mobileOpen, onMobileClose }: Props) {
 
         {/* Footer status */}
         {!collapsed && (
-          <div className="sidebar-footer">
-            <span className="sidebar-footer-label">
-              REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED
+          <div className="sidebar-footer p-3 mx-3 mb-3 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+            <span className="text-[10px] leading-snug font-bold uppercase tracking-wider text-slate-400 text-center block">
+              Reference Information
+            </span>
+            <span className="text-[9px] leading-tight font-medium text-slate-400 text-center block mt-0.5">
+              Clinician Review Required
             </span>
           </div>
         )}

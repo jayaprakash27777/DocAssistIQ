@@ -143,7 +143,39 @@ function LoginContent() {
         </Button>
       </form>
 
-      <p className="auth-redirect-hint relative z-10 mt-8">
+      <div className="mt-6 pt-5 border-t border-slate-200/80 relative z-10">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5 text-center">
+          Quick Sign-In Demo Accounts
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => {
+              setEmail("dr.smith@hospital.org");
+              setPassword("DoctorSecure2026!");
+              setFieldErrors({});
+            }}
+            className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/90 hover:bg-teal-50 hover:border-teal-300 text-left transition-all cursor-pointer shadow-xs group"
+          >
+            <div className="font-bold text-slate-800 group-hover:text-teal-700">Dr. Smith</div>
+            <div className="text-[10px] text-teal-600 font-semibold">Clinician Access</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEmail("admin@docassistiq.com");
+              setPassword("AdminSecure2026!");
+              setFieldErrors({});
+            }}
+            className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/90 hover:bg-indigo-50 hover:border-indigo-300 text-left transition-all cursor-pointer shadow-xs group"
+          >
+            <div className="font-bold text-slate-800 group-hover:text-indigo-700">Administrator</div>
+            <div className="text-[10px] text-indigo-600 font-semibold">System Full Access</div>
+          </button>
+        </div>
+      </div>
+
+      <p className="auth-redirect-hint relative z-10 mt-6">
         Don&apos;t have an account?{" "}
         <Link href="/register" className="auth-link font-bold text-[var(--color-primary-600)] hover:text-[var(--color-primary-700)] transition-colors">
           Create one

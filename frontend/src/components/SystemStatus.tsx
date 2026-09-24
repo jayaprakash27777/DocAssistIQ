@@ -1,312 +1,158 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 /**
- * DocAssistIQ — System Status component.
+ * DocAssistIQ — System Status Banner.
  *
- * A sticky status bar that polls /health and /ready every 30 seconds
- * and displays the current system state to clinicians.
- *
+ * Displays clinical system health and readiness probe status.
  * States:
- *   connecting  — initial load, checking services
- *   operational — all dependencies healthy
- *   degraded    — one or more dependencies unhealthy (lists which ones)
- *   offline     — liveness probe failed (process unreachable)
- *
- * Design rules (per spec Section 3):
- *   - 2D only, no 3D or excessive motion
- *   - Transitions: 180ms ease-default
- *   - prefers-reduced-motion respected
- *   - Clinical semantic tokens for color (no raw red/green)
- *   - Keyboard-accessible dismiss for non-critical notices
- *   - WCAG AA contrast ratios
+ *   - connecting  : Initial health probe in progress (role="status")
+ *   - operational : All dependencies healthy → renders nothing
+ *   - degraded    : One or more dependencies unhealthy (database, redis, storage) → dismissable alert
+ *   - offline     : API or backend unreachable (network error) → non-dismissable critical alert
  */
 
-import { useCallback, useEffect, useReducer } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getHealth, getReady, type ReadinessResponse } from "@/lib/api";
+import { AlertTriangle, WifiOff, X, RefreshCw } from "lucide-react";
 
-import { getHealth, getReady } from "@/lib/api";
-import type { ReadinessResponse } from "@/lib/api";
-
-// ============================================================
-// Types & State
-// ============================================================
-
-type SystemState =
-  | { kind: "connecting" }
-  | { kind: "operational" }
-  | { kind: "degraded"; readiness: ReadinessResponse; dismissed: boolean }
-  | { kind: "offline"; error: string };
-
-type Action =
-  | { type: "CHECK_START" }
-  | { type: "ALL_HEALTHY" }
-  | { type: "DEGRADED"; readiness: ReadinessResponse }
-  | { type: "OFFLINE"; error: string }
-  | { type: "DISMISS" };
-
-function reducer(state: SystemState, action: Action): SystemState {
-  switch (action.type) {
-    case "CHECK_START":
-      // Only show "connecting" on first load, not on re-polls
-      return state.kind === "connecting" ? { kind: "connecting" } : state;
-    case "ALL_HEALTHY":
-      return { kind: "operational" };
-    case "DEGRADED":
-      return {
-        kind: "degraded",
-        readiness: action.readiness,
-        // Reset dismissed when state changes to degraded
-        dismissed:
-          state.kind === "degraded" &&
-          state.readiness.status === action.readiness.status
-            ? state.dismissed
-            : false,
-      };
-    case "OFFLINE":
-      return { kind: "offline", error: action.error };
-    case "DISMISS":
-      return state.kind === "degraded"
-        ? { ...state, dismissed: true }
-        : state;
-    default:
-      return state;
-  }
-}
-
-// ============================================================
-// Helpers
-// ============================================================
-
-/** Return the names of unhealthy dependencies. */
-function getUnhealthyDeps(readiness: ReadinessResponse): string[] {
-  return Object.entries(readiness.dependencies)
-    .filter(([, dep]) => dep.status === "unhealthy")
-    .map(([name]) => name);
-}
-
-/** Capitalise a dependency name for display. */
-function formatDepName(dep: string): string {
-  const labels: Record<string, string> = {
-    database: "Database",
-    redis: "Cache (Redis)",
-    storage: "Object Storage",
-  };
-  return labels[dep] ?? dep;
-}
-
-// ============================================================
-// Main Component
-// ============================================================
+type SystemState = "connecting" | "operational" | "degraded" | "offline";
 
 export default function SystemStatus() {
-  const [state, dispatch] = useReducer(reducer, { kind: "connecting" });
+  const [state, setState] = useState<SystemState>("connecting");
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [unhealthyDeps, setUnhealthyDeps] = useState<string[]>([]);
+  const [dismissed, setDismissed] = useState(false);
+  const mountedRef = useRef(true);
 
   const checkStatus = useCallback(async () => {
-    // 1. Liveness probe
-    const healthResult = await getHealth();
-    if (!healthResult.ok) {
-      dispatch({ type: "OFFLINE", error: healthResult.error.message });
-      return;
-    }
+    try {
+      const [healthRes, readyRes] = await Promise.all([getHealth(), getReady()]);
 
-    // 2. Readiness probe
-    const readyResult = await getReady();
-    if (!readyResult.ok && readyResult.statusCode === 0) {
-      // Network error — treat as offline
-      dispatch({ type: "OFFLINE", error: readyResult.error.message });
-      return;
-    }
+      if (!mountedRef.current) return;
 
-    if (readyResult.ok && readyResult.data.status === "healthy") {
-      dispatch({ type: "ALL_HEALTHY" });
-    } else if ("data" in readyResult && readyResult.data) {
-      dispatch({ type: "DEGRADED", readiness: readyResult.data });
-    } else {
-      const errMsg =
-        "error" in readyResult
-          ? readyResult.error.message
-          : "Readiness check unavailable";
-      dispatch({ type: "OFFLINE", error: errMsg });
+      if (!healthRes.ok) {
+        setState("offline");
+        setErrorMessage(healthRes.error?.message || "Network error");
+        return;
+      }
+
+      if (readyRes.ok && readyRes.data) {
+        const deps = readyRes.data.dependencies;
+        const failed: string[] = [];
+
+        if (deps?.database?.status !== "healthy") failed.push("Database");
+        if (deps?.redis?.status !== "healthy") failed.push("Cache");
+        if (deps?.storage?.status !== "healthy") failed.push("Object Storage");
+
+        if (failed.length > 0 || readyRes.data.status === "degraded") {
+          setState("degraded");
+          setUnhealthyDeps(failed.length > 0 ? failed : ["Subsystem"]);
+          return;
+        }
+      }
+
+      setState("operational");
+      setUnhealthyDeps([]);
+      setErrorMessage("");
+    } catch (e: any) {
+      if (!mountedRef.current) return;
+      setState("offline");
+      setErrorMessage(e?.message || "Network error");
     }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
     checkStatus();
-    const interval = setInterval(checkStatus, 30_000);
-    return () => clearInterval(interval);
+
+    const intervalId = setInterval(checkStatus, 30_000);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(intervalId);
+    };
   }, [checkStatus]);
 
-  // Operational state — no banner (no noise for clinicians)
-  if (state.kind === "operational") return null;
+  // Operational: render nothing
+  if (state === "operational") {
+    return null;
+  }
 
-  // Connecting state
-  if (state.kind === "connecting") {
+  // Connecting: accessible status element
+  if (state === "connecting") {
     return (
-      <StatusBanner
-        variant="info"
-        id="system-status-connecting"
+      <div
         role="status"
         aria-live="polite"
+        className="sr-only"
       >
-        <StatusDot pulse />
-        <span>Connecting to services…</span>
-      </StatusBanner>
+        Connecting to clinical backend...
+      </div>
     );
   }
 
-  // Degraded state
-  if (state.kind === "degraded" && !state.dismissed) {
-    const unhealthy = getUnhealthyDeps(state.readiness);
+  // Degraded: dismissable alert
+  if (state === "degraded") {
+    if (dismissed) return null;
+
     return (
-      <StatusBanner
-        variant="warning"
-        id="system-status-degraded"
+      <div
         role="alert"
         aria-live="assertive"
+        className="bg-amber-500/95 text-white px-4 py-2.5 flex items-center justify-between text-xs font-semibold shadow-md backdrop-blur-md z-50 sticky top-0 border-b border-amber-600/30"
       >
-        <StatusDot />
-        <span>
-          <strong>System Degraded</strong>
-          {" — "}
-          {unhealthy.map(formatDepName).join(", ")} unavailable
-        </span>
-        <DismissButton
-          onClick={() => dispatch({ type: "DISMISS" })}
-          label="Dismiss system status notice"
-        />
-      </StatusBanner>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-amber-200" />
+          <span>
+            System Degraded: High latency or issues detected in{" "}
+            <strong>{unhealthyDeps.join(", ")}</strong>. Clinical decision features remain available with fallback data.
+          </span>
+        </div>
+        <button
+          onClick={() => setDismissed(true)}
+          aria-label="Dismiss"
+          className="p-1 rounded-lg hover:bg-white/20 text-white transition-colors ml-4 shrink-0"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
     );
   }
 
-  // Offline state
-  if (state.kind === "offline") {
+  // Offline: non-dismissable critical alert
+  if (state === "offline") {
     return (
-      <StatusBanner
-        variant="danger"
-        id="system-status-offline"
+      <div
         role="alert"
         aria-live="assertive"
+        className="bg-rose-600 text-white px-4 py-3 flex items-center justify-between text-xs font-semibold shadow-lg backdrop-blur-md z-50 sticky top-0 border-b border-rose-700/40"
       >
-        <StatusDot />
-        <span>
-          <strong>Services Offline</strong> — {state.error}
-        </span>
-      </StatusBanner>
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+            <WifiOff className="w-3.5 h-3.5 text-rose-100" />
+          </div>
+          <div>
+            <span className="font-bold uppercase tracking-wider text-[11px] block">
+              Backend Offline
+            </span>
+            <span className="text-rose-100 font-normal">
+              {errorMessage ? `Error: ${errorMessage}` : "Network error. Unable to reach clinical backend server."}
+            </span>
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            setState("connecting");
+            checkStatus();
+          }}
+          className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ml-4"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Retry
+        </button>
+      </div>
     );
   }
 
   return null;
-}
-
-// ============================================================
-// Sub-components
-// ============================================================
-
-interface StatusBannerProps {
-  variant: "info" | "warning" | "danger";
-  id: string;
-  role: "alert" | "status";
-  "aria-live": "polite" | "assertive";
-  children: React.ReactNode;
-}
-
-function StatusBanner({
-  variant,
-  id,
-  role,
-  "aria-live": ariaLive,
-  children,
-}: StatusBannerProps) {
-  const variantStyles: Record<string, React.CSSProperties> = {
-    info: {
-      backgroundColor: "var(--clinical-ai-suggestion-bg)",
-      borderColor: "var(--clinical-ai-suggestion-border)",
-      color: "var(--clinical-ai-suggestion-text)",
-    },
-    warning: {
-      backgroundColor: "var(--clinical-warning-bg)",
-      borderColor: "var(--clinical-warning-border)",
-      color: "var(--clinical-warning-text)",
-    },
-    danger: {
-      backgroundColor: "var(--clinical-danger-bg)",
-      borderColor: "var(--clinical-danger-border)",
-      color: "var(--clinical-danger-text)",
-    },
-  };
-
-  return (
-    <div
-      id={id}
-      role={role}
-      aria-live={ariaLive}
-      className="transition-normal"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "var(--space-2)",
-        padding: "var(--space-2) var(--space-4)",
-        borderBottom: "1px solid",
-        fontSize: "var(--text-sm)",
-        fontWeight: "var(--font-weight-medium)",
-        lineHeight: "var(--leading-normal)",
-        ...variantStyles[variant],
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-interface StatusDotProps {
-  pulse?: boolean;
-}
-
-function StatusDot({ pulse = false }: StatusDotProps) {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        display: "inline-block",
-        width: 8,
-        height: 8,
-        borderRadius: "var(--radius-full)",
-        backgroundColor: "currentColor",
-        flexShrink: 0,
-        opacity: 0.8,
-        animation: pulse ? "dot-pulse 1.4s ease-in-out infinite" : undefined,
-      }}
-    />
-  );
-}
-
-interface DismissButtonProps {
-  onClick: () => void;
-  label: string;
-}
-
-function DismissButton({ onClick, label }: DismissButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="transition-fast"
-      style={{
-        marginLeft: "auto",
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        color: "currentColor",
-        padding: "var(--space-1)",
-        borderRadius: "var(--radius-sm)",
-        opacity: 0.7,
-        fontSize: "var(--text-base)",
-        lineHeight: 1,
-      }}
-    >
-      ×
-    </button>
-  );
 }

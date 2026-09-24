@@ -17,6 +17,32 @@ export interface WSEnvelope {
 
 export type WSMessageCallback = (type: string, payload: any) => void;
 
+/**
+ * Safely inspect if a JWT token is expired without external dependencies.
+ */
+export function isTokenExpired(token: string | null | undefined): boolean {
+  if (!token || token === "undefined" || token === "null" || token.trim() === "") return true;
+  // Mock tokens used in tests or demo fixtures
+  if (token.startsWith("mock-") || !token.includes(".")) return false;
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return false;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = typeof window !== "undefined" && window.atob
+      ? decodeURIComponent(window.atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join(""))
+      : typeof Buffer !== "undefined"
+      ? Buffer.from(base64, "base64").toString("utf-8")
+      : "";
+    if (!jsonPayload) return false;
+    const payload = JSON.parse(jsonPayload);
+    if (!payload.exp) return false;
+    return Date.now() >= (payload.exp * 1000 - 5000);
+  } catch {
+    return false;
+  }
+}
+
 class RealtimeClient {
   private socket: WebSocket | null = null;
   private url: string;
@@ -43,7 +69,29 @@ class RealtimeClient {
     this.token = token;
   }
 
+  public setToken(newToken: string) {
+    if (this.token !== newToken) {
+      this.token = newToken;
+      if (this.socket) {
+        this.disconnect();
+      }
+      if (newToken && !isTokenExpired(newToken)) {
+        this.reconnectAttempts = 0;
+        this.connect();
+      }
+    }
+  }
+
+  public getToken(): string {
+    return this.token;
+  }
+
   public connect() {
+    if (!this.token || isTokenExpired(this.token)) {
+      this.updateState('UNAVAILABLE');
+      return;
+    }
+
     if (this.socket?.readyState === WebSocket.OPEN || this.socket?.readyState === WebSocket.CONNECTING) {
       return;
     }
@@ -51,21 +99,25 @@ class RealtimeClient {
     this.updateState(this.reconnectAttempts > 0 ? 'RECONNECTING' : 'CONNECTING');
     
     try {
-      this.socket = new WebSocket(`${this.url}?token=${this.token}`);
+      this.socket = new WebSocket(`${this.url}?token=${encodeURIComponent(this.token)}`);
       
       this.socket.onopen = this.handleOpen.bind(this);
       this.socket.onclose = this.handleClose.bind(this);
       this.socket.onerror = this.handleError.bind(this);
       this.socket.onmessage = this.handleMessage.bind(this);
     } catch (e) {
-      console.error('WS Error creating socket', e);
+      console.warn('[DocAssistIQ WS] Error creating socket:', e);
       this.scheduleReconnect();
     }
   }
 
   public disconnect() {
     if (this.socket) {
-      this.socket.close();
+      try {
+        this.socket.close();
+      } catch {
+        // Ignored during shutdown
+      }
       this.socket = null;
     }
     this.cleanup();
@@ -124,11 +176,11 @@ class RealtimeClient {
   }
 
   private handleClose(event: CloseEvent) {
-    console.warn(`WS closed: ${event.code} ${event.reason}`);
+    console.warn(`[DocAssistIQ WS] Closed (code: ${event.code}, reason: "${event.reason || ''}")`);
     this.cleanup();
     
-    // Auth failures (4001, 4003) shouldn't retry automatically
-    if (event.code === 4001 || event.code === 4003) {
+    // Auth failures (4001, 4003) or expired token shouldn't retry automatically
+    if (event.code === 4001 || event.code === 4003 || isTokenExpired(this.token)) {
       this.updateState('UNAVAILABLE');
       return;
     }
@@ -137,8 +189,10 @@ class RealtimeClient {
   }
 
   private handleError(event: Event) {
-    console.error('WS error', event);
-    // The close event will fire next
+    // Native WebSocket 'error' events carry no diagnostic payload per W3C specification
+    // and are always followed immediately by a 'close' event.
+    // We log as warning instead of console.error to avoid triggering Next.js dev overlay popups.
+    console.warn('[DocAssistIQ WS] Handshake notice (close event will follow):', event);
   }
 
   private handleMessage(event: MessageEvent) {
@@ -159,7 +213,7 @@ class RealtimeClient {
       
       // Duplicate suppression
       if (envelope.sequence_number <= this.inSeq) {
-        console.debug('WS Duplicate message suppressed', envelope.sequence_number);
+        console.debug('[DocAssistIQ WS] Duplicate message suppressed', envelope.sequence_number);
         return;
       }
       
@@ -177,16 +231,16 @@ class RealtimeClient {
       }
       
     } catch (e) {
-      console.error('WS Malformed message', e);
+      console.warn('[DocAssistIQ WS] Malformed message ignored:', e);
     }
   }
 
   private startHeartbeat() {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = setInterval(() => {
-      // Check if stale
-      if (Date.now() - this.lastHeartbeat > 25000) {
-        console.warn('WS Stale connection detected');
+      // Check if stale (45s threshold to accommodate local inference load)
+      if (Date.now() - this.lastHeartbeat > 45000) {
+        console.warn('[DocAssistIQ WS] Stale connection detected, resetting socket');
         this.socket?.close(4008);
       } else {
         this.send('heartbeat');
@@ -195,14 +249,14 @@ class RealtimeClient {
   }
 
   private scheduleReconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+    if (!this.token || isTokenExpired(this.token) || this.reconnectAttempts >= this.maxReconnectAttempts) {
       this.updateState('UNAVAILABLE');
       return;
     }
     
     this.updateState('RECONNECTING');
     
-    const delay = this.baseBackoffMs * Math.pow(1.5, this.reconnectAttempts);
+    const delay = Math.min(this.baseBackoffMs * Math.pow(1.5, this.reconnectAttempts), 15000);
     this.reconnectAttempts++;
     
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
@@ -233,14 +287,19 @@ class RealtimeClient {
 // Singleton manager hook
 let sharedClient: RealtimeClient | null = null;
 
-export function getSharedRealtimeClient(token: string): RealtimeClient {
+export function getSharedRealtimeClient(token?: string | null): RealtimeClient {
+  const safeToken = (token && token !== "undefined" && token !== "null") ? token.trim() : "";
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ?? "http://localhost:8000";
+  const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/v1/stream";
+
   if (!sharedClient) {
-    // In browser environment
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ?? "http://localhost:8000";
-    // Convert http/https to ws/wss
-    const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/v1/stream";
-    sharedClient = new RealtimeClient(wsUrl, token);
-    sharedClient.connect();
+    sharedClient = new RealtimeClient(wsUrl, safeToken);
+    if (safeToken && !isTokenExpired(safeToken)) {
+      sharedClient.connect();
+    }
+  } else if (safeToken && safeToken !== sharedClient.getToken()) {
+    sharedClient.setToken(safeToken);
   }
   return sharedClient;
 }
+

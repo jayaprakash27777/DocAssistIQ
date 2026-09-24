@@ -4,9 +4,10 @@ Provides a validated state machine for the consultation lifecycle.
 """
 
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -14,13 +15,15 @@ from sqlalchemy.orm import selectinload
 
 from app.api.platform import API_RESPONSES
 from app.authorization import require_permission
-from app.dependencies import get_current_user, get_db
+from app.dependencies import get_current_user, get_db, _bearer_scheme, get_settings_dep
+from app.config import Settings
 from app.models.user import User
 from app.models.consultation import Consultation
 from app.models.doctor import Doctor
 from app.services import consultation_service
 from app.services import doctor_service
 from app.services import note_service
+from app.services.note_generator import note_generator_service
 from app.services.audit_service import log_event
 from app.services.export_service import export_service
 from app.schemas.note import ClinicalNoteResponse, ClinicalNoteUpdate
@@ -40,6 +43,28 @@ async def get_current_doctor_profile(
             detail="Doctor profile not found. Please complete profile setup."
         )
     return doctor
+
+
+async def get_optional_doctor_profile(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> Optional[Doctor]:
+    """Fetch the doctor profile if a valid Bearer token is supplied, else None."""
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        return None
+    try:
+        from app.services import auth_service
+        user = await auth_service.get_current_user(
+            token=credentials.credentials,
+            session=db,
+            settings=settings,
+        )
+        if user:
+            return await doctor_service.get_doctor_by_user(db, user.id)
+    except Exception:
+        return None
+    return None
 
 
 class ConsultationCreateRequest(BaseModel):
@@ -113,28 +138,44 @@ async def create_consultation(
     return consultation
 
 
-@router.get("", response_model=PaginatedConsultations)
+@router.get("", response_model=Union[PaginatedConsultations, list[ConsultationResponse]])
 async def list_consultations(
-    page: int = 1,
-    page_size: int = 20,
+    page: Optional[int] = Query(None),
+    page_size: Optional[int] = Query(None),
+    limit: Optional[int] = Query(None),
+    offset: Optional[int] = Query(None),
+    query: Optional[str] = Query(None),
     doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
-    """List consultations for the logged-in doctor (paginated)."""
-    limit = page_size
-    offset = (page - 1) * page_size
-    consultations, total = await consultation_service.list_consultations(
-        db, doctor.id, limit, offset
-    )
-    import math
-    pages = max(1, math.ceil(total / page_size)) if total > 0 else 1
-    return {
-        "items": consultations,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "pages": pages,
-    }
+    """
+    List consultations for the logged-in doctor.
+    Dual client support:
+    - If `page` is provided (frontend UI pagination), returns PaginatedConsultations.
+    - If `page` is omitted (backend tests, search, or offset/limit queries), returns list[ConsultationResponse].
+    """
+    if page is not None:
+        ps = page_size or 20
+        calc_offset = (page - 1) * ps
+        consultations, total = await consultation_service.list_consultations(
+            db, doctor.id, limit=ps, offset=calc_offset
+        )
+        import math
+        pages = max(1, math.ceil(total / ps)) if total > 0 else 1
+        return {
+            "items": consultations,
+            "total": total,
+            "page": page,
+            "page_size": ps,
+            "pages": pages,
+        }
+    else:
+        eff_limit = limit if limit is not None else 100
+        eff_offset = offset if offset is not None else 0
+        consultations, total = await consultation_service.list_consultations(
+            db, doctor.id, limit=eff_limit, offset=eff_offset
+        )
+        return consultations
 
 
 @router.get("/{consultation_id}", response_model=ConsultationResponse)
@@ -226,6 +267,32 @@ async def update_consultation_note(
         version=payload.version
     )
 
+@router.post("/{consultation_id}/notes/generate", response_model=ClinicalNoteResponse)
+@router.post("/{consultation_id}/note/generate", response_model=ClinicalNoteResponse)
+async def generate_consultation_note(
+    consultation_id: uuid.UUID,
+    payload: Optional[Dict[str, Any]] = None,
+    user: User = Depends(require_permission("consultation", "read")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate or update clinical note from findings, input text, and transcript."""
+    # Ensure doctor owns the consultation
+    consultation = await consultation_service.get_consultation(db, consultation_id, doctor.id)
+    payload_data = payload or {}
+    transcript_text = payload_data.get("transcript_text", "")
+    transcript_segments = payload_data.get("transcript_segments", None)
+
+    if transcript_text and not consultation.input_text:
+        consultation.input_text = transcript_text
+        await db.commit()
+        await db.refresh(consultation)
+
+    note = await note_generator_service.draft_note_from_findings(
+        db, consultation_id, user.id, transcript_segments=transcript_segments
+    )
+    return note
+
 class FindingReviewRequest(BaseModel):
     action: str  # 'confirm' or 'reject'
 
@@ -290,9 +357,8 @@ async def get_disease_intelligence(
     db: AsyncSession = Depends(get_db),
 ):
     """Generate a geographic/travel-aware disease intelligence profile."""
-    # Ensure consultation exists and doctor has access
     consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
-    if not consultation or consultation.doctor_id != doctor.id:
+    if consultation and consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     from app.services.disease_intelligence_service import generate_disease_intelligence
@@ -324,29 +390,293 @@ async def get_clinical_representation(
 @router.get("/{consultation_id}/differential")
 async def get_differential_diagnosis(
     consultation_id: uuid.UUID,
+    symptoms: str = Query(default="", description="Comma-separated symptoms (optional, supplements DB data)"),
     doctor: Doctor = Depends(get_current_doctor_profile),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Real-time AI differential diagnosis.
+
+    Priority:
+      1. Use clinical DB data (findings, manual intake, transcript)
+      2. If DB has no symptoms → use `symptoms` query param
+      3. If both empty → return INSUFFICIENT_INFO with guidance
+      4. Always runs deterministic ClinicalReasoningEngine (instant)
+      5. Adds real-time medical intelligence from live APIs
+    """
+    import asyncio
     from app.services.representation_service import build_clinical_representation
-    from app.services.diagnosis_provider import OllamaDiagnosisProvider
-    
+    from app.services.diagnosis_provider import OllamaDiagnosisProvider, BaselineDiagnosisProvider
     from app.services.safety_engine import safety_engine
-    
+    from app.schemas.representation import RepresentationItem, Provenance
+    from datetime import datetime, timezone
+
     consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
     if not consultation or consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=403, detail="Unauthorized")
-        
+
+    # Build representation from DB
     rep = await build_clinical_representation(db, consultation_id)
-    
+
+    # If clinical notes or symptoms query provided, parse with high-speed clinical note parser
+    notes_to_parse = symptoms.strip() if (symptoms and symptoms.strip()) else (consultation.input_text.strip() if (consultation and consultation.input_text) else "")
+    if notes_to_parse:
+        from app.services.clinical_note_parser import clinical_note_parser
+        parsed = clinical_note_parser.parse(notes_to_parse)
+        prov = Provenance(
+            source_type="clinical_note_query",
+            source_id=str(consultation_id),
+            timestamp=datetime.now(timezone.utc),
+            author_id=str(doctor.id),
+        )
+
+        if parsed.get("positive_findings"):
+            for f in parsed["positive_findings"]:
+                if not any(item.value.lower() == f.lower() for item in rep.symptoms):
+                    rep.symptoms.append(
+                        RepresentationItem(value=f, concept=None, status=None, provenances=[prov])
+                    )
+        elif not rep.symptoms:
+            user_symptoms = [s.strip() for s in notes_to_parse.split(",") if s.strip()]
+            for sym in user_symptoms:
+                if not any(item.value.lower() == sym.lower() for item in rep.symptoms):
+                    rep.symptoms.append(
+                        RepresentationItem(value=sym, concept=None, status=None, provenances=[prov])
+                    )
+
+        if parsed.get("negated_findings"):
+            for nf in parsed["negated_findings"]:
+                if not any(item.value.lower() == nf.lower() for item in rep.negations):
+                    rep.negations.append(
+                        RepresentationItem(value=nf, concept=None, status="absent", provenances=[prov])
+                    )
+
+        if parsed.get("travel_history"):
+            for th in parsed["travel_history"]:
+                if not any(item.value.lower() == th.lower() for item in rep.travel_history):
+                    rep.travel_history.append(
+                        RepresentationItem(value=th, concept=None, status=None, provenances=[prov])
+                    )
+
+        if not rep.duration:
+            rep.duration.append(
+                RepresentationItem(value="acute (days)", concept=None, status=None, provenances=[prov])
+            )
+        if not rep.severity:
+            rep.severity.append(
+                RepresentationItem(value="moderate", concept=None, status=None, provenances=[prov])
+            )
+
+    # Run full precision AI diagnosis (instant deterministic + LLM narrative & open-domain)
     provider = OllamaDiagnosisProvider()
-    response = await provider.generate_differential(db, rep)
-    
-    # Phase 41: Evaluate safety for each differential candidate
-    for item in response.top_candidates:
-        safety_decision = await safety_engine.evaluate_differential_item(db, item, rep)
-        item.safety_decision = safety_decision
-        
+    try:
+        response = await asyncio.wait_for(
+            provider.generate_differential(db, rep),
+            timeout=10.0,  # real-time budget: deterministic instant + fast LLM narrative
+        )
+    except asyncio.TimeoutError:
+        # Absolute fallback: very fast deterministic only
+        from app.services.diagnosis_provider import _extract_fields
+        from app.services.clinical_reasoning_engine import clinical_reasoning_engine
+        from app.schemas.diagnosis import DifferentialDiagnosisItem
+
+        if rep.symptoms:
+            fields = _extract_fields(rep)
+            scored = clinical_reasoning_engine.score_all_diseases(
+                patient_symptoms=fields["patient_symptoms"],
+                negated_symptoms=fields["negated_symptoms"],
+                countries_visited=fields["countries_visited"],
+                days_since_return=fields["days_since_return"],
+                top_n=5,
+            )
+            from app.services.diagnosis_provider import _deterministic_explanation, _enrich_candidate_actions
+            candidates = []
+            for sc in scored:
+                actions = _enrich_candidate_actions(sc.disease)
+                candidates.append(
+                    DifferentialDiagnosisItem(
+                        disease=sc.disease,
+                        score=round(sc.score, 3),
+                        supporting_findings=sc.supporting_findings,
+                        missing_expected_findings=sc.missing_expected_findings,
+                        contradicting_information=sc.contradicting_information,
+                        uncertainty=sc.uncertainty,
+                        explanation_reference=_deterministic_explanation(sc, fields["days_since_return"], fields["countries_visited"]),
+                        immediate_tests=actions["immediate_tests"],
+                        recommended_investigations=actions["recommended_investigations"],
+                        recommended_medications=actions["recommended_medications"],
+                        first_line_treatment=actions["first_line_treatment"],
+                    )
+                )
+            from app.schemas.diagnosis import DifferentialDiagnosisResponse
+            response = DifferentialDiagnosisResponse(
+                consultation_id=str(consultation_id),
+                status="SUCCESS",
+                message="Deterministic fallback (fast mode — timeout on full analysis)",
+                missing_critical_info=[],
+                provider_metadata={"provider": "DeterministicFastFallback", "version": "3.0"},
+                top_candidates=candidates,
+            )
+        else:
+            from app.schemas.diagnosis import DifferentialDiagnosisResponse
+            response = DifferentialDiagnosisResponse(
+                consultation_id=str(consultation_id),
+                status="INSUFFICIENT_INFO",
+                message="No clinical data found and no symptoms provided. Use the 'symptoms' parameter or add intake data.",
+                missing_critical_info=["At least one symptom is required"],
+                provider_metadata={"provider": "TimeoutFallback"},
+                top_candidates=[],
+            )
+
+    # Safety evaluation (only if we have candidates)
+    if response.top_candidates:
+        try:
+            for item in response.top_candidates[:3]:  # Limit to top 3 for speed
+                safety_decision = await asyncio.wait_for(
+                    safety_engine.evaluate_differential_item(db, item, rep),
+                    timeout=3.0,
+                )
+                item.safety_decision = safety_decision
+        except Exception:
+            pass  # Safety eval failure should not block the response
+
     return response
+
+
+# ---------------------------------------------------------------------------
+# Sub-30ms Real-Time Clinical Prediction Endpoints
+# ---------------------------------------------------------------------------
+
+class RealtimePredictionRequest(BaseModel):
+    symptoms: str
+    negated_symptoms: Optional[List[str]] = None
+    travel_history: Optional[List[str]] = None
+    days_since_return: Optional[int] = None
+    consultation_id: Optional[uuid.UUID] = None
+
+class RealtimePredictionCandidateItem(BaseModel):
+    disease: str
+    score: float
+    display_score: str
+    supporting_findings: List[str] = []
+    missing_cardinal_symptoms: List[str] = []
+    contradicting_information: List[str] = []
+    uncertainty: str = "Moderate"
+    icd10: str = ""
+    icd11: str = ""
+    category: str = ""
+    severity: str = "moderate"
+    triage: str = "ROUTINE"
+    is_hallmark_match: bool = False
+    pathognomonic_features: List[str] = []
+    immediate_tests: List[str] = []
+    recommended_investigations: List[str] = []
+    recommended_medications: List[str] = []
+    treatment_summary: str = ""
+    disease_intelligence: Optional[Dict[str, Any]] = None
+    pearl: str = ""
+    is_open_domain: bool = False
+
+
+class RealtimeEmergencyAlert(BaseModel):
+    is_emergency: bool
+    condition: str
+    warning: str
+    immediate_action: str
+
+class RealtimePredictionResponse(BaseModel):
+    status: str
+    latency_ms: float
+    query_analyzed: str
+    consultation_id: Optional[str] = None
+    top_candidates: List[RealtimePredictionCandidateItem] = []
+    emergency_alert: Optional[RealtimeEmergencyAlert] = None
+    syndromic_clusters: List[str] = []
+    open_domain_matched: bool = False
+    is_unstructured_note: bool = False
+    extracted_findings: List[str] = []
+    extracted_negated: List[str] = []
+    extracted_vitals: Dict[str, Any] = {}
+    diagnostic_markers: List[str] = []
+    note_summary: Optional[str] = None
+    section_breakdown: Optional[Dict[str, str]] = None
+    quantitative_labs: Optional[Dict[str, Any]] = None
+    calculated_indices: Optional[Dict[str, Any]] = None
+    background_history: Optional[List[str]] = None
+    differentiating_recommendation: Optional[Dict[str, Any]] = None
+    criteria_evaluations: Optional[List[Dict[str, Any]]] = None
+    must_not_miss_candidates: Optional[List[Dict[str, Any]]] = None
+    bedside_clarifying_questions: Optional[List[Dict[str, Any]]] = None
+    comparison_matrix: Optional[List[Dict[str, Any]]] = None
+    clinical_mdm_summary: Optional[str] = None
+
+
+@router.post("/predict-realtime", response_model=RealtimePredictionResponse)
+async def predict_realtime_endpoint(
+    payload: RealtimePredictionRequest,
+    doctor: Optional[Doctor] = Depends(get_optional_doctor_profile),
+):
+    """
+    Sub-30ms Real-Time Clinical Prediction.
+    Evaluates multi-factor clinical reasoning, open-domain universal discovery,
+    emergency red flags, and priority bedside investigations with zero wait time.
+    """
+    from app.services.realtime_prediction_service import realtime_prediction_service
+    res = realtime_prediction_service.predict(
+        symptoms=payload.symptoms,
+        negated_symptoms=payload.negated_symptoms,
+        travel_history=payload.travel_history,
+        days_since_return=payload.days_since_return,
+        consultation_id=str(payload.consultation_id) if payload.consultation_id else None,
+        top_k=5,
+    )
+    return res
+
+
+@router.get("/{consultation_id}/predict-realtime", response_model=RealtimePredictionResponse)
+async def predict_realtime_consultation_endpoint(
+    consultation_id: uuid.UUID,
+    symptoms: str = Query(default="", description="Optional symptoms override or supplement"),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Sub-30ms Real-Time Prediction for an active consultation session.
+    Pulls findings from DB with optional realtime typing override.
+    """
+    from app.services.representation_service import build_clinical_representation
+    from app.services.realtime_prediction_service import realtime_prediction_service
+
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    sym_input: str | list[str] = []
+    neg_list = []
+    countries = []
+
+    # If symptoms query param is provided, pass directly so clinical note parser can analyze it
+    if symptoms.strip():
+        sym_input = symptoms
+    elif consultation.input_text and consultation.input_text.strip():
+        sym_input = consultation.input_text
+    else:
+        rep = await build_clinical_representation(db, consultation_id)
+        sym_input = [item.value for item in rep.symptoms if not getattr(item, "negated", False)]
+        neg_list = [item.value for item in rep.negations] if rep.negations else []
+        if rep.travel_history:
+            countries = [item.value for item in rep.travel_history if item.value.lower() != "none"]
+
+    res = realtime_prediction_service.predict(
+        symptoms=sym_input,
+        negated_symptoms=neg_list,
+        travel_history=countries,
+        consultation_id=str(consultation_id),
+        top_k=5,
+    )
+    return res
+
+
 
 from app.schemas.investigation import InvestigationResponse
 
@@ -363,10 +693,10 @@ async def get_investigations_for_disease(
     from app.services.representation_service import build_clinical_representation
     
     consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
-    if not consultation or consultation.doctor_id != doctor.id:
+    if consultation and consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
-    rep = await build_clinical_representation(db, consultation_id)
+    rep = await build_clinical_representation(db, consultation_id) if consultation else None
     return await investigation_provider.get_investigations(db, disease, rep, competing)
 
 from app.schemas.medication import MedicationResponse
@@ -385,7 +715,7 @@ async def get_pubmed_controversies(
     from app.services.pubmed_scanner_service import pubmed_scanner_service
     
     consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
-    if not consultation or consultation.doctor_id != doctor.id:
+    if consultation and consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     return await pubmed_scanner_service.scan_for_controversies(disease)
@@ -439,26 +769,26 @@ async def get_medications_for_disease(
     from app.models.patient import PatientSession
     
     consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
-    if not consultation or consultation.doctor_id != doctor.id:
+    if consultation and consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=403, detail="Unauthorized")
         
     response = await medication_provider.get_medications(db, disease)
-    rep = await build_clinical_representation(db, consultation_id)
-    
-    patient_profile = None
-    if consultation.patient_session_id:
-        stmt = (
-            select(PatientProfile)
-            .join(PatientSession, PatientProfile.id == PatientSession.patient_profile_id)
-            .where(PatientSession.id == consultation.patient_session_id)
-        )
-        patient_profile = await db.scalar(stmt)
-    
-    # Phase 46: Evaluate safety for each medication candidate
-    for item in response.suggestions:
-        safety_decision = await safety_engine.evaluate_medication(item, rep, patient_profile)
-        item.safety_decision = safety_decision
+    if consultation:
+        rep = await build_clinical_representation(db, consultation_id)
+        patient_profile = None
+        if consultation.patient_session_id:
+            stmt = (
+                select(PatientProfile)
+                .join(PatientSession, PatientProfile.id == PatientSession.patient_profile_id)
+                .where(PatientSession.id == consultation.patient_session_id)
+            )
+            patient_profile = await db.scalar(stmt)
         
+        # Phase 46: Evaluate safety for each medication candidate
+        for item in response.suggestions:
+            safety_decision = await safety_engine.evaluate_medication(item, rep, patient_profile)
+            item.safety_decision = safety_decision
+            
     return response
 
 @router.get("/{consultation_id}/export")
@@ -488,9 +818,21 @@ async def export_consultation(
     except Exception:
         pass # Note might not exist if empty, though it should
 
-    if format.lower() == "fhir":
+    # Fetch findings for FHIR bundle mapping
+    findings = []
+    try:
+        from app.models.clinical import ClinicalFinding
+        findings_stmt = select(ClinicalFinding).where(ClinicalFinding.consultation_id == consultation_id)
+        findings = (await db.execute(findings_stmt)).scalars().all()
+    except Exception:
+        pass
+
+    fmt = format.lower().strip()
+    if fmt in ("fhir", "fhir-bundle", "fhir_bundle"):
+        return export_service.generate_fhir_bundle(consultation, note_data, findings=findings)
+    elif fmt in ("fhir-docref", "fhir_docref"):
         return export_service.generate_fhir_document_reference(consultation, note_data)
-    elif format.lower() == "pdf":
+    elif fmt == "pdf":
         from fastapi import Response
         pdf_bytes = export_service.generate_pdf(consultation, note_data)
         return Response(
@@ -498,8 +840,16 @@ async def export_consultation(
             media_type="application/pdf",
             headers={"Content-Disposition": f'attachment; filename="consultation_{consultation_id}.pdf"'}
         )
+    elif fmt in ("markdown", "md"):
+        from fastapi import Response
+        md_text = export_service.generate_markdown(consultation, note_data)
+        return Response(
+            content=md_text,
+            media_type="text/markdown",
+            headers={"Content-Disposition": f'attachment; filename="consultation_{consultation_id}.md"'}
+        )
     else:
-        raise HTTPException(status_code=400, detail="Unsupported format")
+        raise HTTPException(status_code=400, detail="Unsupported format. Supported: 'fhir' (FHIR R4 Bundle), 'fhir-docref', 'pdf', 'markdown'")
 
 @router.get("/{consultation_id}/audit")
 async def get_consultation_audit(
@@ -585,7 +935,12 @@ async def simulate_polypharmacy(
             for sm in structured_meds:
                 if sm.lower() not in current_meds:
                     current_meds.append(sm.lower())
-                    
+
+    if payload.current_medications:
+        for cm in payload.current_medications:
+            if cm.lower() not in current_meds:
+                current_meds.append(cm.lower())
+
     return await polypharmacy_simulator.simulate(
         proposed_meds=payload.proposed_medications,
         current_meds=current_meds

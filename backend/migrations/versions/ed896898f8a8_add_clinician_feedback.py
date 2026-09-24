@@ -312,7 +312,7 @@ def downgrade() -> None:
                comment=None,
                existing_comment='Primary key (UUID v4, generated at INSERT)',
                existing_nullable=False)
-    op.drop_constraint(None, 'patient_sessions', type_='foreignkey')
+    op.execute("ALTER TABLE patient_sessions DROP CONSTRAINT IF EXISTS patient_sessions_patient_profile_id_fkey CASCADE")
     op.drop_index(op.f('ix_patient_sessions_patient_profile_id'), table_name='patient_sessions')
     op.drop_column('patient_sessions', 'patient_profile_id')
     op.alter_column('ml_experiments', 'metrics',

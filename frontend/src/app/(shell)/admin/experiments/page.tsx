@@ -6,9 +6,11 @@ import { Skeleton } from "@/components/shell/LoadingSkeleton";
 import {
   listExperiments,
   getExperiment,
+  registerExperiment,
   type ExperimentResponse,
+  type ExperimentRegisterRequest,
 } from "@/lib/api";
-import { FlaskConical, Activity, TerminalSquare, AlertCircle, CheckCircle2, Clock, Hash, Cpu, Target, ExternalLink, X } from "lucide-react";
+import { FlaskConical, Activity, TerminalSquare, AlertCircle, CheckCircle2, Clock, Hash, Cpu, Target, ExternalLink, X, Plus, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function ExperimentsPage() {
@@ -18,6 +20,65 @@ export default function ExperimentsPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   const [selectedExp, setSelectedExp] = useState<ExperimentResponse | null>(null);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    model_name: "emilyalsentzer/Bio_ClinicalBERT",
+    dataset_version: "1.0.0",
+    dataset_hash: "sha256-a1b2c3d4e5f6",
+    code_commit: "a1b2c3d4e5f67890123456789abcdef012345678",
+    random_seed: 42,
+    hardware_gpu: "1x NVIDIA A100-SXM4-80GB",
+    learning_rate: "0.00002",
+    batch_size: "16",
+    epochs: "3",
+  });
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) {
+      toast.error("Please enter an experiment name");
+      return;
+    }
+    setRegistering(true);
+    const payload: ExperimentRegisterRequest = {
+      name: form.name.trim(),
+      model_name: form.model_name.trim(),
+      dataset_version: form.dataset_version.trim(),
+      dataset_hash: form.dataset_hash.trim(),
+      code_commit: form.code_commit.trim(),
+      random_seed: Number(form.random_seed) || 42,
+      hardware: { gpu: form.hardware_gpu },
+      configuration: {
+        learning_rate: parseFloat(form.learning_rate) || 0.00002,
+        batch_size: parseInt(form.batch_size) || 16,
+        epochs: parseInt(form.epochs) || 3,
+      },
+    };
+
+    const r = await registerExperiment(payload);
+    setRegistering(false);
+    if (!r.ok) {
+      toast.error(r.error.message || "Failed to register experiment");
+      return;
+    }
+    toast.success(`Experiment "${r.data.name}" registered successfully!`);
+    setShowRegisterModal(false);
+    setForm({
+      name: "",
+      model_name: "emilyalsentzer/Bio_ClinicalBERT",
+      dataset_version: "1.0.0",
+      dataset_hash: "sha256-a1b2c3d4e5f6",
+      code_commit: "a1b2c3d4e5f67890123456789abcdef012345678",
+      random_seed: 42,
+      hardware_gpu: "1x NVIDIA A100-SXM4-80GB",
+      learning_rate: "0.00002",
+      batch_size: "16",
+      epochs: "3",
+    });
+    fetchExperiments(false);
+  }
   
   const isFetchingRef = useRef(false);
 
@@ -106,9 +167,17 @@ export default function ExperimentsPage() {
                 Updated: {lastUpdated.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' })}
               </span>
             </div>
-            <div className="flex items-center gap-2 bg-slate-900 text-slate-300 px-4 py-2 rounded-xl text-xs font-mono shadow-lg shadow-slate-900/20 border border-slate-800">
-              <TerminalSquare size={14} className="text-rose-400" />
-              python cli/ml_experiment.py --help
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowRegisterModal(true)}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-rose-600/20 transition-all cursor-pointer"
+              >
+                <Plus size={14} /> Register Experiment
+              </button>
+              <div className="flex items-center gap-2 bg-slate-900 text-slate-300 px-4 py-2 rounded-xl text-xs font-mono shadow-lg shadow-slate-900/20 border border-slate-800">
+                <TerminalSquare size={14} className="text-rose-400" />
+                python cli/ml_experiment.py --help
+              </div>
             </div>
           </div>
         </header>
@@ -339,6 +408,189 @@ export default function ExperimentsPage() {
                 Close Details
               </button>
             </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showRegisterModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl border border-slate-100 relative max-h-[90vh] flex flex-col"
+          >
+            <button 
+              onClick={() => setShowRegisterModal(false)} 
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X size={24} />
+            </button>
+            
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-rose-50 rounded-xl border border-rose-200 text-rose-600">
+                  <FlaskConical size={22} />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-800 font-heading">
+                  Register ML Experiment
+                </h3>
+              </div>
+              <p className="text-slate-500 text-sm">
+                Record new reproducible model training run metadata, hyperparameters, and git provenance.
+              </p>
+            </div>
+
+            <form onSubmit={handleRegister} className="flex-1 overflow-y-auto space-y-5 pr-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Experiment Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. bio-clinicalbert-v2"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Model Architecture *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Bio_ClinicalBERT"
+                    value={form.model_name}
+                    onChange={(e) => setForm({ ...form, model_name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Dataset Version *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="1.0.0"
+                    value={form.dataset_version}
+                    onChange={(e) => setForm({ ...form, dataset_version: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Dataset Hash *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="sha256-..."
+                    value={form.dataset_hash}
+                    onChange={(e) => setForm({ ...form, dataset_hash: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                  Code Commit Hash (Git SHA) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="40-character hex commit SHA"
+                  value={form.code_commit}
+                  onChange={(e) => setForm({ ...form, code_commit: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Hardware Environment
+                  </label>
+                  <input
+                    type="text"
+                    value={form.hardware_gpu}
+                    onChange={(e) => setForm({ ...form, hardware_gpu: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Random Seed
+                  </label>
+                  <input
+                    type="number"
+                    value={form.random_seed}
+                    onChange={(e) => setForm({ ...form, random_seed: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+                  Hyperparameters Configuration
+                </h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">Learning Rate</label>
+                    <input
+                      type="text"
+                      value={form.learning_rate}
+                      onChange={(e) => setForm({ ...form, learning_rate: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-rose-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">Batch Size</label>
+                    <input
+                      type="number"
+                      value={form.batch_size}
+                      onChange={(e) => setForm({ ...form, batch_size: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-rose-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">Epochs</label>
+                    <input
+                      type="number"
+                      value={form.epochs}
+                      onChange={(e) => setForm({ ...form, epochs: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-rose-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterModal(false)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-medium text-sm transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={registering}
+                  className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-rose-600/20 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {registering ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                  {registering ? "Registering..." : "Register Run"}
+                </button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}

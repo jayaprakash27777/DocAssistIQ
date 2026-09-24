@@ -1,4 +1,4 @@
-﻿/**
+/**
  * DocAssistIQ — Emerging/Unknown Disease Lookup Card
  *
  * When a disease is mentioned that the system doesn't recognise,
@@ -8,8 +8,9 @@
 "use client";
 
 import { useState } from "react";
+import { getStoredToken } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/api\/v1\/?$/, "");
 
 interface Props {
   diseaseName: string;
@@ -43,11 +44,12 @@ export function EmergingDiseaseCard({ diseaseName, context = "" }: Props) {
     setLoading(true);
     setError("");
     try {
+      const token = getStoredToken() || (typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null) || "";
       const res = await fetch(`${API_BASE}/api/v1/intelligence/lookup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("access_token") ?? ""}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ disease_name: diseaseName, context }),
       });

@@ -74,7 +74,13 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
+
   useEffect(() => {
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
     let mounted = true;
     
     async function fetchData() {
@@ -99,9 +105,33 @@ export default function AdminPage() {
       mounted = false;
       clearInterval(intervalId);
     };
-  }, []);
+  }, [isAdmin]);
 
   if (!user) return null;
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-8">
+        <div className="glass-panel-4k p-10 rounded-3xl border border-slate-200/90 bg-white/85 backdrop-blur-2xl shadow-xl max-w-md text-center ring-1 ring-black/5">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4 border border-amber-200 shadow-inner">
+            <ShieldAlert size={32} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2 font-heading">
+            Administrator Access Required
+          </h2>
+          <p className="text-slate-500 mb-6 text-sm leading-relaxed">
+            Your account ({user.email}) has the <strong>{user.role}</strong> role. The System Command Center is restricted to platform administrators.
+          </p>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm transition-colors shadow-md shadow-slate-900/10"
+          >
+            Return to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 relative overflow-hidden p-8 pt-10">

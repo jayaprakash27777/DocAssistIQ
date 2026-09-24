@@ -22,8 +22,8 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     # Ensure pgvector extension exists
     op.execute('CREATE EXTENSION IF NOT EXISTS vector')
-    # Add the column
-    op.add_column('consultations', sa.Column('clinical_representation_embedding', pgvector.sqlalchemy.Vector(1536), nullable=True))
+    # Add the column (768 dimensions matching local nomic-embed-text)
+    op.add_column('consultations', sa.Column('clinical_representation_embedding', pgvector.sqlalchemy.Vector(768), nullable=True))
 
 
 def downgrade() -> None:

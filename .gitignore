@@ -85,3 +85,4 @@ storage/
 
 # --- Model Cache ---
 backend/model_cache/
+model_cache/

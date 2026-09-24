@@ -55,7 +55,16 @@
   --font-family-heading: "Outfit", "Inter", sans-serif;
 }
 
-*, *::before, *::after { box-sizing: border-box; }
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+}
 
 body {
   margin: 0;
@@ -66,6 +75,24 @@ body {
   background-size: 400% 400%;
   animation: gradientBG 15s ease infinite;
   overflow: hidden;
+  text-rendering: optimizeLegibility;
+}
+
+/* 4K UltraHD Custom Sleek Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(75, 170, 160, 0.25);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 170, 160, 0.55);
 }
 
 @keyframes gradientBG {
@@ -103,10 +130,10 @@ body {
 }
 
 .sidebar--collapsed { width: var(--sidebar-collapsed-width); }
-.sidebar-header { height: var(--header-height); display: flex; align-items: center; justify-content: space-between; padding: 0 1.25rem; border-bottom: 1px solid var(--border-default); }
-.sidebar-brand { overflow: hidden; display: flex; flex-direction: column; }
-.sidebar-brand-name { font-family: var(--font-family-heading); font-size: 1.125rem; font-weight: 800; color: var(--color-primary-600); }
-.sidebar-brand-tag { font-size: 0.65rem; text-transform: uppercase; font-weight: 700; color: var(--text-tertiary); }
+.sidebar-header { height: var(--header-height); display: flex; align-items: center; justify-content: space-between; padding: 0 1rem; border-bottom: 1px solid var(--border-default); }
+.sidebar-brand { overflow: hidden; display: flex; flex-direction: row; align-items: center; gap: 0.75rem; }
+.sidebar-brand-name { font-family: var(--font-family-heading); font-size: 1.125rem; font-weight: 800; color: var(--color-primary-700); line-height: 1.2; }
+.sidebar-brand-tag { font-size: 0.625rem; text-transform: uppercase; font-weight: 700; color: var(--text-tertiary); letter-spacing: 0.05em; line-height: 1; }
 .sidebar-toggle { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; border-radius: 8px; padding: 0.5rem; transition: all 0.2s; }
 .sidebar-toggle:hover { background: var(--sidebar-hover-bg); color: var(--color-primary-600); }
 .sidebar-nav { flex: 1; padding: 1.5rem 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
@@ -157,7 +184,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1rem;
+  padding: 3.5rem 1rem 2rem;
 }
 
 .auth-header {
@@ -271,3 +298,47 @@ body {
   --radius-sm: 4px;
   --radius-full: 9999px;
 }
+
+/* ============================================================
+   4K UltraHD High-Fidelity & GPU Acceleration Utilities
+   ============================================================ */
+.glass-panel-4k {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 8px 32px -4px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+}
+
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform;
+}
+
+.glow-ring-primary {
+  box-shadow: 0 0 0 3px rgba(75, 170, 160, 0.2), 0 4px 12px rgba(75, 170, 160, 0.15);
+}
+
+.text-gradient-primary {
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-400) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.glass-panel-dark-4k {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%) !important;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 
+    0 20px 50px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border-radius: 24px;
+}
+

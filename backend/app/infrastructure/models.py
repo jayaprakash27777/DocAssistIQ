@@ -94,3 +94,12 @@ def _auto_populate_tenant_id(mapper, connection, target):
         session = object_session(target)
         if session and "tenant_id" in session.info:
             target.tenant_id = session.info["tenant_id"]
+        else:
+            try:
+                result = connection.execute(text("SELECT id FROM tenants LIMIT 1")).scalar()
+                if result:
+                    target.tenant_id = result
+                    if session:
+                        session.info["tenant_id"] = result
+            except Exception:
+                pass

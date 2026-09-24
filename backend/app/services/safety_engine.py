@@ -117,8 +117,9 @@ class SafetyEngine:
                         related_entity=med.name
                     ))
                 
-                # Contraindication check (mocked by looking at patient conditions)
+                # Graph-based contraindication traversal against patient clinical history
                 patient_conditions = [c.value.lower() for c in representation.history]
+
                 for edge in graph.edges:
                     if edge.relationship == 'contraindicated_for' and edge.source_id == med.id:
                         target_node = next((n for n in graph.nodes if n.id == edge.target_id), None)
@@ -186,7 +187,23 @@ class SafetyEngine:
                 related_entity=suggestion.generic_name
             ))
 
-        # 3. Drug-Drug Interaction Check (Mock deterministic logic)
+        # 3. Drug-Drug Interaction Check (Deterministic High-Alert DDI Matrix + Panel Rules)
+        try:
+            from app.services.polypharmacy_service import polypharmacy_simulator
+            active_ddis = polypharmacy_simulator.check_deterministic_interactions([suggestion.generic_name] + patient_meds)
+            for ddi in active_ddis:
+                flags.append(SafetyFlag(
+                    rule_id="SE-MED-DDI-001",
+                    rule_version=self.VERSION,
+                    category="DRUG_INTERACTION",
+                    severity="CRITICAL" if ddi.severity == "CRITICAL" else "HIGH",
+                    message=f"Interaction Alert [{', '.join(ddi.drugs_involved)}]: {ddi.mechanism} - {ddi.clinical_effect}",
+                    source="SafetyEngine",
+                    related_entity=suggestion.generic_name
+                ))
+        except Exception:
+            pass
+
         for interaction in suggestion.interactions:
             interaction_lower = interaction.lower()
             if any(pm in interaction_lower for pm in patient_meds):
@@ -195,7 +212,7 @@ class SafetyEngine:
                     rule_version=self.VERSION,
                     category="DRUG_INTERACTION",
                     severity="HIGH",
-                    message=f"Potential interaction between '{suggestion.generic_name}' and patient's current medication.",
+                    message=f"Potential interaction between '{suggestion.generic_name}' and patient's current medication: {interaction}",
                     source="SafetyEngine",
                     related_entity=suggestion.generic_name
                 ))

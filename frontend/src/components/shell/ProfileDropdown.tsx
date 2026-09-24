@@ -63,24 +63,22 @@ export function ProfileDropdown({ user }: Props) {
   const isAdmin = user.role === "admin";
 
   return (
-    <div className="profile-dropdown-container" ref={containerRef}>
+    <div className="profile-dropdown-container relative" ref={containerRef}>
       {/* Trigger button */}
       <button
         id="profile-menu-btn"
-        className="profile-trigger"
+        className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-white/70 hover:bg-white border border-slate-200/80 hover:border-teal-300 shadow-sm transition-all text-left group"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls="profile-menu"
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="profile-avatar" aria-hidden="true">
+        <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-teal-500 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shrink-0" aria-hidden="true">
           {initials}
         </span>
-        <span className="profile-trigger-name">{user.full_name}</span>
+        <span className="text-xs font-bold text-slate-800 tracking-tight max-w-[120px] truncate">{user.full_name}</span>
         <svg
-          className={`profile-trigger-caret ${open ? "profile-trigger-caret--open" : ""}`}
-          width="12"
-          height="12"
+          className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           viewBox="0 0 12 12"
           fill="none"
           stroke="currentColor"
@@ -96,27 +94,31 @@ export function ProfileDropdown({ user }: Props) {
       {open && (
         <div
           id="profile-menu"
-          className="profile-menu"
+          className="absolute right-0 mt-2 w-64 rounded-2xl glass-panel-4k gpu-accelerated p-3 border border-slate-200/90 bg-white/95 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.95)] z-50 ring-1 ring-black/5"
           role="menu"
           aria-labelledby="profile-menu-btn"
         >
           {/* Identity */}
-          <div className="profile-menu-identity">
-            <span className="profile-menu-name">{user.full_name}</span>
-            <span className="profile-menu-email">{user.email}</span>
+          <div className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-100 mb-2">
+            <span className="block text-sm font-black text-slate-900 leading-snug truncate">{user.full_name}</span>
+            <span className="block text-xs text-slate-500 truncate mb-2">{user.email}</span>
             <span
-              className={`profile-menu-role ${isAdmin ? "profile-menu-role--admin" : ""}`}
+              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                isAdmin 
+                  ? "bg-purple-100 text-purple-700 border border-purple-200" 
+                  : "bg-teal-100 text-teal-700 border border-teal-200"
+              }`}
             >
               {isAdmin ? "Administrator" : "Clinician"}
             </span>
           </div>
 
-          <div className="profile-menu-divider" role="separator" />
+          <div className="h-px bg-slate-100 my-1" role="separator" />
 
           {/* Actions */}
           <button
             id="logout-btn"
-            className="profile-menu-action profile-menu-action--danger"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
             role="menuitem"
             onClick={handleLogout}
           >

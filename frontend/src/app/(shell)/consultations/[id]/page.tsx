@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,7 +17,24 @@ import { useToast } from "@/components/shell/ToastProvider";
 import { Skeleton } from "@/components/shell/LoadingSkeleton";
 import { Button } from "@/components/ui/button";
 import * as Tabs from "@radix-ui/react-tabs";
-import { GripVertical, Mic, Square, CheckCircle, FileText, Activity, AlertCircle } from "lucide-react";
+import { 
+  GripVertical, 
+  Mic, 
+  Square, 
+  CheckCircle, 
+  FileText, 
+  Activity, 
+  AlertCircle, 
+  Zap, 
+  Sparkles,
+  Clock,
+  Copy,
+  Check,
+  RotateCcw,
+  Trash2
+} from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { noteKeys, consultationKeys } from "@/hooks/useConsultations";
 import {
   getConsultation,
   transitionConsultationStatus,
@@ -40,6 +57,8 @@ import LiveTranscriptionPanel from "@/components/clinical/LiveTranscriptionPanel
 import TranscriptEditorPanel from "@/components/clinical/TranscriptEditorPanel";
 import AuditTimeline from "@/components/clinical/AuditTimeline";
 import { SimilarCasesPanel } from "@/components/clinical/SimilarCasesPanel";
+import InlineAIChat from "@/components/clinical/InlineAIChat";
+
 import { useAudioCapture, formatElapsed } from "@/hooks/useAudioCapture";
 import { getStoredToken } from "@/lib/api";
 import { getSharedRealtimeClient } from "@/lib/ws";
@@ -55,10 +74,87 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   "amended": ["finalized"],
 };
 
+// ─── Doctor Notes Smart Clinical Templates ─────────────────────────────────────
+const CLINICAL_TEMPLATES = [
+  {
+    id: "soap",
+    label: "SOAP Note",
+    icon: "📝",
+    badge: "Full Encounter",
+    text: `SUBJECTIVE:
+• Chief Complaint: 
+• History of Present Illness (HPI): 
+• Current Medications: 
+• Allergies: 
+
+OBJECTIVE:
+• Vitals: BP:    | HR:    | RR:    | SpO2:    % | Temp:    °C
+• General Appearance: 
+• Physical Examination: 
+
+ASSESSMENT:
+• Clinical Impression / Differential: 
+
+PLAN:
+• Diagnostics / Labs: 
+• Therapeutics / Prescriptions: 
+• Patient Education & Safety Net: `,
+  },
+  {
+    id: "chest_pain",
+    label: "Chest Pain (OPQRST)",
+    icon: "❤️",
+    badge: "Cardiology",
+    text: `CHEST PAIN WORKUP (OPQRST):
+• Onset: Sudden / gradual onset [  ] hours ago during [activity].
+• Provocation/Palliation: Worsened by exertion/inspiration? Relieved by rest/nitroglycerin?
+• Quality: Pressure, squeezing, heavy, stabbing, tearing.
+• Radiation: Radiates to left arm, shoulder, jaw, neck, back.
+• Severity: [  ]/10 on visual analog scale.
+• Timing: Constant / episodic, duration [  ] minutes.
+• Associated Symptoms: Diaphoresis, dyspnea, nausea, presyncope, palpitations.
+• Cardiac Risk Factors: HTN, DM, Dyslipidemia, Smoking, Family history.`,
+  },
+  {
+    id: "infection",
+    label: "Infection / Sepsis",
+    icon: "🌡️",
+    badge: "Infectious",
+    text: `INFECTION / SEPSIS SCREEN:
+• Fever / Rigors: Max temperature documented [  ]°C, chills, sweats.
+• Suspected Source:
+  - Respiratory: Productive cough, purulent sputum, pleurisy, dyspnea.
+  - Urinary: Dysuria, frequency, urgency, foul odor, flank tenderness.
+  - Abdominal: Focal pain, guarding, nausea, vomiting, diarrhea.
+  - Skin / Soft Tissue: Erythema, warmth, purulent drainage, induration.
+• Sepsis Risk Markers: Altered mental status, tachypnea, hypotension.`,
+  },
+  {
+    id: "exam_normal",
+    label: "Exam (Normal)",
+    icon: "🩺",
+    badge: "Physical Exam",
+    text: `PHYSICAL EXAMINATION:
+• Constitutional: Alert, oriented x 4, well-nourished, in no acute distress.
+• Cardiovascular: Regular rate and rhythm, normal S1/S2. No murmurs, gallops, or friction rubs.
+• Respiratory: Clear to auscultation bilaterally. Normal respiratory effort, no wheezing or crackles.
+• Abdomen: Soft, non-distended, non-tender throughout. Normoactive bowel sounds. No guarding or rebound.
+• Neurological: Cranial nerves II-XII grossly intact. Motor strength 5/5 in all extremities. Gait steady.`,
+  },
+  {
+    id: "vitals",
+    label: "Vitals Block",
+    icon: "📊",
+    badge: "Vitals",
+    text: `VITALS: BP: 120/80 mmHg | HR: 72 bpm | RR: 16 /min | SpO2: 98% room air | Temp: 36.8°C | GCS: 15/15`,
+  },
+];
+
 export default function ConsultationDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   
@@ -67,6 +163,52 @@ export default function ConsultationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [inputText, setInputText] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [copiedScratchpad, setCopiedScratchpad] = useState(false);
+
+  // Scratchpad Metrics
+  const scratchpadStats = useMemo(() => {
+    const chars = inputText.length;
+    const words = inputText.trim() ? inputText.trim().split(/\s+/).length : 0;
+    const readingTime = Math.max(1, Math.ceil(words / 200)) + " min";
+    return { chars, words, readingTime };
+  }, [inputText]);
+
+  // Scratchpad Helper Actions
+  const handleInsertTemplate = (templateText: string) => {
+    setInputText((prev) => {
+      if (!prev.trim()) return templateText;
+      return `${prev.trim()}\n\n${templateText}`;
+    });
+    toast.success("Clinical template inserted");
+  };
+
+  const handleInsertTimestamp = () => {
+    const timeStr = `[${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}] - `;
+    setInputText((prev) => `${prev ? prev + "\n" : ""}${timeStr}`);
+  };
+
+  const handleCopyScratchpad = () => {
+    if (!inputText) return;
+    navigator.clipboard.writeText(inputText);
+    setCopiedScratchpad(true);
+    toast.success("Doctor notes copied to clipboard");
+    setTimeout(() => setCopiedScratchpad(false), 2000);
+  };
+
+  const handleClearScratchpad = () => {
+    if (!inputText) return;
+    if (window.confirm("Are you sure you want to clear your scratchpad notes?")) {
+      setInputText("");
+      toast.info("Doctor notes cleared");
+    }
+  };
+
+  const handleRestoreOriginal = () => {
+    if (consultation?.input_text) {
+      setInputText(consultation.input_text);
+      toast.success("Restored original consultation notes");
+    }
+  };
   
   // Consent Form State
   const [showConsentForm, setShowConsentForm] = useState(false);
@@ -128,6 +270,7 @@ export default function ConsultationDetailPage() {
         if (!prev && res.data.input_text) return res.data.input_text;
         return prev;
       });
+      queryClient.invalidateQueries({ queryKey: noteKeys.detail(id) });
       
       // Fetch Consent
       const consentRes = await getActiveConsent(id);
@@ -202,6 +345,8 @@ export default function ConsultationDetailPage() {
     if (res.ok) {
       toast.success(`Transitioned to ${newStatus.toUpperCase()}`);
       setConsultation(res.data);
+      queryClient.invalidateQueries({ queryKey: noteKeys.detail(consultation.id) });
+      queryClient.invalidateQueries({ queryKey: consultationKeys.detail(consultation.id) });
       
       if (newStatus === "recording") {
         if (audio.state === "idle" || audio.state === "unavailable") {
@@ -315,7 +460,7 @@ export default function ConsultationDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="p-6" data-testid="dashboard-skeleton">
         <Skeleton className="h-[20px] w-full mb-2" />
         <Skeleton className="h-[20px] w-3/4 mb-4" />
         <Skeleton className="h-[20px] w-full mb-2" />
@@ -324,13 +469,43 @@ export default function ConsultationDetailPage() {
     );
   }
 
-  if (!consultation) return null;
+  if (!consultation) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4 text-slate-400">
+          <AlertCircle size={32} />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 mb-2 font-heading">Consultation Not Found</h2>
+        <p className="text-slate-500 mb-6 text-sm">The requested consultation could not be found or has been removed.</p>
+        <Link
+          href="/consultations"
+          className="px-5 py-2.5 rounded-xl bg-slate-900 text-white font-medium text-sm hover:bg-slate-800 transition-colors shadow-sm"
+        >
+          Back to Consultations
+        </Link>
+      </div>
+    );
+  }
 
   const currentStatus = consultation.status;
   const isSplitPane = ["draft", "under_review", "analysis_ready", "finalized", "amended"].includes(currentStatus);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-[var(--surface-base)] overflow-hidden relative">
+    <div className="flex flex-col h-[calc(100vh-72px)] bg-[var(--surface-base)] overflow-hidden relative">
+      
+      {/* Simulation / Placeholder Clinical Banner */}
+      <div 
+        role="alert" 
+        aria-label="Simulation Notice — Not a clinical result" 
+        className="px-6 py-2 bg-amber-50/80 border-b border-amber-200/80 text-xs text-amber-800 flex items-center justify-between shrink-0"
+      >
+        <span className="font-bold text-[11px] uppercase tracking-wider">
+          Simulation Environment — Not a clinical result
+        </span>
+        <span className="text-[11px] text-amber-700 hidden sm:inline font-medium">
+          Demonstration mode only. Verified clinician oversight required.
+        </span>
+      </div>
       
       {/* Sticky Premium Header */}
       <header className="px-6 py-4 bg-[var(--glass-bg)] backdrop-blur-xl border-b border-[var(--glass-border)] shrink-0 z-20 flex justify-between items-center shadow-sm sticky top-0">
@@ -400,10 +575,8 @@ export default function ConsultationDetailPage() {
         </div>
       )}
 
-      {/* Phase 42: Red Flag Banner */}
-
-        {/* Main Content Area */}
-        <div className={`flex flex-1 overflow-hidden relative ${!isSplitPane ? 'max-w-4xl mx-auto w-full' : ''}`}>
+      {/* Main Content Area */}
+      <div className={`flex flex-1 overflow-hidden relative ${!isSplitPane ? 'max-w-4xl mx-auto w-full' : ''}`}>
         
         {/* Left Pane (Timeline / Transcript) */}
         <div className="flex-1 flex flex-col h-full bg-white relative">
@@ -483,6 +656,13 @@ export default function ConsultationDetailPage() {
                   AI Assistant
                 </Tabs.Trigger>
                 <Tabs.Trigger 
+                  value="intelligence" 
+                  className="pb-3 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] data-[state=active]:text-[var(--color-primary-600)] data-[state=active]:border-b-2 data-[state=active]:border-[var(--color-primary-600)] transition-colors hover:text-[var(--text-primary)] outline-none flex items-center gap-1.5"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 animate-pulse" />
+                  Clinical Intelligence &amp; DDx
+                </Tabs.Trigger>
+                <Tabs.Trigger 
                   value="transcript" 
                   className="pb-3 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] data-[state=active]:text-[var(--color-primary-600)] data-[state=active]:border-b-2 data-[state=active]:border-[var(--color-primary-600)] transition-colors hover:text-[var(--text-primary)] outline-none"
                 >
@@ -490,9 +670,10 @@ export default function ConsultationDetailPage() {
                 </Tabs.Trigger>
                 <Tabs.Trigger 
                   value="scratchpad" 
-                  className="pb-3 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] data-[state=active]:text-[var(--color-primary-600)] data-[state=active]:border-b-2 data-[state=active]:border-[var(--color-primary-600)] transition-colors hover:text-[var(--text-primary)] outline-none"
+                  className="pb-3 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] data-[state=active]:text-[var(--color-primary-600)] data-[state=active]:border-b-2 data-[state=active]:border-[var(--color-primary-600)] transition-colors hover:text-[var(--text-primary)] outline-none flex items-center gap-1.5"
                 >
-                  Scratchpad
+                  <FileText className="w-3.5 h-3.5" />
+                  Doctor Notes &amp; Scratchpad
                 </Tabs.Trigger>
               </Tabs.List>
             </div>
@@ -500,20 +681,30 @@ export default function ConsultationDetailPage() {
             <div className="flex-1 overflow-y-auto p-6 pb-32">
               
               <Tabs.Content value="ai-assistant" className="space-y-6 outline-none">
+                {consultation.input_text && (
+                  <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 shadow-sm">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                      Clinical Scenario
+                    </span>
+                    <p className="text-sm text-slate-700 leading-relaxed font-medium">
+                      {consultation.input_text}
+                    </p>
+                  </div>
+                )}
+
                 <div className="mb-6">
                   <LiveTranscriptionPanel
-                    audioState={audio.state}
-                    audioStream={audio.stream}
-                    asrText={asrText}
-                    partialAsr={partialAsr}
-                    diarizedSegments={diarizedSegments}
-                    elapsedMs={audio.elapsedMs}
-                    onStart={() => handleTransition("recording")}
-                    onPause={() => audio.pause()}
-                    onStop={() => handleTransition("processing")}
+                    consultationId={Array.isArray(params.id) ? params.id[0] : params.id as string}
+
+                    onTranscriptReady={(text, segments) => {
+                      // Handle transcript ready — pass to note generation
+                    }}
                   />
                 </div>
-                
+
+                {/* ── Inline AI Chat Box ─────────────────────────────── */}
+                <InlineAIChat consultationId={consultation.id} />
+
                 {consultation?.findings && consultation.findings.length > 0 && (
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }}
@@ -606,8 +797,29 @@ export default function ConsultationDetailPage() {
                   </motion.div>
                 )}
 
-                {consultation && <DifferentialDiagnosis consultationId={consultation.id} trigger={consultation.findings?.length || consultation.status} />}
+                {consultation && (
+                  <DifferentialDiagnosis 
+                    consultationId={consultation.id} 
+                    trigger={consultation.findings?.length || consultation.status}
+                    initialQuery={consultation.input_text || inputText}
+                  />
+                )}
                 
+                {consultation && (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <SimilarCasesPanel consultationId={consultation.id} />
+                  </div>
+                )}
+              </Tabs.Content>
+
+              <Tabs.Content value="intelligence" className="space-y-6 outline-none">
+                {consultation && (
+                  <DifferentialDiagnosis 
+                    consultationId={consultation.id} 
+                    trigger={consultation.findings?.length || consultation.status}
+                    initialQuery={consultation.input_text || inputText}
+                  />
+                )}
                 {consultation && (
                   <div style={{ marginBottom: "1rem" }}>
                     <SimilarCasesPanel consultationId={consultation.id} />
@@ -639,39 +851,206 @@ export default function ConsultationDetailPage() {
               </Tabs.Content>
 
               <Tabs.Content value="scratchpad" className="space-y-6 outline-none h-full flex flex-col">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-sm font-bold tracking-wide text-[var(--color-primary-800)] uppercase">
-                    Unstructured Doctor Notes
-                  </h3>
-                  <Link href={`/consultations/${id}/intake`} className="text-xs font-bold text-[var(--color-primary-600)] hover:underline flex items-center gap-1">
-                    📝 Open Structured Intake Form
-                  </Link>
+                {/* Header & Quick Links */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-700 border border-teal-500/20 flex items-center justify-center shadow-xs">
+                      <FileText className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black tracking-tight text-slate-900 font-heading flex items-center gap-2">
+                        Doctor Notes Workspace
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                          Live Scratchpad
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Document free-form observations, clinical dictations, or insert hospital templates below.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link
+                      href={`/consultations/${id}/intake`}
+                      className="text-xs font-bold text-teal-700 bg-teal-50/80 hover:bg-teal-100 px-3.5 py-2 rounded-xl border border-teal-200 shadow-2xs transition-all flex items-center gap-1.5 active:scale-95"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                      Structured Intake Form
+                    </Link>
+                  </div>
                 </div>
-                <textarea
-                  className="flex-1 w-full min-h-[300px] bg-yellow-50/50 border border-yellow-200 rounded-xl p-4 text-[var(--text-primary)] shadow-inner focus:ring-2 focus:ring-yellow-400 outline-none transition-all resize-none font-mono"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  disabled={
-                    actionLoading || 
-                    currentStatus === "processing" || 
-                    currentStatus === "finalized"
-                  }
-                  placeholder={
-                    currentStatus === "recording" 
-                      ? "Recording in progress... (type manual scratchpad notes here)" 
-                      : "Type free-form notes during the consultation..."
-                  }
-                />
-                <div className="flex justify-end mt-4">
-                  <Button 
-                    variant="primary" 
-                    onClick={() => handleTransition("draft")}
-                    disabled={actionLoading || !inputText.trim() || currentStatus === "finalized"}
-                    isLoading={actionLoading}
-                    className="shadow-md"
-                  >
-                    Analyze Notes
-                  </Button>
+
+                {/* Clinical Template Quick-Chips Bar */}
+                <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5 font-heading">
+                      <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                      1-Click Clinical Templates:
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">Click chip to insert at end of notes</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {CLINICAL_TEMPLATES.map((tmpl) => (
+                      <button
+                        key={tmpl.id}
+                        type="button"
+                        onClick={() => handleInsertTemplate(tmpl.text)}
+                        disabled={actionLoading || currentStatus === "finalized"}
+                        className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-slate-200/90 hover:border-teal-300 text-xs font-medium text-slate-700 hover:text-teal-900 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        <span className="text-sm">{tmpl.icon}</span>
+                        <span className="font-bold">{tmpl.label}</span>
+                        <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-slate-100 group-hover:bg-teal-100/70 text-slate-500 group-hover:text-teal-700 transition-colors">
+                          {tmpl.badge}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Editor Canvas Card */}
+                <div className="rounded-3xl border border-slate-200/90 bg-white shadow-sm overflow-hidden flex flex-col focus-within:ring-4 focus-within:ring-teal-500/10 focus-within:border-teal-500 transition-all">
+                  {/* Editor Utility Toolbar */}
+                  <div className="bg-slate-50/90 border-b border-slate-200/90 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleInsertTimestamp}
+                        disabled={actionLoading || currentStatus === "finalized"}
+                        title="Insert current timestamp [HH:MM]"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 shadow-2xs transition-all active:scale-95 disabled:opacity-40"
+                      >
+                        <Clock className="w-3.5 h-3.5 text-slate-500" />
+                        Timestamp
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCopyScratchpad}
+                        disabled={!inputText.trim()}
+                        title="Copy all doctor notes to clipboard"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 shadow-2xs transition-all active:scale-95 disabled:opacity-40"
+                      >
+                        {copiedScratchpad ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-emerald-700">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5 text-slate-500" />
+                            Copy Notes
+                          </>
+                        )}
+                      </button>
+
+                      {consultation?.input_text && consultation.input_text !== inputText && (
+                        <button
+                          type="button"
+                          onClick={handleRestoreOriginal}
+                          title="Restore original consultation input"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 shadow-2xs transition-all active:scale-95"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                          Restore Original
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleClearScratchpad}
+                        disabled={!inputText.trim() || actionLoading || currentStatus === "finalized"}
+                        title="Clear notes"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-rose-600 hover:text-rose-700 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 shadow-2xs transition-all disabled:opacity-30 active:scale-95"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Clear
+                      </button>
+                    </div>
+
+                    {/* Live Word & Char Metrics */}
+                    <div className="flex items-center gap-3 text-xs font-mono font-medium text-slate-500 bg-white px-3 py-1 rounded-xl border border-slate-200 shadow-2xs">
+                      <span>{scratchpadStats.words} words</span>
+                      <span className="text-slate-300">•</span>
+                      <span>{scratchpadStats.chars} chars</span>
+                      <span className="text-slate-300">•</span>
+                      <span className="text-slate-400">~{scratchpadStats.readingTime} read</span>
+                    </div>
+                  </div>
+
+                  {/* Textarea */}
+                  <textarea
+                    className="w-full min-h-[340px] p-5 text-slate-800 bg-transparent placeholder-slate-400 font-mono text-sm leading-relaxed resize-y outline-none"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                        e.preventDefault();
+                        if (!actionLoading && inputText.trim() && currentStatus !== "finalized") {
+                          handleTransition("draft");
+                        }
+                      }
+                    }}
+                    disabled={
+                      actionLoading || 
+                      currentStatus === "processing" || 
+                      currentStatus === "finalized"
+                    }
+                    placeholder={
+                      currentStatus === "recording" 
+                        ? "Recording in progress... (type manual scratchpad notes here)" 
+                        : "Type free-form notes during the consultation...\n\nShortcut: Press Ctrl+Enter to trigger AI Clinical Synthesis."
+                    }
+                  />
+
+                  {/* Textarea Footer / Status Bar */}
+                  <div className="bg-slate-50/80 border-t border-slate-100 px-5 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 text-slate-600 font-medium">
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[11px]">
+                        Live connected to Differential Diagnosis Engine &amp; Clinical Knowledge Graph
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-slate-400 hidden sm:inline">
+                        Press <kbd className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono text-[9px] font-bold">Ctrl+Enter</kbd>
+                      </span>
+                      <Button 
+                        variant="primary" 
+                        onClick={() => handleTransition("draft")}
+                        disabled={actionLoading || !inputText.trim() || currentStatus === "finalized"}
+                        isLoading={actionLoading}
+                        className="h-9 px-5 text-xs font-bold shadow-md bg-gradient-to-r from-teal-600 to-indigo-600 text-white hover:brightness-110 active:scale-95 rounded-xl"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                        Analyze Notes &amp; Formulate SOAP Note
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Differential Diagnosis Engine Below Scratchpad */}
+                <div className="mt-4 border-t border-slate-200/80 pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-amber-500 fill-amber-500 animate-pulse" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                        Live Differential Diagnosis (Real-Time Scratchpad Evaluation)
+                      </h4>
+                    </div>
+                    <span className="text-[10px] bg-indigo-100 text-indigo-800 font-bold px-2.5 py-0.5 rounded-full border border-indigo-200">
+                      ⚡ Live Predictive Engine
+                    </span>
+                  </div>
+                  {consultation && (
+                    <DifferentialDiagnosis 
+                      consultationId={consultation.id} 
+                      trigger={consultation.findings?.length || consultation.status}
+                      initialQuery={inputText || consultation.input_text}
+                    />
+                  )}
                 </div>
               </Tabs.Content>
             </div>
@@ -681,7 +1060,7 @@ export default function ConsultationDetailPage() {
           <motion.div 
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-2xl rounded-full px-4 py-3 flex items-center gap-3"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-white/90 backdrop-blur-2xl border border-white/90 shadow-[0_16px_50px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.95)] rounded-full px-5 py-3 flex items-center gap-3 ring-1 ring-black/5"
           >
             {currentStatus === "created" && (
               <Button 
@@ -791,6 +1170,13 @@ export default function ConsultationDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Safety Footer */}
+      <footer className="px-6 py-2.5 bg-slate-50 border-t border-slate-200/80 shrink-0 text-center">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED
+        </span>
+      </footer>
     </div>
   );
 }

@@ -4,11 +4,12 @@ import { FormEvent, useEffect, useState } from "react";
 import {
   listPendingDoctors,
   verifyDoctor,
+  verifyAllPendingDoctors,
   type DoctorResponse,
 } from "@/lib/api";
 import { useToast } from "@/components/shell/ToastProvider";
 import { Skeleton } from "@/components/shell/LoadingSkeleton";
-import { ShieldAlert, CheckCircle2, XCircle } from "lucide-react";
+import { ShieldAlert, CheckCircle2, XCircle, CheckCheck } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ActionState {
@@ -27,6 +28,7 @@ export default function AdminDoctorsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [action, setAction] = useState<ActionState | null>(null);
+  const [isVerifyingAll, setIsVerifyingAll] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   const PAGE_SIZE = 20;
@@ -94,6 +96,20 @@ export default function AdminDoctorsPage() {
     setTotal((t) => t - 1);
   }
 
+  async function handleVerifyAll() {
+    if (!confirm(`Are you sure you want to verify all ${total} pending doctor accounts?`)) return;
+    setIsVerifyingAll(true);
+    const r = await verifyAllPendingDoctors();
+    setIsVerifyingAll(false);
+    if (!r.ok) {
+      toast.error(r.error.message ?? "Bulk verification failed.");
+      return;
+    }
+    toast.success(`Successfully verified ${r.data.verified_count} doctors.`);
+    setDoctors([]);
+    setTotal(0);
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 relative overflow-hidden p-8 pt-10">
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-300/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '8s' }}></div>
@@ -134,6 +150,16 @@ export default function AdminDoctorsPage() {
             <h2 className="text-xl font-bold text-slate-800 font-heading">
               Pending Reviews ({total})
             </h2>
+            {total > 0 && (
+              <button
+                onClick={handleVerifyAll}
+                disabled={isVerifyingAll}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
+              >
+                <CheckCheck size={16} />
+                {isVerifyingAll ? "Verifying..." : `Verify All (${total})`}
+              </button>
+            )}
           </div>
 
           {loading ? (

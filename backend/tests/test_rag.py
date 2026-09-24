@@ -3,7 +3,9 @@ from starlette.testclient import TestClient
 
 from tests.test_consultations import _register_and_login, _auth
 
+@pytest.mark.integration
 def test_rag_query_empty_db(test_client: TestClient):
+
     """
     Test that the RAG query safely returns insufficient_evidence=True
     when the database has no matching approved evidence.
@@ -51,7 +53,7 @@ async def test_pmc_ingestion_and_rag_retrieval(int_session, test_client: TestCli
     await int_session.begin()
     
     source = Source(
-        code="pmc_open_access_test",
+        code=f"pmc_test_{uuid.uuid4().hex[:8]}",
         organisation="NIH / NLM",
         name="PubMed Central Open Access",
         access_mechanism="api",
@@ -97,24 +99,39 @@ async def test_pmc_ingestion_and_rag_retrieval(int_session, test_client: TestCli
     )
     int_session.add(emb_record)
     await int_session.commit()
-    
-    # 2. Query RAG
-    token = _register_and_login(test_client)
-    
-    response = test_client.post(
-        "/api/v1/rag/query",
-        json={
-            "query": "How quickly should I give antibiotics for sepsis?",
-            "top_k": 3,
-            "filters": {
-                "only_approved": False
-            }
-        },
-        headers=_auth(token)
-    )
-    
-    assert response.status_code == 200
-    data = response.json()
-    assert data["insufficient_evidence"] is False
-    assert len(data["citations"]) >= 1
-    assert data["citations"][0]["claim"] == claim_text
+    if hasattr(int_session.bind, "commit"):
+        await int_session.bind.commit()
+
+    try:
+        # 2. Query RAG
+        token = _register_and_login(test_client)
+
+        response = test_client.post(
+            "/api/v1/rag/query",
+            json={
+                "query": "How quickly should I give antibiotics for sepsis?",
+                "top_k": 3,
+                "filters": {
+                    "only_approved": False
+                }
+            },
+            headers=_auth(token)
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["insufficient_evidence"] is False
+        assert len(data["citations"]) >= 1
+        assert data["citations"][0]["claim"] == claim_text
+    finally:
+        async with int_session.begin():
+            await int_session.delete(emb_record)
+            await int_session.flush()
+            await int_session.delete(evidence)
+            await int_session.flush()
+            await int_session.delete(article)
+            await int_session.flush()
+            await int_session.delete(source)
+            await int_session.flush()
+        if hasattr(int_session.bind, "commit"):
+            await int_session.bind.commit()

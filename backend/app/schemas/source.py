@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -56,7 +57,7 @@ class SourceResponse(SourceBase):
     is_production_suitable: bool
     last_verified_at: str | None
     status: str
-    created_at: str
-    updated_at: str
+    created_at: datetime | str
+    updated_at: datetime | str
 
     model_config = ConfigDict(from_attributes=True)

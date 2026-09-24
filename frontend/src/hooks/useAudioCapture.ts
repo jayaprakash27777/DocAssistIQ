@@ -70,8 +70,10 @@ const stop = useCallback(() => {
         }
       }
     };
-    navigator.mediaDevices.addEventListener("devicechange", handleDeviceChange);
-    return () => navigator.mediaDevices.removeEventListener("devicechange", handleDeviceChange);
+    if (typeof navigator !== "undefined" && navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener("devicechange", handleDeviceChange);
+      return () => navigator.mediaDevices?.removeEventListener("devicechange", handleDeviceChange);
+    }
   }, [state]);
 
   const updateTimer = useCallback(() => {

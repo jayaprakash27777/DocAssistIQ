@@ -45,6 +45,18 @@ async def create_consultation(
 ) -> Consultation:
     """Create a new consultation in the CREATED state."""
     tenant_id = db.info.get("tenant_id")
+    if not tenant_id:
+        doctor_record = await db.scalar(select(Doctor).where(Doctor.id == doctor_id))
+        if doctor_record and doctor_record.tenant_id:
+            tenant_id = doctor_record.tenant_id
+            db.info["tenant_id"] = tenant_id
+        else:
+            from app.models.tenant import Tenant
+            tenant_record = await db.scalar(select(Tenant).limit(1))
+            if tenant_record:
+                tenant_id = tenant_record.id
+                db.info["tenant_id"] = tenant_id
+
     consultation = Consultation(
         doctor_id=doctor_id,
         patient_session_id=patient_session_id,
@@ -133,7 +145,7 @@ async def _extract_nlp_findings(db: AsyncSession, consultation: Consultation, co
             transcript_findings = await extractor.extract(full_transcript_text, source_context="transcript")
             findings.extend(transcript_findings)
             
-    tenant_id = db.info.get("tenant_id")
+    tenant_id = db.info.get("tenant_id") or consultation.tenant_id
     for f in findings:
         finding = ClinicalFinding(
             tenant_id=tenant_id,

@@ -181,7 +181,7 @@ INCUBATION_PERIODS: dict[str, dict] = {
     "rift valley fever": {"min_days": 2, "max_days": 6, "typical_days": 4, "disease_class": "Viral Hemorrhagic Fever"},
     "crimean-congo hemorrhagic fever": {"min_days": 1, "max_days": 13, "typical_days": 5, "disease_class": "Viral Hemorrhagic Fever"},
     "dengue fever": {"min_days": 3, "max_days": 14, "typical_days": 6, "disease_class": "Arboviral"},
-    "yellow fever": {"min_days": 3, "max_days": 6, "typical_days": 4, "disease_class": "Arboviral"},
+    "yellow fever": {"min_days": 3, "max_days": 10, "typical_days": 5, "disease_class": "Arboviral"},
     "zika": {"min_days": 3, "max_days": 14, "typical_days": 7, "disease_class": "Arboviral"},
     "chikungunya": {"min_days": 2, "max_days": 12, "typical_days": 5, "disease_class": "Arboviral"},
     # Respiratory
@@ -501,25 +501,27 @@ async def _fetch_wikipedia_disease_summary(disease_name: str) -> str:
 # 6. Incubation Period Checker
 # ---------------------------------------------------------------------------
 
+from functools import lru_cache
+
+@lru_cache(maxsize=512)
+def _get_disease_incubation_data(disease_lower: str):
+    for key, data in INCUBATION_PERIODS.items():
+        if key in disease_lower or disease_lower in key:
+            return (key, data)
+    for syn_group, synonyms in DISEASE_SYNONYMS.items():
+        if any(s in disease_lower for s in synonyms):
+            if syn_group in INCUBATION_PERIODS:
+                return (syn_group, INCUBATION_PERIODS[syn_group])
+            break
+    return None
+
 def check_incubation_fit(disease_name: str, days_since_exposure: int) -> dict:
     """
     Deterministically checks if days_since_exposure fits the known incubation period.
     Returns a dict with fit status and reasoning.
     """
     disease_lower = disease_name.lower()
-
-    # Find matching disease in incubation DB
-    best_match = None
-    for key, data in INCUBATION_PERIODS.items():
-        if key in disease_lower or disease_lower in key:
-            best_match = (key, data)
-            break
-        # Check synonyms
-        for syn_group, synonyms in DISEASE_SYNONYMS.items():
-            if any(s in disease_lower for s in synonyms):
-                if syn_group in INCUBATION_PERIODS:
-                    best_match = (syn_group, INCUBATION_PERIODS[syn_group])
-                break
+    best_match = _get_disease_incubation_data(disease_lower)
 
     if not best_match:
         return {
@@ -783,5 +785,137 @@ class IntelligenceEngine:
         }
 
 
+    async def gather_disease_context(
+        self,
+        disease_name: str,
+        countries: list[str] | None = None,
+        max_total_chars: int = 8000,
+    ) -> dict:
+        """
+        UPGRADED: Comprehensive parallel aggregator of ALL free knowledge sources.
+
+        Sources fetched in parallel with shield protection:
+        - Wikipedia Medical Summary (free)
+        - NCBI PubMed Recent Literature (free)
+        - WHO Outbreak Feed (free)
+        - CDC Travel Notices (free)
+        - ICD-11 Classification (WHO, free, no key)
+        - ECDC Surveillance (free)
+        - ReliefWeb Health Reports (free)
+        - OpenFDA Adverse Events (free)
+        - ClinicalTrials.gov (free)
+
+        Returns a merged dict with 'compiled_context' key ready to feed LLM.
+        All slow sources are shielded — total time capped at 12s.
+        """
+        from app.services.free_knowledge_sources import (
+            fetch_ecdc_surveillance,
+            fetch_reliefweb_health,
+            fetch_openfda_drug_events,
+            merge_all_free_sources,
+        )
+
+        country_keywords = countries or []
+
+        # Parallel fetch with 12s total shield
+        async def _safe(coro, label: str) -> str:
+            try:
+                return await asyncio.wait_for(asyncio.shield(coro), timeout=10.0)
+            except Exception as e:
+                log.debug(f"intelligence_source_failed", source=label, error=str(e))
+                return ""
+
+        tasks = [
+            _safe(_fetch_wikipedia_disease_summary(disease_name), "wikipedia"),
+            _safe(_fetch_ncbi_pubmed_articles(disease_name), "pubmed"),
+            _safe(_fetch_who_outbreak_news(), "who"),
+            _safe(_fetch_cdc_travel_notices(), "cdc"),
+            _safe(_fetch_promedmail_feed(), "promed"),
+            _safe(fetch_ecdc_surveillance(country_keywords + [disease_name]), "ecdc"),
+            _safe(fetch_reliefweb_health(country_keywords + [disease_name[:20]]), "reliefweb"),
+            _safe(fetch_openfda_drug_events([disease_name[:30]]), "openfda"),
+        ]
+
+        # ICD-11 lookup (inline, same parallel batch)
+        async def _icd11() -> str:
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=6.0) as client:
+                    resp = await client.get(
+                        "https://id.who.int/icd/entity/search",
+                        params={"q": disease_name, "subtreFilterUsage": "foundationDescendants"},
+                        headers={"Accept": "application/json", "API-Version": "v2", "Accept-Language": "en"}
+                    )
+                    if resp.status_code == 200:
+                        entities = resp.json().get("destinationEntities", [])
+                        if entities:
+                            e = entities[0]
+                            return (
+                                f"ICD-11: {e.get('title', '')} | "
+                                f"Code: {e.get('theCode', 'N/A')} | "
+                                f"{e.get('definition', '')[:300]}"
+                            )
+            except Exception:
+                pass
+            return ""
+
+        tasks.append(_safe(_icd11(), "icd11"))
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        source_names = ["wikipedia", "pubmed", "who", "cdc", "promed", "ecdc", "reliefweb", "openfda", "icd11"]
+
+        sources: dict[str, str] = {}
+        for i, name in enumerate(source_names):
+            val = results[i] if not isinstance(results[i], Exception) else ""
+            sources[name] = val or ""
+
+        # Compile unified context — prioritize by relevance
+        parts = []
+        if sources["icd11"]:
+            parts.append(f"[ICD-11] {sources['icd11']}")
+        if sources["wikipedia"]:
+            parts.append(sources["wikipedia"][:1500])
+        if sources["pubmed"]:
+            parts.append(sources["pubmed"][:1200])
+
+        # Outbreak context (filter to relevant geography if countries provided)
+        outbreak_raw = "\n\n".join(filter(None, [sources["who"], sources["cdc"], sources["promed"]]))
+        if countries:
+            outbreak_relevant = _extract_relevant_outbreaks(outbreak_raw, countries, max_chars=2000)
+        else:
+            outbreak_relevant = outbreak_raw[:2000]
+
+        if outbreak_relevant.strip():
+            parts.append(f"[OUTBREAK INTELLIGENCE]\n{outbreak_relevant}")
+        if sources["ecdc"]:
+            parts.append(f"[ECDC] {sources['ecdc'][:500]}")
+        if sources["reliefweb"]:
+            parts.append(f"[ReliefWeb] {sources['reliefweb'][:500]}")
+        if sources["openfda"]:
+            parts.append(f"[OpenFDA] {sources['openfda'][:500]}")
+
+        compiled = "\n\n".join(parts)[:max_total_chars]
+
+        disease_class = get_disease_class(disease_name)
+        incubation_data = INCUBATION_PERIODS.get(disease_name.lower())
+
+        source_count = sum(1 for v in sources.values() if v)
+        log.info("intelligence_gather_complete",
+                 disease=disease_name,
+                 sources_ok=source_count,
+                 context_chars=len(compiled))
+
+        return {
+            "disease_name": disease_name,
+            "disease_class": disease_class,
+            "incubation_data": incubation_data,
+            "compiled_context": compiled,
+            "sources": {k: bool(v) for k, v in sources.items()},
+            "source_count": source_count,
+            "investigation_template": get_investigation_template(disease_class) if disease_class else [],
+        }
+
+
 # Singleton instance
 intelligence_engine = IntelligenceEngine()
+

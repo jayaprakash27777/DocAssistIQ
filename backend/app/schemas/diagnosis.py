@@ -13,6 +13,12 @@ class DifferentialDiagnosisItem(BaseModel):
     uncertainty: str = Field(..., description="Qualitative estimate of uncertainty")
     explanation_reference: str = Field(..., description="Explanation of how the algorithm matched this")
     safety_decision: Optional[SafetyDecision] = Field(None, description="Deterministic safety evaluation result")
+    geographic_match: bool = Field(default=False, description="True if disease was prioritized based on travel/geographic exposure")
+    incubation_fit: Optional[str] = Field(default=None, description="Incubation timeline fit (FITS, TOO_EARLY, TOO_LATE, or None)")
+    immediate_tests: List[str] = Field(default_factory=list, description="Top immediate/stat diagnostic tests required for this condition")
+    recommended_investigations: List[str] = Field(default_factory=list, description="Recommended laboratory and imaging investigations")
+    recommended_medications: List[str] = Field(default_factory=list, description="Guideline-directed medications and pharmacotherapy")
+    first_line_treatment: Optional[str] = Field(default=None, description="Immediate first-line management or empiric therapy")
 
 class DifferentialDiagnosisResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -8,12 +8,52 @@ from app.schemas.verification import ClaimVerificationRequest, ClaimVerification
 
 logger = logging.getLogger(__name__)
 
+import re
+
 def _calculate_semantic_similarity(claim1: str, claim2: str) -> float:
     """
-    Very basic semantic similarity for Phase 38 using difflib.
-    In a real-world scenario, this would use a fast cross-encoder or vector similarity.
+    Multi-faceted clinical semantic similarity:
+    1. Token-level Jaccard overlap (excluding common English stopwords).
+    2. Bigram overlap for multi-word clinical phrases.
+    3. Character-level SequenceMatcher ratio for inflectional robustness.
+    Combines into an ensemble score [0.0, 1.0].
     """
-    return SequenceMatcher(None, claim1.lower(), claim2.lower()).ratio()
+    c1 = claim1.lower().strip()
+    c2 = claim2.lower().strip()
+    if not c1 or not c2:
+        return 0.0
+    if c1 == c2:
+        return 1.0
+
+    stopwords = {
+        "the", "is", "at", "which", "on", "and", "a", "an", "in", "to", "of", "for",
+        "with", "as", "by", "that", "this", "it", "from", "be", "or", "are", "was", "were"
+    }
+    
+    tokens1 = [w for w in re.findall(r"\w+", c1) if w not in stopwords]
+    tokens2 = [w for w in re.findall(r"\w+", c2) if w not in stopwords]
+    
+    if not tokens1 or not tokens2:
+        return SequenceMatcher(None, c1, c2).ratio()
+        
+    set1, set2 = set(tokens1), set(tokens2)
+    token_jaccard = len(set1.intersection(set2)) / max(len(set1.union(set2)), 1)
+    
+    # Bigram overlap
+    bigrams1 = set(zip(tokens1[:-1], tokens1[1:])) if len(tokens1) > 1 else set()
+    bigrams2 = set(zip(tokens2[:-1], tokens2[1:])) if len(tokens2) > 1 else set()
+    bigram_jaccard = 0.0
+    if bigrams1 and bigrams2:
+        bigram_jaccard = len(bigrams1.intersection(bigrams2)) / max(len(bigrams1.union(bigrams2)), 1)
+        
+    seq_ratio = SequenceMatcher(None, c1, c2).ratio()
+    
+    # Substring containment boost
+    contains_boost = 0.3 if (c1 in c2 or c2 in c1) else 0.0
+    
+    ensemble = (0.45 * token_jaccard) + (0.25 * bigram_jaccard) + (0.30 * seq_ratio) + contains_boost
+    return min(round(ensemble, 3), 1.0)
+
 
 
 async def verify_claim_citation(

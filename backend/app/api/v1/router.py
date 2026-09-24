@@ -35,6 +35,7 @@ from app.api.v1.endpoints.patients import router as patients_router
 from app.api.v1.endpoints.social_hub import router as social_hub_router
 from app.api.v1.endpoints.feedback import router as feedback_router
 from app.api.v1.endpoints.live_intelligence import router as live_intelligence_router
+from app.api.v1.endpoints.disease_intelligence import router as disease_intelligence_router
 from app.config import Settings
 from app.dependencies import get_request_id_dep, get_settings_dep
 
@@ -93,6 +94,9 @@ api_v1_router.include_router(feedback_router, prefix="/feedback", tags=["Feedbac
 
 # Real-Time Disease Intelligence (Auto-Learning / Live Outbreak Scanner)
 api_v1_router.include_router(live_intelligence_router)
+
+# Deep Disease Intelligence (v3 — 20+ fields, all specialties)
+api_v1_router.include_router(disease_intelligence_router)
 
 # Phase 8 — WebSocket stream (mounted at app level — see main.py)
 # ws_router is imported here and exported for main.py to include directly

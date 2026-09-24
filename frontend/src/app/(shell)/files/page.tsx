@@ -1,23 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react/no-unescaped-entities */
-/**
- * DocAssistIQ — File Manager Page (/files).
- *
- * Secure file management interface with:
- *   - Drag-and-drop + browse file uploader
- *   - Upload progress simulation (real XHR progress in future)
- *   - File type/size validation on the client before sending
- *   - Upload success / error / retry states
- *   - Paginated list of own files
- *   - Download via presigned URL (opens in new tab)
- *   - Delete with confirmation
- *   - Degraded storage failure state (API error banner)
- *
- * Client-side validation mirrors server constraints:
- *   Max 50 MB, allowed extensions: .pdf .jpg .jpeg .png .tiff .tif .webp .txt .csv .xlsx .dcm
- */
-
 "use client";
 
 import { DragEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
@@ -31,8 +14,9 @@ import {
   deleteFile,
   type FileObjectResponse,
 } from "@/lib/api";
-import { motion } from "framer-motion";
-import { FileStack } from "lucide-react";
+import { motion, AnimatePresence, Variants } from "framer-motion";
+import { FileStack, UploadCloud, Download, Trash2, AlertCircle, CheckCircle2, XCircle, FileIcon, Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const MAX_SIZE_BYTES = 50 * 1024 * 1024;
 const ALLOWED_EXTS = new Set([
@@ -91,19 +75,15 @@ export default function FilesPage() {
 
   useEffect(() => { loadFiles(page); }, [page, loadFiles]);
 
-  // ── Validation ─────────────────────────────────────────────
-
   function validateFile(file: File): string | null {
     if (file.size === 0) return "File is empty.";
     if (file.size > MAX_SIZE_BYTES) return `File exceeds 50 MB limit (${formatBytes(file.size)}).`;
     const ext = getExt(file.name);
     if (!ALLOWED_EXTS.has(ext)) {
-      return `Extension '${ext || "(none)"}' is not allowed. Allowed: ${[...ALLOWED_EXTS].join(", ")}`;
+      return `Extension '${ext || "(none)"}' is not allowed.`;
     }
     return null;
   }
-
-  // ── Upload ────────────────────────────────────────────────
 
   async function handleUpload(file: File) {
     const err = validateFile(file);
@@ -114,7 +94,6 @@ export default function FilesPage() {
 
     setUploadState({ status: "uploading", progress: 0, name: file.name });
 
-    // Simulate progress (real progress needs XHR — fetch API doesn't expose it)
     const interval = setInterval(() => {
       setUploadState((s) =>
         s.status === "uploading" && s.progress < 85
@@ -151,8 +130,6 @@ export default function FilesPage() {
     e.target.value = "";
   }
 
-  // ── Drag & Drop ─────────────────────────────────────────
-
   function onDragOver(e: DragEvent) {
     e.preventDefault();
     setIsDragging(true);
@@ -169,8 +146,6 @@ export default function FilesPage() {
     if (file) handleUpload(file);
   }
 
-  // ── Download ──────────────────────────────────────────────
-
   async function handleDownload(fileId: string, filename: string) {
     const r = await getFileDownloadUrl(fileId);
     if (!r.ok) {
@@ -179,8 +154,6 @@ export default function FilesPage() {
     }
     window.open(r.data.download_url, "_blank", "noopener,noreferrer");
   }
-
-  // ── Delete ────────────────────────────────────────────────
 
   async function handleDelete(fileId: string) {
     setDeletingId(fileId);
@@ -198,277 +171,327 @@ export default function FilesPage() {
 
   const uploading = uploadState.status === "uploading";
 
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
+
   return (
-    <div className="files-page">
-      <header className="files-header">
-        <div>
-          <h2 className="files-title">Files</h2>
-          <p className="files-subtitle">
-            Securely upload and manage clinical documents.
-          </p>
-        </div>
+    <motion.div 
+      className="max-w-5xl mx-auto px-4 py-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <header className="mb-10">
+        <motion.h1 variants={itemVariants} className="text-4xl font-extrabold font-heading text-[var(--text-primary)] tracking-tight mb-2">
+          File Vault
+        </motion.h1>
+        <motion.p variants={itemVariants} className="text-lg text-[var(--text-secondary)] font-medium">
+          Securely upload and manage clinical documents.
+        </motion.p>
       </header>
 
-      {/* Storage degraded error */}
       {storageError && (
-        <div className="files-storage-error" role="alert">
-          <strong>Storage unavailable</strong>
-          <p>{storageError}</p>
-          <button onClick={() => loadFiles(page)}>Retry</button>
-        </div>
-      )}
-
-      {/* Drop zone */}
-      <div
-        id="files-dropzone"
-        className={`files-dropzone ${isDragging ? "files-dropzone--over" : ""} ${uploading ? "files-dropzone--uploading" : ""}`}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        role="region"
-        aria-label="File upload drop zone"
-        aria-disabled={uploading}
-      >
-        {uploadState.status === "idle" && (
-          <>
-            <div className="files-drop-icon" aria-hidden="true">📁</div>
-            <p className="files-drop-text">
-              Drag &amp; drop a file here, or{" "}
-              <button
-                id="files-browse-btn"
-                className="files-browse-link"
-                onClick={() => fileInputRef.current?.click()}
-                type="button"
-              >
-                browse
-              </button>
-            </p>
-            <p className="files-drop-hint">
-              Max 50 MB · PDF, Images, CSV, XLSX, TXT, DICOM
-            </p>
-          </>
-        )}
-
-        {uploadState.status === "uploading" && (
-          <div className="files-upload-progress" aria-live="polite">
-            <p className="files-upload-name">{uploadState.name}</p>
-            <div
-              className="files-progress-bar-track"
-              role="progressbar"
-              aria-valuenow={uploadState.progress}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div
-                className="files-progress-bar-fill"
-                style={{ width: `${uploadState.progress}%` }}
-              />
-            </div>
-            <p className="files-upload-pct">{uploadState.progress}%</p>
-          </div>
-        )}
-
-        {uploadState.status === "success" && (
-          <div className="files-upload-success" aria-live="polite">
-            <span className="files-upload-check" aria-hidden="true">✅</span>
-            <p>'{uploadState.name}' uploaded</p>
-          </div>
-        )}
-
-        {uploadState.status === "error" && (
-          <div className="files-upload-error" role="alert" aria-live="assertive">
-            <span aria-hidden="true">❌</span>
+        <motion.div variants={itemVariants} className="bg-red-50 border border-red-200 rounded-xl p-4 mb-8 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600" />
             <div>
-              <strong>Upload failed</strong>
-              <p>{uploadState.message}</p>
-            </div>
-            <button
-              className="files-retry-btn"
-              onClick={() => setUploadState({ status: "idle" })}
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          id="files-input"
-          className="files-input-hidden"
-          onChange={onFileInput}
-          accept={[...ALLOWED_EXTS].join(",")}
-          aria-label="File input"
-          disabled={uploading}
-        />
-      </div>
-
-      {/* File list */}
-      <div className="files-list-section">
-        <h3 className="files-list-heading">
-          Your files {total > 0 && <span className="files-count">({total})</span>}
-        </h3>
-
-        {listLoading && (
-          <div aria-busy="true">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="files-skeleton-row">
-                <Skeleton height="1rem" width="40%" />
-                <Skeleton height="0.875rem" width="20%" />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!listLoading && total === 0 && (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-20 text-center"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="w-20 h-20 bg-gradient-to-tr from-[var(--color-primary-100)] to-[var(--color-info-50)] rounded-full flex items-center justify-center mb-6 shadow-sm border-2 border-[var(--surface-secondary)]"
-            >
-              <FileStack className="w-10 h-10 text-[var(--color-primary-600)]" />
-            </motion.div>
-            <motion.h4 
-              initial={{ y: 5, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="text-xl font-bold font-heading text-[var(--text-primary)] mb-2"
-            >
-              No Files Uploaded
-            </motion.h4>
-            <motion.p 
-              initial={{ y: 5, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-[var(--text-secondary)] font-medium max-w-sm"
-            >
-              Your storage is empty. Drag and drop documents above to securely upload them to the clinical vault.
-            </motion.p>
-          </motion.div>
-        )}
-
-        {!listLoading && files.length > 0 && (
-          <>
-            <div className="files-table-wrap">
-              <table className="files-table" aria-label="Uploaded files">
-                <thead>
-                  <tr>
-                    <th scope="col">Filename</th>
-                    <th scope="col">Type</th>
-                    <th scope="col">Size</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Uploaded</th>
-                    <th scope="col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {files.map((f) => (
-                    <tr key={f.id}>
-                      <td className="files-filename" title={f.original_filename}>
-                        {f.original_filename.length > 40
-                          ? f.original_filename.slice(0, 38) + "…"
-                          : f.original_filename}
-                      </td>
-                      <td className="files-mime">{f.mime_type.split("/")[1] ?? f.mime_type}</td>
-                      <td>{formatBytes(f.size_bytes)}</td>
-                      <td>
-                        <span className={`files-status files-status--${f.scan_status}`}>
-                          {f.scan_status}
-                        </span>
-                      </td>
-                      <td>
-                        <time dateTime={f.created_at}>
-                          {new Date(f.created_at).toLocaleDateString()}
-                        </time>
-                      </td>
-                      <td className="files-actions-cell">
-                        <button
-                          id={`download-btn-${f.id}`}
-                          className="files-download-btn"
-                          onClick={() => handleDownload(f.id, f.original_filename)}
-                          title="Download"
-                          aria-label={`Download ${f.original_filename}`}
-                        >
-                          ↓
-                        </button>
-                        <button
-                          id={`delete-btn-${f.id}`}
-                          className="files-delete-btn"
-                          onClick={() => setConfirmDeleteId(f.id)}
-                          title="Delete"
-                          aria-label={`Delete ${f.original_filename}`}
-                          disabled={deletingId === f.id}
-                        >
-                          🗑
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {pages > 1 && (
-              <nav className="files-pagination" aria-label="Pages">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="files-page-btn"
-                >
-                  ← Previous
-                </button>
-                <span className="files-page-info">Page {page} of {pages}</span>
-                <button
-                  onClick={() => setPage((p) => Math.min(pages, p + 1))}
-                  disabled={page >= pages}
-                  className="files-page-btn"
-                >
-                  Next →
-                </button>
-              </nav>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Delete confirmation dialog */}
-      {confirmDeleteId && (
-        <div
-          className="files-confirm-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-dialog-title"
-        >
-          <div className="files-confirm-dialog">
-            <h3 id="delete-dialog-title">Delete file?</h3>
-            <p>This action is permanent and cannot be undone.</p>
-            <div className="files-confirm-actions">
-              <button
-                onClick={() => setConfirmDeleteId(null)}
-                className="files-confirm-cancel"
-                disabled={deletingId === confirmDeleteId}
-              >
-                Cancel
-              </button>
-              <button
-                id="confirm-delete-btn"
-                onClick={() => handleDelete(confirmDeleteId)}
-                className="files-confirm-delete"
-                disabled={deletingId === confirmDeleteId}
-                aria-busy={deletingId === confirmDeleteId}
-              >
-                {deletingId === confirmDeleteId ? "Deleting…" : "Delete permanently"}
-              </button>
+              <strong className="text-sm font-bold text-red-900 block">Storage unavailable</strong>
+              <p className="text-xs text-red-700 font-medium mt-0.5">{storageError}</p>
             </div>
           </div>
-        </div>
+          <Button variant="outline" onClick={() => loadFiles(page)} className="border-red-200 text-red-700 hover:bg-red-100 h-9">
+            <RefreshCw className="w-4 h-4 mr-2" /> Retry
+          </Button>
+        </motion.div>
       )}
-    </div>
+
+      {/* Dropzone */}
+      <motion.div variants={itemVariants} className="mb-10">
+        <div
+          className={`relative border-2 border-dashed rounded-3xl p-10 transition-all duration-300 flex flex-col items-center justify-center text-center ${
+            isDragging 
+              ? "border-[var(--color-primary-500)] bg-[var(--color-primary-50)] scale-[1.02]" 
+              : uploading 
+                ? "border-[var(--color-primary-300)] bg-white/60 backdrop-blur-md shadow-sm" 
+                : "border-[var(--border-strong)] bg-white/40 backdrop-blur-md hover:bg-white/80 hover:border-[var(--color-primary-400)] hover:shadow-md"
+          }`}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          role="region"
+          aria-disabled={uploading}
+        >
+          {uploadState.status === "idle" && (
+            <>
+              <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 shadow-inner transition-colors duration-300 ${isDragging ? "bg-[var(--color-primary-100)] text-[var(--color-primary-600)]" : "bg-[var(--surface-sunken)] text-[var(--text-tertiary)]"}`}>
+                <UploadCloud className="w-10 h-10" />
+              </div>
+              <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2 font-heading">Upload Document</h3>
+              <p className="text-[var(--text-secondary)] font-medium mb-6">
+                Drag and drop a file here, or{" "}
+                <button
+                  className="text-[var(--color-primary-600)] font-bold hover:underline outline-none"
+                  onClick={() => fileInputRef.current?.click()}
+                  type="button"
+                >
+                  browse your computer
+                </button>
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {['PDF', 'Images', 'CSV', 'DICOM'].map(ext => (
+                  <span key={ext} className="px-3 py-1 bg-white border border-[var(--border-default)] rounded-md text-[10px] font-bold text-[var(--text-tertiary)] uppercase shadow-sm">
+                    {ext}
+                  </span>
+                ))}
+                <span className="px-3 py-1 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-md text-[10px] font-bold text-[var(--text-tertiary)] uppercase shadow-sm">
+                  Max 50 MB
+                </span>
+              </div>
+            </>
+          )}
+
+          {uploadState.status === "uploading" && (
+            <div className="w-full max-w-md mx-auto py-4">
+              <div className="flex justify-between items-end mb-3">
+                <span className="font-bold text-[var(--color-primary-700)] text-sm truncate pr-4">{uploadState.name}</span>
+                <span className="font-mono text-xs font-bold text-[var(--color-primary-600)]">{uploadState.progress}%</span>
+              </div>
+              <div className="w-full h-3 bg-[var(--color-primary-100)] rounded-full overflow-hidden shadow-inner">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-[var(--color-primary-400)] to-[var(--color-primary-600)]"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${uploadState.progress}%` }}
+                  transition={{ duration: 0.2 }}
+                />
+              </div>
+              <p className="text-xs text-[var(--text-tertiary)] font-bold mt-4 flex items-center justify-center gap-2 uppercase tracking-widest">
+                <Loader2 className="w-4 h-4 animate-spin text-[var(--color-primary-500)]" /> Uploading to vault...
+              </p>
+            </div>
+          )}
+
+          {uploadState.status === "success" && (
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center">
+              <div className="w-16 h-16 bg-[var(--color-success-100)] rounded-full flex items-center justify-center mb-4 text-[var(--color-success-600)] shadow-sm">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <p className="text-lg font-bold text-[var(--text-primary)]">Upload Complete</p>
+              <p className="text-sm text-[var(--text-secondary)] mt-1 truncate max-w-xs">{uploadState.name}</p>
+            </motion.div>
+          )}
+
+          {uploadState.status === "error" && (
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600 shadow-sm">
+                <XCircle className="w-8 h-8" />
+              </div>
+              <p className="text-lg font-bold text-red-700">Upload Failed</p>
+              <p className="text-sm text-red-600/80 font-medium mt-1 mb-6 max-w-sm text-center leading-relaxed">{uploadState.message}</p>
+              <Button variant="outline" onClick={() => setUploadState({ status: "idle" })} className="h-9 px-6 rounded-full border-red-200 text-red-700 hover:bg-red-50">
+                Dismiss
+              </Button>
+            </motion.div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={onFileInput}
+            accept={[...ALLOWED_EXTS].join(",")}
+            disabled={uploading}
+          />
+        </div>
+      </motion.div>
+
+      {/* File List */}
+      <motion.div variants={itemVariants}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold font-heading text-[var(--text-primary)] flex items-center gap-3">
+            Stored Documents
+            {total > 0 && (
+              <span className="px-2.5 py-0.5 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-full text-xs text-[var(--text-secondary)] shadow-inner">
+                {total}
+              </span>
+            )}
+          </h3>
+        </div>
+
+        <div className="glass-panel-4k gpu-accelerated rounded-3xl border border-slate-200/90 bg-white/85 backdrop-blur-2xl shadow-[0_12px_36px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] overflow-hidden relative z-10 ring-1 ring-black/5">
+          {listLoading ? (
+            <div className="p-6 space-y-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-12 w-12 rounded-xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-3 w-1/4" />
+                  </div>
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                </div>
+              ))}
+            </div>
+          ) : total === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center bg-white/40">
+              <div className="w-20 h-20 bg-[var(--surface-sunken)] rounded-2xl flex items-center justify-center mb-6 shadow-inner border-2 border-white/50 rotate-3">
+                <FileStack className="w-10 h-10 text-[var(--text-tertiary)] -rotate-3" />
+              </div>
+              <h4 className="text-lg font-bold font-heading text-[var(--text-primary)] mb-2">Vault is Empty</h4>
+              <p className="text-sm text-[var(--text-secondary)] font-medium max-w-sm">
+                No documents found in your clinical storage.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[var(--color-neutral-50)]/50 border-b border-[var(--border-default)]">
+                      <th className="px-6 py-4 text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider">File</th>
+                      <th className="px-6 py-4 text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider hidden sm:table-cell">Size</th>
+                      <th className="px-6 py-4 text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider hidden md:table-cell">Status</th>
+                      <th className="px-6 py-4 text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider hidden lg:table-cell">Date</th>
+                      <th className="px-6 py-4 text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border-subtle)] bg-white/60">
+                    {files.map((f) => (
+                      <tr key={f.id} className="hover:bg-white transition-colors group">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] flex items-center justify-center text-[var(--color-primary-500)] shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                              <FileIcon className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-[var(--text-primary)] truncate max-w-[200px] sm:max-w-xs md:max-w-sm" title={f.original_filename}>
+                                {f.original_filename}
+                              </p>
+                              <p className="text-xs text-[var(--text-tertiary)] font-medium mt-0.5 uppercase tracking-wider">
+                                {f.mime_type.split("/")[1]?.substring(0,6) ?? 'FILE'}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-[var(--text-secondary)] font-medium hidden sm:table-cell">
+                          {formatBytes(f.size_bytes)}
+                        </td>
+                        <td className="px-6 py-4 hidden md:table-cell">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest shadow-sm border ${
+                            f.scan_status === 'CLEAN' ? 'bg-[var(--color-success-50)] text-[var(--color-success-700)] border-[var(--color-success-200)]' :
+                            f.scan_status === 'INFECTED' ? 'bg-red-50 text-red-700 border-red-200' :
+                            'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>
+                            {f.scan_status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-[var(--text-secondary)] font-medium hidden lg:table-cell">
+                          {new Date(f.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2 opacity-100 sm:opacity-50 sm:group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => handleDownload(f.id, f.original_filename)}
+                              className="p-2 text-[var(--color-primary-600)] hover:bg-[var(--color-primary-50)] rounded-lg transition-colors border border-transparent hover:border-[var(--color-primary-200)]"
+                              title="Download"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(f.id)}
+                              disabled={deletingId === f.id}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200 disabled:opacity-50"
+                              title="Delete"
+                            >
+                              {deletingId === f.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {pages > 1 && (
+                <div className="px-6 py-4 border-t border-[var(--border-default)] flex items-center justify-between bg-[var(--color-neutral-50)]/50">
+                  <Button
+                    variant="outline"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="h-8 text-xs font-bold"
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-widest">
+                    Page {page} of {pages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    onClick={() => setPage((p) => Math.min(pages, p + 1))}
+                    disabled={page >= pages}
+                    className="h-8 text-xs font-bold"
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {confirmDeleteId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+              onClick={() => setConfirmDeleteId(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="dashboard-card !block w-full max-w-md p-6 relative z-10 shadow-2xl"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4 relative z-10 border border-red-200 shadow-sm">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2 font-heading relative z-10">Delete File?</h3>
+              <p className="text-[var(--text-secondary)] text-sm mb-8 relative z-10 font-medium">
+                Are you sure you want to permanently delete this document? This action cannot be undone and will remove it from the clinical vault.
+              </p>
+              <div className="flex gap-3 justify-end relative z-10 border-t border-[var(--border-default)] pt-5">
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmDeleteId(null)}
+                  disabled={deletingId === confirmDeleteId}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => handleDelete(confirmDeleteId)}
+                  disabled={deletingId === confirmDeleteId}
+                  className="bg-red-600 hover:bg-red-700 text-white border-transparent shadow-md gap-2"
+                >
+                  {deletingId === confirmDeleteId ? (
+                    <><Loader2 className="w-4 h-4 animate-spin"/> Deleting...</>
+                  ) : (
+                    <><Trash2 className="w-4 h-4"/> Delete Permanently</>
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

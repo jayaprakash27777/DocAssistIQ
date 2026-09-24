@@ -43,22 +43,37 @@ class TravelNoticeIngester:
                 log.error("travel_ingester_xml_parse_error", error=str(e))
         
         if not items:
-            # Fallback to some hardcoded mock data for the prototype if fetch fails or is empty
-            items = [
-                {"title": "Level 2 - Practice Enhanced Precautions - Oropouche in the Americas", "link": "https://cdc.gov", "description": "Oropouche virus disease is spreading in multiple countries in South America and the Caribbean, including Brazil, Cuba, and Peru."},
-                {"title": "Level 1 - Practice Usual Precautions - Dengue in the Americas", "link": "https://cdc.gov", "description": "Dengue is a risk in many parts of Central and South America, Mexico, and the Caribbean. Some countries are reporting increased numbers of cases."},
-                {"title": "Level 2 - Practice Enhanced Precautions - Malaria in Sub-Saharan Africa", "link": "https://cdc.gov", "description": "Malaria is endemic in many sub-Saharan African countries. Travelers should take appropriate chemoprophylaxis."}
+            # Secondary live fallback: Try WHO Disease Outbreak News or ECDC
+            backup_urls = [
+                "https://www.who.int/feeds/entity/csr/don/en/rss.xml",
+                "https://www.ecdc.europa.eu/en/publications-data/rss"
             ]
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                for b_url in backup_urls:
+                    try:
+                        resp = await client.get(b_url, headers={"User-Agent": "DocAssistIQ/1.0"})
+                        if resp.status_code == 200:
+                            root = ET.fromstring(resp.text)
+                            for item in root.findall(".//item")[:10]:
+                                t = item.find("title").text if item.find("title") is not None else ""
+                                l = item.find("link").text if item.find("link") is not None else ""
+                                d = item.find("description").text if item.find("description") is not None else ""
+                                if t:
+                                    items.append({"title": t, "link": l, "description": d})
+                            if items:
+                                break
+                    except Exception as e:
+                        log.debug("backup_travel_notice_fetch_failed", url=b_url, error=str(e))
 
         docs_created = 0
 
         for item in items:
             semantic_text = f"Travel Health Notice: {item['title']}\n\nDetails: {item['description']}\n\nSource: {item['link']}"
             
-            # Since we don't have a specific table for Outbreaks, we use a fake uuid for source_record_id
-            # in the EmbeddingRecord, but we'll use a determinisic one based on the URL
+            # Deterministic UUID derived canonically from URL for source_record_id
             import hashlib
             source_id = str(uuid.UUID(hashlib.md5(item["link"].encode()).hexdigest()))
+
             
             embedding = await generate_and_store_embedding(
                 db=db,

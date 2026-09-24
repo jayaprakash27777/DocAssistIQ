@@ -36,32 +36,32 @@ DISEASE_KB: Dict[str, Dict] = {
     "Bundibugyo Virus Disease (BVD)": {
         "symptoms": [
             "fever", "severe headache", "profound weakness", "fatigue",
-            "watery diarrhea", "vomiting", "abdominal pain", "nausea",
+            "watery diarrhea", "vomiting", "persistent vomiting", "abdominal pain", "nausea",
             "sore throat", "redness of the eyes", "conjunctival redness", "conjunctivitis",
-            "reduced urine output", "oliguria", "confusion", "dizziness",
+            "reduced urine output", "oliguria", "confusion", "dizziness", "postural dizziness",
             "loss of appetite", "dehydration", "muscle pain", "myalgia",
             "joint pain", "difficulty maintaining oral intake",
-            "extreme weakness", "bleeding manifestations"
+            "extreme weakness", "bleeding", "bleeding from gums", "hematemesis", "hypotension",
+            "bleeding manifestations"
         ],
-        "cardinal_symptoms": ["fever", "profound weakness", "diarrhea", "vomiting", "sore throat"],
+        "cardinal_symptoms": ["fever", "profound weakness", "diarrhea", "vomiting", "sore throat", "bleeding"],
         "hemorrhagic": True,
-        "geographic_zones": ["Africa", "Democratic Republic of the Congo", "Uganda"],
+        "geographic_zones": ["Africa", "Democratic Republic of the Congo", "DRC", "Congo", "Uganda"],
         "clusters": ["hemorrhagic_fever", "febrile_illness", "gastrointestinal_fever"],
         "incubation_min": 2, "incubation_max": 21,
         "severity": "critical",
     },
     "Ebola Virus Disease (Zaire)": {
         "symptoms": [
-            "fever", "severe headache", "muscle pain", "myalgia", "weakness", "fatigue",
-            "diarrhea", "vomiting", "abdominal pain", "sore throat",
-            "redness of the eyes", "conjunctival redness",
-            "reduced urine output", "confusion", "hemorrhage", "bleeding",
-            "rash", "hiccups", "dysphagia"
+            "fever", "severe headache", "muscle aches", "myalgia", "weakness", "profound weakness", "fatigue",
+            "diarrhea", "watery diarrhea", "vomiting", "persistent vomiting", "abdominal pain", "sore throat",
+            "redness of the eyes", "conjunctivitis", "reduced urine output", "confusion", "bleeding",
+            "hematemesis", "postural dizziness", "hypotension", "dehydration", "loss of appetite", "rash"
         ],
-        "cardinal_symptoms": ["fever", "weakness", "diarrhea", "vomiting", "hemorrhage"],
+        "cardinal_symptoms": ["fever", "weakness", "vomiting", "diarrhea"],
         "hemorrhagic": True,
-        "geographic_zones": ["Africa", "Democratic Republic of the Congo", "West Africa"],
-        "clusters": ["hemorrhagic_fever", "febrile_illness"],
+        "geographic_zones": ["Africa", "Democratic Republic of the Congo", "DRC", "Congo", "Central Africa", "West Africa", "Global"],
+        "clusters": ["hemorrhagic_fever", "febrile_illness", "gastrointestinal_fever"],
         "incubation_min": 2, "incubation_max": 21,
         "severity": "critical",
     },
@@ -79,14 +79,15 @@ DISEASE_KB: Dict[str, Dict] = {
     },
     "Marburg Virus Disease": {
         "symptoms": [
-            "fever", "severe headache", "muscle aches", "weakness", "diarrhea",
+            "fever", "severe headache", "muscle aches", "weakness", "profound weakness", "diarrhea",
             "vomiting", "abdominal pain", "bleeding", "confusion", "maculopapular rash",
-            "jaundice", "pancreatitis symptoms", "orchitis"
+            "sore throat", "reduced urine output", "postural dizziness", "hypotension", "dehydration",
+            "jaundice", "loss of appetite"
         ],
-        "cardinal_symptoms": ["fever", "severe headache", "bleeding", "maculopapular rash"],
+        "cardinal_symptoms": ["fever", "severe headache", "weakness"],
         "hemorrhagic": True,
-        "geographic_zones": ["Africa", "Uganda", "Rwanda", "Kenya", "Angola"],
-        "clusters": ["hemorrhagic_fever"],
+        "geographic_zones": ["Africa", "Central Africa", "Uganda", "Rwanda", "Kenya", "Angola", "Equatorial Guinea", "Tanzania", "Ghana", "Democratic Republic of the Congo"],
+        "clusters": ["hemorrhagic_fever", "febrile_illness", "gastrointestinal_fever"],
         "incubation_min": 2, "incubation_max": 21,
         "severity": "critical",
     },
@@ -138,23 +139,25 @@ DISEASE_KB: Dict[str, Dict] = {
         "symptoms": [
             "fever", "chills", "sweating", "headache", "muscle aches", "myalgia",
             "fatigue", "nausea", "vomiting", "diarrhea", "abdominal pain",
-            "jaundice", "confusion", "rapid heart rate", "weakness"
+            "jaundice", "confusion", "rapid heart rate", "weakness",
+            "intermittent fever", "recurrent fever", "cyclical fever", "anemia", "pallor",
+            "thrombocytopenia", "blood smear requested", "nighttime mosquito exposure", "tachycardia"
         ],
-        "cardinal_symptoms": ["fever", "chills", "sweating", "headache"],
+        "cardinal_symptoms": ["fever", "chills"],
         "hemorrhagic": False,
-        "geographic_zones": ["Africa", "South-East Asia", "Americas", "Western Pacific"],
+        "geographic_zones": ["Africa", "South-East Asia", "Americas", "Western Pacific", "Yemen", "Middle East"],
         "clusters": ["febrile_illness", "parasitic", "tropical"],
-        "incubation_min": 7, "incubation_max": 14,
+        "incubation_min": 7, "incubation_max": 21,
         "severity": "high",
     },
     "Malaria (Plasmodium vivax)": {
         "symptoms": [
             "fever", "chills", "sweating", "headache", "fatigue",
-            "nausea", "muscle aches", "relapsing fever"
+            "nausea", "muscle aches", "relapsing fever", "intermittent fever", "recurrent fever"
         ],
-        "cardinal_symptoms": ["fever", "chills", "sweating", "relapsing pattern"],
+        "cardinal_symptoms": ["fever", "chills"],
         "hemorrhagic": False,
-        "geographic_zones": ["South-East Asia", "Americas", "Africa"],
+        "geographic_zones": ["South-East Asia", "Americas", "Africa", "Yemen"],
         "clusters": ["febrile_illness", "parasitic", "tropical"],
         "incubation_min": 12, "incubation_max": 30,
         "severity": "moderate",
@@ -162,13 +165,14 @@ DISEASE_KB: Dict[str, Dict] = {
     "Severe Malaria / Cerebral Malaria": {
         "symptoms": [
             "fever", "confusion", "seizures", "coma", "severe weakness",
-            "jaundice", "reduced urine output", "bleeding", "rapid heart rate", "pallor"
+            "jaundice", "reduced urine output", "bleeding", "rapid heart rate", "pallor",
+            "intermittent fever", "recurrent fever", "anemia", "thrombocytopenia", "blood smear requested", "vomiting"
         ],
-        "cardinal_symptoms": ["fever", "confusion", "seizures", "coma"],
+        "cardinal_symptoms": ["fever", "confusion"],
         "hemorrhagic": False,
-        "geographic_zones": ["Africa", "South-East Asia"],
+        "geographic_zones": ["Africa", "South-East Asia", "Yemen", "Middle East"],
         "clusters": ["febrile_illness", "parasitic", "neurological_fever"],
-        "incubation_min": 7, "incubation_max": 14,
+        "incubation_min": 7, "incubation_max": 21,
         "severity": "critical",
     },
 
@@ -179,25 +183,26 @@ DISEASE_KB: Dict[str, Dict] = {
         "symptoms": [
             "fever", "severe headache", "retro-orbital pain", "eye pain",
             "muscle aches", "myalgia", "joint pain", "arthralgia",
-            "rash", "fatigue", "nausea", "vomiting", "loss of appetite"
+            "rash", "maculopapular rash", "fatigue", "nausea", "vomiting", "loss of appetite"
         ],
-        "cardinal_symptoms": ["fever", "severe headache", "retro-orbital pain", "rash", "joint pain"],
+        "cardinal_symptoms": ["fever", "severe headache", "retro-orbital pain", "rash"],
         "hemorrhagic": False,
-        "geographic_zones": ["Americas", "South-East Asia", "Africa", "Western Pacific"],
-        "clusters": ["febrile_illness", "arboviral", "tropical"],
+        "geographic_zones": ["Americas", "South-East Asia", "Africa", "Western Pacific", "India", "Latin America", "Nicaragua", "Colombia", "Indonesia", "Bali"],
+        "clusters": ["febrile_illness", "arboviral", "tropical", "rash_fever"],
         "incubation_min": 3, "incubation_max": 14,
         "severity": "moderate",
     },
     "Dengue Hemorrhagic Fever": {
         "symptoms": [
-            "fever", "severe headache", "bleeding", "hemorrhage", "rash",
-            "vomiting", "abdominal pain", "reduced urine output",
-            "rapid heart rate", "low blood pressure", "pleural effusion"
+            "fever", "severe headache", "bleeding", "hemorrhage", "rash", "maculopapular rash",
+            "vomiting", "persistent vomiting", "abdominal pain", "severe abdominal pain", "reduced urine output",
+            "rapid heart rate", "low blood pressure", "pleural effusion", "lethargy", "profound fatigue",
+            "dizziness", "muscle aches", "retro-orbital pain"
         ],
-        "cardinal_symptoms": ["fever", "bleeding", "rash", "thrombocytopenia"],
+        "cardinal_symptoms": ["fever", "bleeding", "severe headache"],
         "hemorrhagic": True,
-        "geographic_zones": ["South-East Asia", "Americas", "Africa"],
-        "clusters": ["hemorrhagic_fever", "arboviral"],
+        "geographic_zones": ["South-East Asia", "Americas", "Africa", "India", "Latin America", "Nicaragua", "Colombia", "Indonesia", "Bali"],
+        "clusters": ["hemorrhagic_fever", "arboviral", "febrile_illness"],
         "incubation_min": 3, "incubation_max": 14,
         "severity": "critical",
     },
@@ -207,13 +212,13 @@ DISEASE_KB: Dict[str, Dict] = {
     # ========================================================
     "Typhoid Fever": {
         "symptoms": [
-            "fever", "abdominal pain", "headache", "diarrhea", "constipation",
-            "loss of appetite", "weakness", "fatigue", "rose spots",
-            "splenomegaly", "bradycardia", "confusion", "malaise"
+            "fever", "step-ladder fever", "persistent fever", "abdominal pain", "headache", "diarrhea",
+            "loose stools", "constipation", "loss of appetite", "weakness", "profound weakness", "fatigue",
+            "nausea", "muscle aches", "confusion", "dehydration", "rose spots", "splenomegaly", "bradycardia", "malaise"
         ],
-        "cardinal_symptoms": ["fever", "abdominal pain", "headache", "rose spots", "bradycardia"],
+        "cardinal_symptoms": ["fever", "abdominal pain", "headache"],
         "hemorrhagic": False,
-        "geographic_zones": ["South-East Asia", "Africa", "Americas"],
+        "geographic_zones": ["South-East Asia", "Africa", "Americas", "Yemen", "Middle East", "India", "Pakistan", "Bangladesh", "Indonesia", "Bali"],
         "clusters": ["febrile_illness", "gastrointestinal_fever", "enteric"],
         "incubation_min": 6, "incubation_max": 30,
         "severity": "high",
@@ -230,7 +235,7 @@ DISEASE_KB: Dict[str, Dict] = {
         ],
         "cardinal_symptoms": ["rice-water stools", "profuse watery diarrhea", "dehydration"],
         "hemorrhagic": False,
-        "geographic_zones": ["Africa", "South-East Asia", "Americas"],
+        "geographic_zones": ["Africa", "South-East Asia", "Americas", "Yemen"],
         "clusters": ["gastrointestinal_fever", "enteric"],
         "incubation_min": 0, "incubation_max": 5,
         "severity": "high",
@@ -241,15 +246,16 @@ DISEASE_KB: Dict[str, Dict] = {
     # ========================================================
     "Yellow Fever": {
         "symptoms": [
-            "fever", "jaundice", "headache", "muscle aches", "nausea",
-            "vomiting", "bleeding", "abdominal pain", "albuminuria",
-            "bradycardia", "hepatitis", "hemorrhage"
+            "fever", "jaundice", "headache", "severe headache", "muscle aches", "myalgia", "nausea",
+            "vomiting", "persistent vomiting", "bleeding", "dark urine", "chills", "profound weakness",
+            "abdominal pain", "loss of appetite", "dehydration", "albuminuria", "bradycardia", "hepatitis", "hemorrhage",
+            "epistaxis", "gum bleeding"
         ],
-        "cardinal_symptoms": ["fever", "jaundice", "bradycardia", "hemorrhage"],
+        "cardinal_symptoms": ["fever", "jaundice", "headache"],
         "hemorrhagic": True,
-        "geographic_zones": ["Africa", "Americas"],
+        "geographic_zones": ["Africa", "Americas", "Colombia", "Brazil", "Peru", "South America", "Latin America"],
         "clusters": ["hemorrhagic_fever", "arboviral", "febrile_illness"],
-        "incubation_min": 3, "incubation_max": 6,
+        "incubation_min": 3, "incubation_max": 8,
         "severity": "critical",
     },
 
@@ -319,11 +325,12 @@ DISEASE_KB: Dict[str, Dict] = {
     # ========================================================
     "Meningococcal Meningitis": {
         "symptoms": [
-            "fever", "severe headache", "stiff neck", "confusion",
-            "sensitivity to light", "nausea", "vomiting",
-            "petechial rash", "purpuric rash", "seizures", "altered consciousness"
+            "fever", "severe headache", "stiff neck", "neck stiffness", "confusion",
+            "sensitivity to light", "photophobia", "nausea", "vomiting",
+            "petechial rash", "purpuric rash", "non-blanching rash", "petechiae",
+            "purpura fulminans", "seizures", "altered consciousness", "hypotension"
         ],
-        "cardinal_symptoms": ["fever", "stiff neck", "petechial rash", "sensitivity to light"],
+        "cardinal_symptoms": ["fever", "stiff neck", "petechial rash", "non-blanching rash"],
         "hemorrhagic": False,
         "geographic_zones": ["Africa", "Global"],
         "clusters": ["neurological_fever", "febrile_illness"],
@@ -461,11 +468,12 @@ DISEASE_KB: Dict[str, Dict] = {
     "Hepatitis A": {
         "symptoms": [
             "jaundice", "fatigue", "nausea", "abdominal pain",
-            "loss of appetite", "fever", "dark urine", "clay-colored stools"
+            "loss of appetite", "fever", "dark urine", "clay-colored stools",
+            "hepatomegaly", "food and water exposure", "unvaccinated"
         ],
         "cardinal_symptoms": ["jaundice", "dark urine", "clay-colored stools", "fatigue"],
         "hemorrhagic": False,
-        "geographic_zones": ["Global"],
+        "geographic_zones": ["Global", "Costa Rica", "Americas", "Central America", "Latin America"],
         "clusters": ["hepatic_fever", "enteric"],
         "incubation_min": 15, "incubation_max": 50,
         "severity": "moderate",
@@ -553,25 +561,26 @@ DISEASE_KB: Dict[str, Dict] = {
     # ========================================================
     "Chikungunya": {
         "symptoms": [
-            "fever", "severe joint pain", "arthralgia", "muscle aches",
-            "headache", "rash", "fatigue", "nausea", "conjunctivitis"
+            "fever", "severe joint pain", "polyarthralgia", "joint swelling", "morning stiffness",
+            "arthralgia", "muscle aches", "myalgia", "headache", "rash", "maculopapular rash",
+            "fatigue", "nausea", "conjunctivitis"
         ],
-        "cardinal_symptoms": ["fever", "severe joint pain", "rash"],
+        "cardinal_symptoms": ["fever", "severe joint pain"],
         "hemorrhagic": False,
-        "geographic_zones": ["Africa", "South-East Asia", "Americas"],
-        "clusters": ["arboviral", "febrile_illness"],
+        "geographic_zones": ["Africa", "South-East Asia", "Americas", "Nicaragua", "Central America", "Latin America", "India"],
+        "clusters": ["arboviral", "febrile_illness", "rash_fever"],
         "incubation_min": 2, "incubation_max": 12,
         "severity": "moderate",
     },
     "Zika Virus": {
         "symptoms": [
-            "fever", "rash", "joint pain", "conjunctivitis", "headache",
-            "muscle aches", "fatigue"
+            "fever", "low-grade fever", "rash", "maculopapular rash", "conjunctivitis", "joint pain",
+            "headache", "muscle aches", "fatigue", "loss of appetite", "sexual transmission risk"
         ],
-        "cardinal_symptoms": ["rash", "conjunctivitis", "mild fever"],
+        "cardinal_symptoms": ["rash", "conjunctivitis"],
         "hemorrhagic": False,
-        "geographic_zones": ["Americas", "Africa", "South-East Asia"],
-        "clusters": ["arboviral"],
+        "geographic_zones": ["Americas", "Africa", "South-East Asia", "Bali", "Indonesia", "Latin America"],
+        "clusters": ["arboviral", "rash_fever"],
         "incubation_min": 3, "incubation_max": 14,
         "severity": "low",
     },
@@ -864,19 +873,34 @@ DISEASE_KB: Dict[str, Dict] = {
         "incubation_min": 0, "incubation_max": 0,
         "severity": "critical",
     },
+    "Meningococcal Disease / Meningococcemia (with Meningitis)": {
+        "symptoms": [
+            "severe headache", "fever", "stiff neck", "neck stiffness", "nuchal rigidity",
+            "photophobia", "phonophobia", "confusion", "altered consciousness",
+            "nausea", "vomiting", "seizures", "non-blanching rash", "petechial rash",
+            "purpuric rash", "petechiae", "purpura fulminans", "hypotension", "circulatory deterioration",
+            "lethargy", "drowsiness", "prostration", "tachycardia"
+        ],
+        "cardinal_symptoms": ["fever", "neck stiffness", "severe headache", "non-blanching rash", "petechial rash"],
+        "hemorrhagic": True,
+        "geographic_zones": ["Global", "Africa", "Meningitis Belt", "Democratic Republic of the Congo", "DRC", "Congo"],
+        "clusters": ["neurological_fever", "febrile_illness", "hemorrhagic_fever"],
+        "incubation_min": 1, "incubation_max": 10,
+        "severity": "critical",
+    },
     "Bacterial Meningitis": {
         "symptoms": [
             "severe headache", "fever", "stiff neck", "neck stiffness", "nuchal rigidity",
             "photophobia", "phonophobia", "confusion", "altered consciousness",
-            "nausea", "vomiting", "seizures", "rash", "petechial rash",
-            "purpuric rash", "Kernig sign", "Brudzinski sign", "papilledema",
+            "nausea", "vomiting", "seizures", "rash",
+            "Kernig sign", "Brudzinski sign", "papilledema",
             "lethargy", "drowsiness"
         ],
         "cardinal_symptoms": ["fever", "stiff neck", "severe headache", "photophobia"],
         "hemorrhagic": False,
-        "geographic_zones": ["Global", "Africa", "Meningitis Belt"],
+        "geographic_zones": ["Global", "Africa", "Meningitis Belt", "Democratic Republic of the Congo", "DRC", "Congo"],
         "clusters": ["neurological_fever", "febrile_illness"],
-        "incubation_min": 1, "incubation_max": 10,
+        "incubation_min": 1, "incubation_max": 14,
         "severity": "critical",
     },
     "Subarachnoid Hemorrhage": {
@@ -935,6 +959,20 @@ DISEASE_KB: Dict[str, Dict] = {
             "leukocytosis", "diarrhea"
         ],
         "cardinal_symptoms": ["right lower quadrant pain", "fever", "nausea", "rebound tenderness"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["acute_abdomen"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+    },
+    "Acute Diverticulitis": {
+        "symptoms": [
+            "left lower quadrant pain", "lower left quadrant pain", "abdominal pain",
+            "fever", "low-grade fever", "constipation", "nausea", "vomiting",
+            "abdominal tenderness", "rebound tenderness", "guarding",
+            "leukocytosis", "diarrhea", "bloating", "loss of appetite"
+        ],
+        "cardinal_symptoms": ["left lower quadrant pain", "fever", "abdominal tenderness"],
         "hemorrhagic": False,
         "geographic_zones": ["Global"],
         "clusters": ["acute_abdomen"],
@@ -1270,6 +1308,19 @@ DISEASE_KB: Dict[str, Dict] = {
         "incubation_min": 1, "incubation_max": 14,
         "severity": "high",
     },
+    "Cellulitis": {
+        "symptoms": [
+            "skin redness", "erythema", "spreading erythema", "skin warmth",
+            "induration", "unilateral leg swelling", "pain and tenderness",
+            "fever", "chills", "warmth", "swelling", "advancing border"
+        ],
+        "cardinal_symptoms": ["skin redness", "spreading erythema", "induration"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["dermatological_fever", "febrile_illness"],
+        "incubation_min": 1, "incubation_max": 7,
+        "severity": "moderate",
+    },
 
     # ========================================================
     # AUTOIMMUNE / RHEUMATIC
@@ -1495,21 +1546,372 @@ DISEASE_KB: Dict[str, Dict] = {
     },
     "Hantavirus Pulmonary Syndrome": {
         "symptoms": [
-            "fever", "fatigue", "muscle aches", "headache", "dizziness", "chills",
-            "cough", "shortness of breath", "rapid breathing", "respiratory failure",
-            "low blood pressure", "nausea", "vomiting", "diarrhea"
+            "fever", "fatigue", "weakness", "profound weakness", "muscle aches", "severe muscle aches",
+            "headache", "dizziness", "chills", "nausea", "vomiting", "diarrhea", "abdominal pain",
+            "abdominal discomfort", "cough", "dry cough", "shortness of breath", "chest tightness",
+            "rapid breathing", "respiratory failure", "low blood pressure", "hypotension",
+            "fluid in lungs", "pulmonary edema", "respiratory distress", "hypoxia",
+            "tachypnea", "orthopnea", "difficulty breathing lying down", "reduced oxygen saturation"
         ],
-        "cardinal_symptoms": ["fever", "shortness of breath", "muscle aches", "rodent exposure"],
+        "cardinal_symptoms": [
+            "fever", "severe muscle aches", "shortness of breath", "respiratory distress",
+            "abdominal pain", "nausea", "vomiting"
+        ],
         "hemorrhagic": False,
-        "geographic_zones": ["Americas"],
-        "clusters": ["respiratory_distress", "febrile_illness"],
+        "geographic_zones": [
+            "Americas", "South America", "Argentina", "Chile", "Uruguay", "Bolivia", "Paraguay",
+            "Brazil", "Peru", "Colombia", "Panama", "United States", "Canada",
+            "Andes", "Patagonia", "rural South America"
+        ],
+        "clusters": ["respiratory_distress", "febrile_illness", "hantavirus_pulmonary", "gi_respiratory_syndrome"],
         "incubation_min": 9, "incubation_max": 33,
         "severity": "critical",
+        "exposure_clues": ["rural", "agricultural", "farm", "rodent", "mouse", "rat", "grain", "barn"],
+        "_investigations": [
+            "Hantavirus IgM/IgG serology (reference lab)",
+            "RT-PCR for hantavirus RNA (blood/BAL)",
+            "FBC — thrombocytopenia, haemoconcentration, atypical lymphocytes",
+            "CXR — bilateral interstitial infiltrates, pulmonary oedema",
+            "High-resolution CT chest",
+            "ABG / SpO2 monitoring",
+            "Metabolic panel — hypoalbuminaemia, elevated LDH, elevated haematocrit",
+            "Serum lactate",
+            "Urine output / renal function (AKI may co-occur)",
+            "Malaria RDT + blood film (exclude)",
+            "Dengue NS1 + serology (exclude)",
+            "Blood cultures × 2 (exclude bacterial sepsis)",
+            "Influenza A/B rapid test (exclude)",
+            "SARS-CoV-2 PCR (exclude)",
+            "Echocardiogram (myocardial depression in HPS)",
+        ],
+        "_treatment_summary": "Supportive ICU care: oxygen supplementation, early intubation/ECMO if rapid respiratory decline. Ribavirin investigational. Strict isolation. Public health notification required.",
+    },
+    "Andes Orthohantavirus (HPS)": {
+        "symptoms": [
+            "fever", "fatigue", "severe muscle aches", "headache", "dizziness", "chills",
+            "nausea", "vomiting", "diarrhea", "abdominal pain", "abdominal discomfort",
+            "cough", "dry cough", "shortness of breath", "chest tightness",
+            "rapid breathing", "respiratory failure", "low blood pressure",
+            "fluid in lungs", "pulmonary edema", "respiratory distress",
+            "reduced oxygen saturation", "hypoxia", "weakness", "profound weakness"
+        ],
+        "cardinal_symptoms": [
+            "fever", "severe muscle aches", "shortness of breath", "respiratory distress",
+            "GI prodrome", "abdominal pain", "nausea"
+        ],
+        "hemorrhagic": False,
+        "geographic_zones": [
+            "Argentina", "Chile", "Uruguay", "Bolivia", "Paraguay", "Brazil",
+            "South America", "Andes", "Patagonia", "Americas"
+        ],
+        "clusters": ["respiratory_distress", "febrile_illness", "hantavirus_pulmonary", "gi_respiratory_syndrome"],
+        "incubation_min": 14, "incubation_max": 35,
+        "severity": "critical",
+        "exposure_clues": ["rural", "agricultural", "farm", "rodent", "mouse", "rat", "grain"],
+        "_investigations": [
+            "Hantavirus IgM/IgG serology — Andes strain (reference lab)",
+            "RT-PCR for Andes orthohantavirus RNA",
+            "FBC — thrombocytopenia is hallmark (platelets < 100), haemoconcentration",
+            "Blood film + peripheral smear — immunoblasts, haemoconcentration",
+            "CXR bilateral infiltrates",
+            "CT chest high-resolution",
+            "ABG serial monitoring",
+            "Echocardiogram — myocardial depression",
+            "Serum LDH — elevated in HPS",
+            "Serum albumin — low in HPS",
+            "Malaria RDT + film (exclude)",
+            "Leptospira serology (exclude)",
+            "Dengue NS1 (exclude)",
+        ],
+        "_treatment_summary": "Supportive critical care only. Supplemental O2, early ICU admission, mechanical ventilation/ECMO for ARDS. Ribavirin not proven effective for Andes strain. Person-to-person transmission possible with Andes strain — isolation critical.",
+    },
+
+    # ========================================================
+    # COMMON AMBULATORY & OUTPATIENT DISEASES
+    # ========================================================
+    "Common Cold (Viral Upper Respiratory Infection)": {
+        "symptoms": [
+            "runny nose", "rhinorrhea", "nasal congestion", "sneezing", "sore throat",
+            "mild cough", "cough", "low-grade fever", "mild fatigue", "headache", "watery eyes"
+        ],
+        "cardinal_symptoms": ["runny nose", "nasal congestion", "sneezing"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["respiratory_fever"],
+        "incubation_min": 1, "incubation_max": 3,
+        "severity": "low",
+        "prevalence": "common",
+        "_investigations": [
+            "Clinical diagnosis — routine investigations not indicated",
+            "Rapid COVID-19 antigen test (exclude)",
+            "Influenza A/B PCR / rapid swab (if severe systemic features)",
+        ],
+        "_treatment_summary": "Symptomatic and supportive therapy: rest, oral hydration, saline nasal irrigation, paracetamol/NSAIDs, oral or topical decongestants.",
+    },
+    "Migraine": {
+        "symptoms": [
+            "headache", "unilateral headache", "throbbing headache", "pulsating headache",
+            "nausea", "vomiting", "photophobia", "sensitivity to light",
+            "phonophobia", "sensitivity to sound", "aura", "visual disturbance",
+            "worse with physical activity", "neck stiffness"
+        ],
+        "cardinal_symptoms": ["throbbing headache", "photophobia", "nausea", "headache"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["neurological_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "Clinical diagnosis based on ICHD-3 criteria",
+            "Brain MRI or CT non-contrast (only if red flags: SNOOP criteria)",
+            "Fundoscopy (assess papilledema)",
+            "ESR/CRP (exclude temporal arteritis in age > 50)",
+        ],
+        "_treatment_summary": "Acute attack abortive therapy: triptans (e.g. sumatriptan), NSAIDs, antiemetics (metoclopramide). Prophylaxis: beta-blockers, topiramate, CGRP antagonists.",
+    },
+    "Tension-type Headache": {
+        "symptoms": [
+            "headache", "bilateral headache", "band-like headache", "dull headache",
+            "pressure sensation around head", "neck stiffness", "neck pain", "scalp tenderness", "fatigue", "stress"
+        ],
+        "cardinal_symptoms": ["headache", "band-like headache", "dull headache"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["neurological_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "low",
+        "prevalence": "common",
+        "_investigations": [
+            "Clinical diagnosis (absence of nausea/vomiting, photophobia)",
+            "Neurological examination (normal)",
+        ],
+        "_treatment_summary": "Simple analgesics: paracetamol, ibuprofen, stress management, hydration, ergonomics and physical therapy.",
+    },
+    "Acute Sinusitis (Rhinosinusitis)": {
+        "symptoms": [
+            "facial pain", "facial pressure", "maxillary sinus tenderness", "purulent nasal discharge",
+            "nasal congestion", "headache", "fever", "halitosis", "tooth pain", "worse bending forward", "cough"
+        ],
+        "cardinal_symptoms": ["facial pressure", "purulent nasal discharge", "facial pain"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["respiratory_fever"],
+        "incubation_min": 2, "incubation_max": 7,
+        "severity": "low",
+        "prevalence": "common",
+        "_investigations": [
+            "Clinical diagnosis",
+            "CT paranasal sinuses (indicated only for recurrent, severe, or orbital/intracranial complications)",
+            "Nasal endoscopy (by ENT specialist if refractory)",
+        ],
+        "_treatment_summary": "Intranasal corticosteroids, nasal saline rinses, analgesics. Amoxicillin-clavulanate indicated if bacterial symptoms persist > 10 days or 'double-sickening'.",
+    },
+    "Acute Bronchitis": {
+        "symptoms": [
+            "persistent cough", "productive cough", "cough", "sputum", "chest discomfort",
+            "low-grade fever", "wheezing", "fatigue", "dyspnea on exertion", "sore throat"
+        ],
+        "cardinal_symptoms": ["persistent cough", "productive cough"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["respiratory_fever"],
+        "incubation_min": 1, "incubation_max": 5,
+        "severity": "low",
+        "prevalence": "common",
+        "_investigations": [
+            "Clinical diagnosis",
+            "Chest X-ray (only if abnormal vitals: HR>100, RR>24, T>38°C, or focal chest crackles to rule out pneumonia)",
+            "Pulse oximetry",
+        ],
+        "_treatment_summary": "Supportive treatment (bronchodilators if wheezing, antitussives/honey). Antibiotics are NOT routinely recommended as >90% are viral.",
+    },
+    "Streptococcal Pharyngitis (Strep Throat)": {
+        "symptoms": [
+            "severe sore throat", "painful swallowing", "odynophagia", "fever",
+            "tonsillar exudate", "swollen tonsils", "tender anterior cervical lymphadenopathy",
+            "absence of cough", "headache", "palatal petechiae", "nausea"
+        ],
+        "cardinal_symptoms": ["severe sore throat", "tonsillar exudate", "absence of cough", "fever"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["respiratory_fever"],
+        "incubation_min": 2, "incubation_max": 5,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "Rapid Antigen Detection Test (RADT) for Group A Strep",
+            "Throat swab culture (gold standard)",
+            "Centor / McIsaac Clinical Scoring",
+        ],
+        "_treatment_summary": "First-line: Penicillin V oral for 10 days or Amoxicillin. For penicillin allergy: Cephalexin, Azithromycin, or Clindamycin. Prevents rheumatic fever.",
+    },
+    "Gastroesophageal Reflux Disease (GERD)": {
+        "symptoms": [
+            "heartburn", "retrosternal burning", "acid regurgitation", "sour taste in mouth",
+            "epigastric discomfort", "dysphagia", "chronic cough", "hoarseness",
+            "chest pain after eating", "worse lying flat"
+        ],
+        "cardinal_symptoms": ["heartburn", "acid regurgitation", "retrosternal burning"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["gastrointestinal_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "low",
+        "prevalence": "common",
+        "_investigations": [
+            "Clinical diagnosis (empiric trial of PPI)",
+            "Upper GI endoscopy (EGD) if alarm symptoms: dysphagia, odynophagia, weight loss, GI bleeding, age > 55",
+            "24-hour esophageal pH-impedance monitoring",
+            "ECG and cardiac biomarkers (mandatory to rule out cardiac ischemia)",
+        ],
+        "_treatment_summary": "Lifestyle/dietary modification, H2-receptor antagonists, Proton Pump Inhibitors (omeprazole, pantoprazole) once daily before breakfast.",
+    },
+    "Allergic Rhinitis": {
+        "symptoms": [
+            "sneezing", "nasal congestion", "clear rhinorrhea", "runny nose",
+            "itching eyes", "itchy nose", "allergic shiners", "watery eyes", "post-nasal drip"
+        ],
+        "cardinal_symptoms": ["sneezing", "clear rhinorrhea", "itching eyes", "runny nose"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": [],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "low",
+        "prevalence": "common",
+        "_investigations": [
+            "Clinical diagnosis",
+            "Skin prick allergy testing / Serum allergen-specific IgE (if refractory)",
+        ],
+        "_treatment_summary": "Intranasal corticosteroids (fluticasone, mometasone), second-generation oral antihistamines (cetirizine, fexofenadine), allergen avoidance.",
+    },
+    "Costochondritis": {
+        "symptoms": [
+            "chest pain", "sharp chest pain", "chest wall tenderness",
+            "pain reproduced by palpation", "localized chest pain",
+            "worse with deep breathing", "worse with coughing", "worse with torso movement"
+        ],
+        "cardinal_symptoms": ["pain reproduced by palpation", "chest wall tenderness", "sharp chest pain"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": [],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "low",
+        "prevalence": "common",
+        "_investigations": [
+            "12-lead ECG (mandatory to exclude ACS)",
+            "Troponin-I (exclude acute myocardial infarction)",
+            "Chest radiography (exclude pneumothorax/pneumonia)",
+        ],
+        "_treatment_summary": "Reassurance, local heat application, oral NSAIDs (ibuprofen, naproxen), stretching exercises.",
+    },
+    "Gout (Acute Gouty Arthritis)": {
+        "symptoms": [
+            "joint pain", "severe joint pain", "swollen joint", "first mtp pain", "podagra",
+            "great toe pain", "joint redness", "joint warmth", "exquisite tenderness",
+            "fever", "limited range of motion", "woke from sleep with pain"
+        ],
+        "cardinal_symptoms": ["first mtp pain", "podagra", "joint redness", "severe joint pain"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["joint_pain_syndrome"],
+        "incubation_min": 0, "incubation_max": 1,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "Arthrocentesis with polarized light microscopy: negatively birefringent needle-shaped monosodium urate crystals",
+            "Serum uric acid (may be paradoxically normal during acute flare)",
+            "Synovial fluid gram stain and culture (mandatory to rule out septic arthritis)",
+            "Plain radiograph of affected joint: punched-out erosions with overhanging edges (chronic gout)",
+            "Renal function panel (eGFR, serum creatinine before starting NSAIDs/colchicine)",
+        ],
+        "_treatment_summary": "Acute flare: High-dose oral NSAIDs, low-dose colchicine (1.2mg followed by 0.6mg in 1h), or oral/intra-articular corticosteroids. Urate-lowering therapy (Allopurinol) after acute flare resolves.",
+    },
+    "Mononucleosis (Infectious / EBV)": {
+        "symptoms": [
+            "fever", "severe sore throat", "pharyngitis", "tonsillar exudate",
+            "swollen lymph nodes", "posterior cervical lymphadenopathy",
+            "fatigue", "profound fatigue", "splenomegaly", "headache", "hepatomegaly", "maculopapular rash"
+        ],
+        "cardinal_symptoms": ["posterior cervical lymphadenopathy", "tonsillar exudate", "profound fatigue", "fever"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["febrile_illness", "lymphadenopathy_fever"],
+        "incubation_min": 28, "incubation_max": 42,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "Heterophile antibody test (Monospot)",
+            "EBV specific serology (VCA-IgM, VCA-IgG, EBNA)",
+            "Full Blood Count (FBC): atypical lymphocytosis (>10%) and absolute lymphocytosis",
+            "Liver function tests (mild transaminitis is common)",
+            "Abdominal ultrasound (if splenomegaly suspected / trauma risk)",
+        ],
+        "_treatment_summary": "Supportive management: rest, hydration, antipyretics/analgesics. Strict avoidance of contact sports for 3–4 weeks to prevent splenic rupture. Avoid amoxicillin (causes non-allergic maculopapular rash).",
     },
 }
 
+# Integrate Expanded Multi-Specialty Clinical Catalog
+try:
+    from app.services.expanded_disease_catalog import EXPANDED_DISEASE_CATALOG
+    DISEASE_KB.update(EXPANDED_DISEASE_CATALOG)
+except Exception:
+    pass
+
+DISEASE_KB["Meningococcal Meningitis"] = DISEASE_KB["Meningococcal Disease / Meningococcemia (with Meningitis)"]
 
 # ---------------------------------------------------------------------------
+# Epidemiological Prevalence Tiers
+# Drives Bayesian prior probability to eliminate zebra bias
+# ---------------------------------------------------------------------------
+COMMON_PREVALENCE_DISEASES: Set[str] = {
+    "Common Cold (Viral Upper Respiratory Infection)",
+    "Influenza",
+    "COVID-19",
+    "Migraine",
+    "Tension-type Headache",
+    "Acute Sinusitis (Rhinosinusitis)",
+    "Acute Bronchitis",
+    "Streptococcal Pharyngitis (Strep Throat)",
+    "Gastroenteritis (Viral)",
+    "Gastroesophageal Reflux Disease (GERD)",
+    "Urinary Tract Infection (Lower)",
+    "Allergic Rhinitis",
+    "Costochondritis",
+    "Gout (Acute Gouty Arthritis)",
+    "Mononucleosis (Infectious / EBV)",
+    "Asthma Exacerbation",
+    "Peptic Ulcer Disease",
+    "Herpes Zoster (Shingles)",
+    "Acute Ischemic Stroke (CVA)",
+    "Acute Myocardial Infarction (STEMI/NSTEMI)",
+    "Community-Acquired Pneumonia (Lobar Pneumonia)",
+    "Acute Pancreatitis",
+    "Acute Appendicitis",
+    "Acute Heart Failure (Cardiogenic Pulmonary Edema)",
+    "Preeclampsia with Severe Features",
+    "Systemic Lupus Erythematosus (SLE)",
+    "Septic Shock / Severe Sepsis",
+    "Pulmonary Embolism",
+    "Diabetic Ketoacidosis (DKA)",
+    "Nephrolithiasis (Kidney Stones)",
+    "Bacterial Meningitis",
+    "Acute Diverticulitis",
+    "Cellulitis",
+    "Pyelonephritis (Upper UTI)",
+    "Infective Endocarditis",
+}
+
+ULTRA_RARE_OUTBREAK_DISEASES: Set[str] = {
+    "Pneumonic Plague", "Bubonic Plague", "Nipah Virus Disease",
+    "Bundibugyo Virus Disease (BVD)", "Ebola Virus Disease (Zaire)",
+    "Sudan Ebolavirus Disease", "Marburg Virus Disease", "Lassa Fever",
+    "Crimean-Congo Hemorrhagic Fever", "Hantavirus Pulmonary Syndrome",
+    "Andes Orthohantavirus (HPS)", "African Trypanosomiasis (Sleeping Sickness)",
+    "Rift Valley Fever", "MERS-CoV", "Rabies", "Avian Influenza H5N1",
+    "Lymphocytic Choriomeningitis (LCM)",
+}
+
 # Syndromic Cluster Definitions
 # Symptoms that DEFINE each cluster (pattern matching)
 # ---------------------------------------------------------------------------
@@ -1522,6 +1924,25 @@ SYNDROMIC_CLUSTERS = {
         },
         "trigger_threshold": 4,  # How many defining symptoms needed to trigger
         "score_bonus": 0.25,
+    },
+    "hantavirus_pulmonary": {
+        "description": "Hantavirus Pulmonary Syndrome — GI prodrome → rapid ARDS",
+        "defining_symptoms": {
+            "fever", "muscle aches", "nausea", "vomiting", "abdominal pain",
+            "shortness of breath", "cough", "respiratory distress", "low blood pressure",
+            "rapid breathing", "hypoxia"
+        },
+        "trigger_threshold": 5,
+        "score_bonus": 0.30,
+    },
+    "gi_respiratory_syndrome": {
+        "description": "GI prodrome followed by respiratory failure — HPS pattern",
+        "defining_symptoms": {
+            "fever", "nausea", "vomiting", "diarrhea", "abdominal pain",
+            "shortness of breath", "respiratory distress", "cough"
+        },
+        "trigger_threshold": 5,
+        "score_bonus": 0.20,
     },
     "febrile_illness": {
         "description": "Non-specific febrile illness",
@@ -1781,30 +2202,73 @@ KNOWN_GEOGRAPHIC_DISEASE_LINKS: Dict[str, Set[str]] = {
     "bangladesh": {"Cholera", "Dengue Fever", "Typhoid Fever", "Nipah Virus Disease"},
     "india": {"Dengue Fever", "Typhoid Fever", "Malaria (Plasmodium vivax)", "Leptospirosis", "Nipah Virus Disease"},
     "thailand": {"Dengue Fever", "Malaria (Plasmodium vivax)", "Scrub Typhus (Orientia tsutsugamushi)"},
-    "indonesia": {"Dengue Fever", "Malaria (Plasmodium falciparum)", "Avian Influenza H5N1"},
+    "indonesia": {"Zika Virus", "Dengue Fever", "Dengue Hemorrhagic Fever", "Chikungunya", "Typhoid Fever", "Malaria (Plasmodium falciparum)", "Avian Influenza H5N1"},
+    "bali": {"Zika Virus", "Dengue Fever", "Dengue Hemorrhagic Fever", "Chikungunya", "Typhoid Fever", "Malaria (Plasmodium falciparum)"},
     "vietnam": {"Dengue Fever", "Avian Influenza H5N1", "Scrub Typhus (Orientia tsutsugamushi)"},
     "china": {"Avian Influenza H5N1", "Dengue Fever"},
     "philippines": {"Dengue Fever", "Malaria (Plasmodium falciparum)", "Leptospirosis"},
-    "brazil": {"Dengue Fever", "Zika Virus", "Chikungunya", "Yellow Fever", "Leptospirosis"},
-    "colombia": {"Dengue Fever", "Zika Virus", "Yellow Fever", "Malaria (Plasmodium falciparum)"},
+    "brazil": {"Oropouche Virus Disease", "Dengue Fever", "Zika Virus", "Chikungunya", "Yellow Fever", "Leptospirosis"},
+    "peru": {"Oropouche Virus Disease", "Dengue Fever", "Malaria (Plasmodium vivax)", "Yellow Fever", "Leptospirosis"},
+    "amazon": {"Oropouche Virus Disease", "Yellow Fever", "Malaria (Plasmodium falciparum)", "Dengue Fever", "Leptospirosis"},
+    "south america": {"Oropouche Virus Disease", "Yellow Fever", "Dengue Fever", "Chikungunya", "Zika Virus", "Leptospirosis"},
+    "caribbean": {"Oropouche Virus Disease", "Dengue Fever", "Chikungunya", "Zika Virus"},
+    "cuba": {"Oropouche Virus Disease", "Dengue Fever", "Chikungunya"},
+    "colombia": {"Oropouche Virus Disease", "Yellow Fever", "Dengue Fever", "Dengue Hemorrhagic Fever", "Zika Virus", "Chikungunya", "Malaria (Plasmodium falciparum)", "Leptospirosis"},
+    "nicaragua": {"Chikungunya", "Dengue Fever", "Dengue Hemorrhagic Fever", "Zika Virus", "Malaria (Plasmodium vivax)", "Leptospirosis"},
+    "democratic republic of the congo": {"Ebola Virus Disease (Zaire)", "Bundibugyo Virus Disease (BVD)", "Marburg Virus Disease", "Mpox (Monkeypox)", "Malaria (Plasmodium falciparum)", "Cholera", "Bacterial Meningitis", "Meningococcal Meningitis"},
+    "drc": {"Ebola Virus Disease (Zaire)", "Bundibugyo Virus Disease (BVD)", "Marburg Virus Disease", "Mpox (Monkeypox)", "Malaria (Plasmodium falciparum)", "Cholera", "Bacterial Meningitis", "Meningococcal Meningitis"},
+    "congo": {"Ebola Virus Disease (Zaire)", "Bundibugyo Virus Disease (BVD)", "Marburg Virus Disease", "Mpox (Monkeypox)", "Malaria (Plasmodium falciparum)", "Cholera", "Bacterial Meningitis", "Meningococcal Meningitis"},
     "middle east": {"MERS-CoV", "Brucellosis", "Leishmaniasis (Visceral / Kala-azar)"},
     "saudi arabia": {"MERS-CoV", "Brucellosis"},
     "global": {"COVID-19", "Influenza"},
-    # Outbreak context keywords that appear in clinical notes
+    # Outbreak & transmission context keywords that appear in clinical notes
     "country with ongoing outbreak": {
-        "Mpox (Monkeypox)", "COVID-19", "Cholera", "Ebola Virus Disease (Zaire)",
-        "Influenza", "Dengue Fever",
+        "Mpox (Monkeypox)", "COVID-19", "Cholera", "Ebola Virus Disease (Zaire)", "Bundibugyo Virus Disease (BVD)",
+        "Influenza", "Dengue Fever", "Marburg Virus Disease",
     },
     "ongoing outbreak": {
-        "Mpox (Monkeypox)", "COVID-19", "Cholera", "Dengue Fever",
+        "Mpox (Monkeypox)", "COVID-19", "Cholera", "Dengue Fever", "Marburg Virus Disease", "Ebola Virus Disease (Zaire)", "Bundibugyo Virus Disease (BVD)",
     },
     "outbreak area": {
-        "Mpox (Monkeypox)", "Ebola Virus Disease (Zaire)", "COVID-19",
+        "Mpox (Monkeypox)", "Ebola Virus Disease (Zaire)", "Bundibugyo Virus Disease (BVD)", "Marburg Virus Disease", "COVID-19",
+    },
+    "active transmission": {
+        "Ebola Virus Disease (Zaire)", "Marburg Virus Disease", "Bundibugyo Virus Disease (BVD)",
+        "Mpox (Monkeypox)", "Cholera",
+    },
+    "high-consequence infectious disease": {
+        "Ebola Virus Disease (Zaire)", "Marburg Virus Disease", "Bundibugyo Virus Disease (BVD)",
+        "Lassa Fever", "Crimean-Congo Hemorrhagic Fever",
+    },
+    "high-consequence viral infection": {
+        "Marburg Virus Disease", "Ebola Virus Disease (Zaire)", "Bundibugyo Virus Disease (BVD)",
+        "Lassa Fever",
+    },
+    "mosquito-borne viral transmission": {
+        "Dengue Fever", "Dengue Hemorrhagic Fever", "Chikungunya", "Zika Virus", "Yellow Fever",
+    },
+    "mosquito-borne outbreak": {
+        "Chikungunya", "Dengue Fever", "Dengue Hemorrhagic Fever", "Zika Virus", "Yellow Fever",
+    },
+    "mosquito exposure": {
+        "Dengue Fever", "Dengue Hemorrhagic Fever", "Chikungunya", "Zika Virus", "Yellow Fever",
+        "Malaria (Plasmodium falciparum)",
+    },
+    "arboviral": {
+        "Dengue Fever", "Dengue Hemorrhagic Fever", "Chikungunya", "Zika Virus", "Yellow Fever",
+    },
+    "costa rica": {"Hepatitis A", "Dengue Fever", "Zika Virus", "Chikungunya", "Leptospirosis", "Malaria (Plasmodium vivax)"},
+    "mauritius": {"Chikungunya", "Dengue Fever"},
+    "uncertain food and water": {
+        "Typhoid Fever", "Cholera", "Hepatitis A",
+    },
+    "food and water exposure": {
+        "Typhoid Fever", "Cholera", "Hepatitis A",
     },
     # Central Africa / Equatorial Africa regions
     "central africa": {
-        "Mpox (Monkeypox)", "Ebola Virus Disease (Zaire)", "Bundibugyo Virus Disease (BVD)",
-        "Marburg Virus Disease", "Malaria (Plasmodium falciparum)", "Yellow Fever",
+        "Marburg Virus Disease", "Ebola Virus Disease (Zaire)", "Bundibugyo Virus Disease (BVD)",
+        "Mpox (Monkeypox)", "Malaria (Plasmodium falciparum)", "Yellow Fever",
         "African Trypanosomiasis (Sleeping Sickness)",
     },
     "cameroon": {"Mpox (Monkeypox)", "Malaria (Plasmodium falciparum)", "Yellow Fever"},
@@ -1823,8 +2287,71 @@ KNOWN_GEOGRAPHIC_DISEASE_LINKS: Dict[str, Set[str]] = {
     "ecuador": {"Dengue Fever", "Yellow Fever", "Leptospirosis"},
     "haiti": {"Cholera", "Dengue Fever", "Malaria (Plasmodium falciparum)"},
     # Middle East
-    "yemen": {"Cholera", "Dengue Fever", "Malaria (Plasmodium falciparum)"},
+    "yemen": {"Typhoid Fever", "Cholera", "Dengue Fever", "Malaria (Plasmodium falciparum)"},
     "jordan": {"Brucellosis", "Leishmaniasis (Visceral / Kala-azar)"},
+    # South America — Andes / Southern Cone (Hantavirus endemic)
+    "argentina": {
+        "Andes Orthohantavirus (HPS)", "Hantavirus Pulmonary Syndrome",
+        "Dengue Fever", "Yellow Fever", "Leptospirosis", "Chagas Disease",
+        "Leishmaniasis (Visceral / Kala-azar)",
+    },
+    "chile": {
+        "Andes Orthohantavirus (HPS)", "Hantavirus Pulmonary Syndrome",
+        "Dengue Fever", "Leptospirosis",
+    },
+    "uruguay": {
+        "Andes Orthohantavirus (HPS)", "Hantavirus Pulmonary Syndrome",
+        "Dengue Fever", "Leptospirosis", "Chagas Disease",
+    },
+    "bolivia": {
+        "Andes Orthohantavirus (HPS)", "Hantavirus Pulmonary Syndrome",
+        "Dengue Fever", "Yellow Fever", "Chagas Disease", "Malaria (Plasmodium falciparum)",
+    },
+    "paraguay": {
+        "Andes Orthohantavirus (HPS)", "Hantavirus Pulmonary Syndrome",
+        "Dengue Fever", "Chagas Disease", "Leishmaniasis (Visceral / Kala-azar)",
+    },
+    "andes": {
+        "Andes Orthohantavirus (HPS)", "Hantavirus Pulmonary Syndrome",
+        "Dengue Fever", "Yellow Fever",
+    },
+    "patagonia": {
+        "Andes Orthohantavirus (HPS)", "Hantavirus Pulmonary Syndrome",
+    },
+    "south america": {
+        "Andes Orthohantavirus (HPS)", "Hantavirus Pulmonary Syndrome",
+        "Dengue Fever", "Yellow Fever", "Chagas Disease", "Leptospirosis",
+        "Leishmaniasis (Visceral / Kala-azar)",
+    },
+    "latin america": {
+        "Dengue Fever", "Zika Virus", "Chikungunya", "Leptospirosis", "Chagas Disease",
+        "Andes Orthohantavirus (HPS)", "Hantavirus Pulmonary Syndrome",
+    },
+    "americas": {
+        "Hantavirus Pulmonary Syndrome", "Andes Orthohantavirus (HPS)",
+        "Dengue Fever", "Zika Virus", "Yellow Fever", "Leptospirosis",
+    },
+    # Rural/agricultural exposure context (extracted from notes)
+    "rural area": {
+        "Hantavirus Pulmonary Syndrome", "Andes Orthohantavirus (HPS)",
+        "Leptospirosis", "Brucellosis", "Q Fever", "Scrub Typhus (Orientia tsutsugamushi)",
+    },
+    "agricultural land": {
+        "Hantavirus Pulmonary Syndrome", "Andes Orthohantavirus (HPS)",
+        "Leptospirosis", "Brucellosis", "Q Fever",
+    },
+    "rural accommodation": {
+        "Hantavirus Pulmonary Syndrome", "Andes Orthohantavirus (HPS)",
+        "Leptospirosis", "Brucellosis",
+    },
+    "rodent exposure": {
+        "Hantavirus Pulmonary Syndrome", "Andes Orthohantavirus (HPS)",
+        "Lassa Fever", "Leptospirosis",
+    },
+    "farm": {
+        "Q Fever", "Brucellosis", "Leptospirosis",
+        "Hantavirus Pulmonary Syndrome", "Andes Orthohantavirus (HPS)",
+    },
 }
 
 def get_diseases_for_geography(countries: List[str]) -> Dict[str, float]:

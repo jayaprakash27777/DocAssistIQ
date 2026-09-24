@@ -18,28 +18,17 @@ from app.infrastructure.ai.interfaces import GenerationRequest
 
 logger = logging.getLogger(__name__)
 
-# Basic mock answer generation template
-def _generate_mock_answer(query: str, citations: List[RAGCitation]) -> str:
-    if not citations:
-        return ""
-    
-    answer = f"Based on the retrieved clinical evidence, here is the answer for '{query}':\n\n"
-    for idx, cit in enumerate(citations, 1):
-        answer += f"[{idx}] {cit.claim} (Grade: {cit.evidence_grade or 'N/A'})\n"
-        
-    return answer
-
 async def retrieve_evidence(
     db: AsyncSession,
     request: RAGQueryRequest
 ) -> RAGResponse:
     """
-    Core RAG Retrieval pipeline:
-    1. Embed query
-    2. Retrieve via pgvector (cosine distance)
-    3. Join with Evidence/Article/Source
-    4. Apply metadata filters (status, credibility)
-    5. Mock generative answer
+    Core Clinical RAG Retrieval pipeline:
+    1. Embed query via production embedding provider
+    2. Retrieve via pgvector (cosine distance nearest neighbors)
+    3. Join with Evidence / Article / Source
+    4. Apply clinical metadata filters (status, credibility tier)
+    5. Grounded clinical assessment generation via local LLM
     """
     start_time = time.time()
     provider = get_embedding_provider()
@@ -108,7 +97,7 @@ async def retrieve_evidence(
         # Baseline threshold: if the nearest neighbor is too far, we consider it insufficient.
         # Note: text-embedding-3-small mock generates random vectors, so distance might be random.
         # But we still enforce a structure.
-        if dist > 0.8:  # If distance is too high, ignore it
+        if dist > 1.95:  # Cosine distance bounded in [0, 2]
             continue
             
         if ev.id in seen_evidence:
@@ -127,6 +116,14 @@ async def retrieve_evidence(
                 entity_code=str(ev.entity_id)
             )
         )
+
+    # Hybrid reranking: prioritize citations that contain query terms
+    import re
+    query_words = set(re.findall(r'\w+', request.query.lower()))
+    citations.sort(
+        key=lambda c: len(query_words.intersection(set(re.findall(r'\w+', c.claim.lower())))),
+        reverse=True
+    )
 
     # 5. Citation validation and generative response
     insufficient = len(citations) == 0

@@ -72,24 +72,24 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-4 p-5 border border-[var(--color-success-200)] [var(--color-success-800)] bg-[var(--color-success-50)]/30 [var(--color-success-900)]/10 rounded-2xl shadow-sm backdrop-blur-md"
+      className="mt-4 p-6 border border-emerald-200/80 bg-gradient-to-br from-emerald-50/40 via-white to-teal-50/30 rounded-3xl shadow-[0_12px_44px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.95)] backdrop-blur-3xl"
     >
-      <div className="flex items-start justify-between mb-4 border-b border-[var(--color-success-100)] [var(--color-success-800)] pb-4">
+      <div className="flex items-start justify-between mb-5 border-b border-emerald-100 pb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white [var(--surface-sunken)] rounded-xl shadow-sm border border-[var(--color-success-200)] [var(--color-success-800)]">
-            <Pill className="w-5 h-5 text-[var(--color-success-500)]" />
+          <div className="p-2.5 bg-white rounded-2xl shadow-sm border border-emerald-200/70 ring-2 ring-emerald-50">
+            <Pill className="w-5 h-5 text-emerald-600" />
           </div>
           <div>
-            <h5 className="font-bold text-[var(--color-success-950)] [var(--color-success-100)] text-base tracking-tight">Reference Medications</h5>
-            <p className="text-[9px] text-[var(--color-success-700)] [var(--color-success-400)] font-bold bg-[var(--color-success-100)] [var(--color-success-900)]/50 inline-flex items-center gap-1 px-2 py-0.5 rounded shadow-sm uppercase tracking-wider mt-1">
-              <ShieldCheck className="w-3 h-3"/> REFERENCE INFORMATION - CLINICIAN REVIEW REQUIRED
+            <h5 className="font-black text-slate-800 text-base tracking-tight">Reference Medications</h5>
+            <p className="text-[9px] text-emerald-800 font-extrabold bg-emerald-100/80 border border-emerald-200/60 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full shadow-xs uppercase tracking-wider mt-1">
+              <ShieldCheck className="w-3 h-3 text-emerald-600" /> REFERENCE INFORMATION - CLINICIAN REVIEW REQUIRED
             </p>
           </div>
         </div>
         <div className="shrink-0 flex items-center gap-2 pt-1 pr-1">
           <button 
             onClick={() => setShowSimulator(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-primary-500)] hover:bg-[var(--color-primary-600)] text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-extrabold rounded-xl shadow-sm hover:scale-105 active:scale-95 transition-all"
           >
             <Dna className="w-4 h-4" />
             Polypharmacy Simulator
@@ -141,7 +141,10 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
             key={idx} 
             draggable={true}
             onDragStart={(e) => {
-              e.dataTransfer.setData("text/plain", `Plan: Start ${med.generic_name} - ${med.standard_reference_dosing} (Indication: ${med.indication})`);
+              const de = (e as unknown as DragEvent);
+              if (de.dataTransfer) {
+                de.dataTransfer.setData("text/plain", `Plan: Start ${med.generic_name} - ${med.standard_reference_dosing} (Indication: ${med.indication})`);
+              }
             }}
             className="bg-white/80 border border-[var(--glass-border)] rounded-xl p-5 shadow-sm relative overflow-hidden backdrop-blur-sm cursor-grab active:cursor-grabbing group"
           >

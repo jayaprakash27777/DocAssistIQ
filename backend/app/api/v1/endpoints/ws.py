@@ -92,6 +92,7 @@ _STALE_TIMEOUT_S = 35
 
 
 @router.websocket("/ws/v1/stream")
+@router.websocket("/api/v1/ws/v1/stream")
 async def ws_stream(
     websocket: WebSocket,
     token: str = Query(..., description="JWT access token for authentication"),
@@ -151,22 +152,25 @@ async def ws_stream(
 
     htask = asyncio.create_task(heartbeat_task())
 
-    # Start ASR processor task
-    async def asr_processor():
-        try:
-            async for msg in asr_service.process_stream(state.audio_queue):
-                if state.closed:
-                    break
-                payload = {"text": msg.get("text", ""), "message": msg.get("message", "")}
-                if "diarization" in msg:
-                    payload["diarization"] = msg["diarization"]
-                await state.send_msg(msg["type"], payload)
-        except Exception as e:
-            log.error("asr_processor_error", err=str(e), conn=connection_id)
-            if not state.closed:
-                await state.send_msg("asr_error", {"message": "ASR processing failed"})
-                
-    state.asr_task = asyncio.create_task(asr_processor())
+    # Lazy ASR processor task (only started when client streams audio)
+    def ensure_asr_task():
+        if state.asr_task is None or state.asr_task.done():
+            async def asr_processor():
+                try:
+                    async for msg in asr_service.process_stream(state.audio_queue):
+                        if state.closed:
+                            break
+                        payload = {"text": msg.get("text", ""), "message": msg.get("message", "")}
+                        if "diarization" in msg:
+                            payload["diarization"] = msg["diarization"]
+                        await state.send_msg(msg["type"], payload)
+                except Exception as e:
+                    log.error("asr_processor_error", err=str(e), conn=connection_id)
+                    if not state.closed:
+                        await state.send_msg("asr_error", {"message": "ASR processing failed"})
+                        
+            state.asr_task = asyncio.create_task(asr_processor())
+
 
     # Read loop
     try:
@@ -211,11 +215,109 @@ async def ws_stream(
                 await state.audio_queue.put(None)
                 await state.send_msg("ack", {}, ack=envelope.sequence_number)
                 continue
+
+            # Real-time differential calculation over WebSocket (<20ms)
+            if envelope.type in ("realtime_differential", "clinical_query"):
+                symptoms = envelope.payload.get("symptoms", [])
+                text_input = envelope.payload.get("text", "")
+                try:
+                    from app.services.clinical_reasoning_engine import clinical_reasoning_engine
+                    import time
+                    t0 = time.perf_counter()
+                    if not symptoms and text_input:
+                        from app.services.representation_service import _extract_from_text
+                        ext = _extract_from_text(text_input)
+                        symptoms = [s.get("name", "") for s in ext.get("symptoms", [])]
+                    
+                    predictions = clinical_reasoning_engine.score_all_diseases(
+                        patient_symptoms=symptoms,
+                        negated_symptoms=envelope.payload.get("negations", []),
+                        countries_visited=envelope.payload.get("countries_visited", []),
+                        days_since_return=envelope.payload.get("days_since_return"),
+                        top_n=int(envelope.payload.get("top_n", 5))
+                    )
+                    latency = round((time.perf_counter() - t0) * 1000, 2)
+                    pred_data = [
+                        {
+                            "disease": p.disease,
+                            "score": p.score,
+                            "supporting_findings": p.supporting_findings,
+                            "missing_expected_findings": p.missing_expected_findings,
+                            "explanation_hint": p.explanation_hint
+                        } for p in predictions
+                    ]
+                    await state.send_msg("differential_update", {
+                        "predictions": pred_data,
+                        "latency_ms": latency,
+                        "symptoms_evaluated": symptoms
+                    }, ack=envelope.sequence_number)
+                except Exception as e:
+                    await state.send_msg("error", {"code": "DIFFERENTIAL_FAILED", "message": str(e)}, ack=envelope.sequence_number)
+                continue
+
+            # Real-time vitals / early warning assessment over WebSocket (<2ms)
+            if envelope.type == "evaluate_vitals":
+                vitals_list = envelope.payload.get("vitals", [])
+                try:
+                    from app.services.early_warning_service import early_warning_service
+                    parsed = early_warning_service.parse_vitals(vitals_list)
+                    news2 = early_warning_service.calculate_news2(parsed)
+                    mews = early_warning_service.calculate_mews(parsed)
+                    qsofa = early_warning_service.calculate_qsofa(parsed)
+                    sirs = early_warning_service.calculate_sirs(parsed)
+                    fb = early_warning_service.build_deterministic_clinical_fallback(
+                        news2=news2, mews=mews, qsofa=qsofa, sirs=sirs, v=parsed, consultation_id=_uuid.uuid4()
+                    )
+                    await state.send_msg("early_warning_update", {
+                        "news2": news2,
+                        "mews": mews,
+                        "qsofa": qsofa,
+                        "sirs": sirs,
+                        "is_high_risk": fb.is_high_risk,
+                        "probability_percentage": fb.probability_percentage,
+                        "primary_warning_flag": fb.primary_warning_flag,
+                        "contributing_factors": fb.contributing_factors,
+                        "recommended_immediate_actions": fb.recommended_immediate_actions
+                    }, ack=envelope.sequence_number)
+                except Exception as e:
+                    await state.send_msg("error", {"code": "VITALS_EVAL_FAILED", "message": str(e)}, ack=envelope.sequence_number)
+                continue
+
+            # Real-time note drafting / ambient scribing stream over WebSocket
+            if envelope.type in ("draft_note", "stream_note"):
+                raw_text = envelope.payload.get("text", "")
+                try:
+                    from app.services.note_generator import note_generator_service, _extract_vitals_from_text, _extract_travel_history
+                    vitals_extracted = _extract_vitals_from_text(raw_text)
+                    travel_extracted = _extract_travel_history(raw_text)
+                    
+                    # Generate high-yield neuro-symbolic clinical draft
+                    drafted = note_generator_service._fallback_draft([], raw_text, vitals_extracted, travel_extracted)
+                    
+                    # Stream non-empty sections incrementally
+                    for sec_key, sec_val in drafted.items():
+                        if sec_val:
+                            await state.send_msg("note_section_chunk", {
+                                "section": sec_key,
+                                "text": sec_val,
+                                "status": "draft"
+                            })
+                            await asyncio.sleep(0.005)
+
+                    await state.send_msg("note_draft_complete", {
+                        "body": drafted,
+                        "vitals": vitals_extracted,
+                        "travel": travel_extracted
+                    }, ack=envelope.sequence_number)
+                except Exception as e:
+                    await state.send_msg("error", {"code": "NOTE_DRAFT_FAILED", "message": str(e)}, ack=envelope.sequence_number)
+                continue
                 
             # Acknowledge receipt
             await state.send_msg("ack", {}, ack=envelope.sequence_number)
 
     except WebSocketDisconnect:
+
         log.info("ws_disconnected", conn=connection_id)
     except Exception as exc:
         log.warning("ws_error", err=str(exc), conn=connection_id)

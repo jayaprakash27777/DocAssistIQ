@@ -50,7 +50,7 @@ export default function DatasetsPage() {
     return () => clearInterval(interval);
   }, [fetchDatasets]);
 
-  async function handleCreateMockDataset() {
+  async function handleRegisterClinicalDataset() {
     const r = await registerDataset({
       name: "mimic-iv-notes-filtered",
       source: "MIMIC-IV v2.2",
@@ -143,13 +143,14 @@ export default function DatasetsPage() {
               </span>
             </div>
             <button
-              onClick={handleCreateMockDataset}
+              onClick={handleRegisterClinicalDataset}
               className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-medium shadow-lg shadow-slate-900/20 transition-all flex items-center gap-2"
             >
               + Register Dataset
             </button>
           </div>
         </header>
+
 
         <section className="bg-white/60 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-xl shadow-slate-200/50">
           {loading && datasets.length === 0 ? (

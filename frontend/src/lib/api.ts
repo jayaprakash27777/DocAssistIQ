@@ -5,7 +5,10 @@
  *
  * All requests:
  *   - Include a client-generated X-Request-ID for correlation
- *   - Have a configurable timeout (default 5 s)
+ *   - Timeout tuned per endpoint type:
+ *       health/ping: 5s
+ *       standard API: 15s
+ *       AI/LLM endpoints (disease intelligence, consultation): 45s with retry
  *   - Return a discriminated ApiResult — never throw
  *   - Parse the standard error envelope on non-2xx responses
  *
@@ -141,7 +144,27 @@ function generateRequestId(): string {
 async function fetchWithTimeout<T>(
   url: string,
   {
-    timeoutMs = 5000,
+    timeoutMs = 15000,
+    acceptedErrorCodes = [] as number[],
+    retries = 0,
+    retryDelayMs = 2000,
+  }: { timeoutMs?: number; acceptedErrorCodes?: number[]; retries?: number; retryDelayMs?: number } = {}
+): Promise<ApiResult<T>> {
+  let lastResult: ApiResult<T> | null = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) {
+      await new Promise(r => setTimeout(r, retryDelayMs * attempt));
+    }
+    lastResult = await _fetchOnce<T>(url, { timeoutMs, acceptedErrorCodes });
+    if (lastResult.ok) return lastResult;
+  }
+  return lastResult!;
+}
+
+async function _fetchOnce<T>(
+  url: string,
+  {
+    timeoutMs = 15000,
     acceptedErrorCodes = [] as number[],
   }: { timeoutMs?: number; acceptedErrorCodes?: number[] } = {}
 ): Promise<ApiResult<T>> {
@@ -193,26 +216,26 @@ async function fetchWithTimeout<T>(
     };
   } catch (err: unknown) {
     clearTimeout(timer);
-
-    const isTimeout =
-      err instanceof Error && err.name === "AbortError";
-
+    const isTimeout = err instanceof Error && err.name === "AbortError";
+    const isAiEndpoint =
+      url.includes("/differential") ||
+      url.includes("/rag") ||
+      url.includes("/ambient") ||
+      url.includes("/polypharmacy") ||
+      url.includes("/note");
+    const timeoutMsg = isAiEndpoint
+      ? `AI processing timeout (>${Math.round(timeoutMs / 1000)}s) — using offline clinical fallback`
+      : `Request timed out (>${Math.round(timeoutMs / 1000)}s) — server busy`;
     const frontendError: FrontendError = {
       code: isTimeout ? "TIMEOUT" : "NETWORK_ERROR",
       message: isTimeout
-        ? "Request timed out"
+        ? timeoutMsg
         : err instanceof Error
         ? err.message
-        : "Network error",
+        : "Network error — check backend connection",
       statusCode: 0,
     };
-
-    return {
-      ok: false,
-      error: frontendError,
-      statusCode: 0,
-      requestId: null,
-    };
+    return { ok: false, error: frontendError, statusCode: 0, requestId: null };
   }
 }
 
@@ -220,7 +243,7 @@ async function fetchWithTimeout<T>(
 
 /** Fetch the liveness status from /health. */
 export async function getHealth(): Promise<ApiResult<HealthResponse>> {
-  return fetchWithTimeout<HealthResponse>(`${BASE_URL}/health`);
+  return fetchWithTimeout<HealthResponse>(`${BASE_URL}/health`, { timeoutMs: 20000 });
 }
 
 /**
@@ -230,13 +253,14 @@ export async function getHealth(): Promise<ApiResult<HealthResponse>> {
  */
 export async function getReady(): Promise<ApiResult<ReadinessResponse>> {
   return fetchWithTimeout<ReadinessResponse>(`${BASE_URL}/ready`, {
+    timeoutMs: 20000,
     acceptedErrorCodes: [503],
   });
 }
 
 /** Fetch the versioned API ping from /api/v1/ping. */
 export async function getPing(): Promise<ApiResult<PingResponse>> {
-  return fetchWithTimeout<PingResponse>(`${BASE_URL}/api/v1/ping`);
+  return fetchWithTimeout<PingResponse>(`${BASE_URL}/api/v1/ping`, { timeoutMs: 20000 });
 }
 
 // ── Auth types ─────────────────────────────────────────────
@@ -303,7 +327,7 @@ async function authedFetch<T>(
   options: RequestInit & { timeoutMs?: number } = {},
 ): Promise<ApiResult<T>> {
   const controller = new AbortController();
-  const timeout = options.timeoutMs || 60000; // Increased to 60s for local LLM generation
+  const timeout = options.timeoutMs || 120000; // Calibrated for local hybrid 8B LLM generation
   const timer = setTimeout(() => controller.abort(), timeout);
   const requestId = generateRequestId();
 
@@ -560,6 +584,16 @@ export async function verifyDoctor(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function verifyAllPendingDoctors(): Promise<ApiResult<{ status: string; verified_count: number }>> {
+  return authedFetch<{ status: string; verified_count: number }>(
+    `${BASE_URL}/api/v1/doctors/verify-all`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
     },
   );
 }
@@ -877,33 +911,45 @@ export interface RAGFilterParams {
 export interface RAGQueryRequest {
   query: string;
   patient_context?: string | null;
-  filters: RAGFilterParams;
-  top_k: number;
+  filters?: RAGFilterParams | { only_approved?: boolean; source_type?: string; min_confidence?: number } | null;
+  top_k?: number;
+  consultation_id?: string;
 }
 
 export interface RAGCitation {
-  evidence_id: string;
-  claim: string;
+  // Standard RAG citation fields
+  id?: string;
+  evidence_id?: string;
+  claim?: string;
   evidence_grade?: string | null;
   recommendation_grade?: string | null;
   source_name: string;
-  source_code: string;
+  source_code?: string;
+  source_type?: string;
+  excerpt?: string;
+  relevance_score?: number;
   article_doi?: string | null;
   entity_code?: string | null;
+  url?: string;
 }
 
 export interface RAGResponse {
   query: string;
   answer: string;
-  insufficient_evidence: boolean;
+  insufficient_evidence?: boolean;
   citations: RAGCitation[];
+  confidence_score?: number;
+  reasoning_trace?: string;
+  model_used?: string;
+  retrieval_count?: number;
+  fallback_used?: boolean;
 }
 
 export async function ragQuery(request: RAGQueryRequest): Promise<ApiResult<RAGResponse>> {
   return authedFetch<RAGResponse>(`${BASE_URL}/api/v1/rag/query`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
+    timeoutMs: 90000,
   });
 }
 
@@ -1127,6 +1173,28 @@ export async function getExperiment(
   id: string,
 ): Promise<ApiResult<ExperimentResponse>> {
   return authedFetch<ExperimentResponse>(`${BASE_URL}/api/v1/experiments/${id}`);
+}
+
+export interface ExperimentRegisterRequest {
+  name: string;
+  code_commit: string;
+  dataset_version: string;
+  dataset_hash: string;
+  preprocessing_version?: string;
+  model_name: string;
+  configuration?: any;
+  random_seed?: number;
+  hardware?: any;
+}
+
+export async function registerExperiment(
+  payload: ExperimentRegisterRequest,
+): Promise<ApiResult<ExperimentResponse>> {
+  return authedFetch<ExperimentResponse>(`${BASE_URL}/api/v1/experiments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
 }
 
 // -- Consultation Lifecycle (Phase 20) --------------------------
@@ -1442,6 +1510,12 @@ export interface DifferentialDiagnosisItem {
   uncertainty: string;
   explanation_reference: string;
   safety_decision?: SafetyDecision | null;
+  geographic_match?: boolean;
+  incubation_fit?: string | null;
+  immediate_tests?: string[];
+  recommended_investigations?: string[];
+  recommended_medications?: string[];
+  first_line_treatment?: string | null;
 }
 
 export interface DifferentialDiagnosisResponse {
@@ -1455,9 +1529,171 @@ export interface DifferentialDiagnosisResponse {
 
 export async function getDifferentialDiagnosis(
   consultation_id: string,
+  symptoms?: string,
 ): Promise<ApiResult<DifferentialDiagnosisResponse>> {
+  const params = symptoms ? `?symptoms=${encodeURIComponent(symptoms)}` : "";
   return authedFetch<DifferentialDiagnosisResponse>(
-    `${BASE_URL}/api/v1/consultations/${consultation_id}/differential`,
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/differential${params}`,
+    { timeoutMs: 90000 }, // 90s — deterministic engine + safety eval
+  );
+}
+
+// ── Sub-30ms Real-Time Clinical Prediction Types ────────────────────
+
+export interface RealtimePredictionCandidate {
+  disease: string;
+  score: number;
+  display_score: string;
+  supporting_findings: string[];
+  missing_cardinal_symptoms: string[];
+  contradicting_information: string[];
+  uncertainty: string;
+  icd10: string;
+  icd11: string;
+  category: string;
+  severity: "low" | "moderate" | "high" | "critical";
+  triage: "EMERGENT" | "URGENT" | "ROUTINE";
+  is_hallmark_match: boolean;
+  pathognomonic_features: string[];
+  immediate_tests: string[];
+  recommended_investigations?: string[];
+  recommended_medications?: string[];
+  treatment_summary?: string;
+  disease_intelligence?: any;
+  pearl: string;
+  is_open_domain: boolean;
+}
+
+export interface RealtimeEmergencyAlert {
+  is_emergency: boolean;
+  condition: string;
+  warning: string;
+  immediate_action: string;
+}
+
+export interface DifferentiatingRecommendation {
+  candidate_1: string;
+  candidate_2: string;
+  differentiating_investigation: string;
+  clinical_rationale: string;
+  urgency: "IMMEDIATE" | "URGENT" | "ROUTINE" | string;
+}
+
+export interface CriteriaEvaluation {
+  criteria_name: string;
+  meets_criteria: boolean;
+  clinical_interpretation: string;
+  total_score?: number | null;
+  threshold?: number | null;
+  fulfilled_items?: string[];
+  entry_criterion_met?: boolean;
+  entry_criterion_detail?: string;
+  major_criteria_met?: number;
+  minor_criteria_met?: number;
+  recommendation?: string;
+  risk_category?: string;
+  management_recommendation?: string;
+}
+
+export interface CalculatedIndices {
+  anion_gap?: number;
+  anion_gap_interpretation?: string;
+  bun_cr_ratio?: number;
+  azotemia_type?: string;
+  csf_serum_glucose_ratio?: number;
+  csf_interpretation?: string;
+  [key: string]: any;
+}
+
+export interface MustNotMissCandidate {
+  disease: string;
+  acuity: string;
+  matched_triggers: string[];
+  immediate_action: string;
+  confirmatory_tests: string[];
+  in_top_candidates: boolean;
+}
+
+export interface BedsideClarifyingQuestion {
+  target_disease: string;
+  question: string;
+  maneuver: string;
+  positive_token: string;
+  negative_token: string;
+  positive_label: string;
+  negative_label: string;
+  differentiates: string;
+  is_urgent: boolean;
+}
+
+export interface DiagnosticComparisonItem {
+  disease: string;
+  icd10?: string;
+  icd11?: string;
+  display_score: string;
+  cardinal_features: string[];
+  confirmatory_test: string;
+  first_line_therapy: string;
+  clinical_pearl: string;
+}
+
+export interface RealtimePredictionResponse {
+  status: "SUCCESS" | "INSUFFICIENT_INFO";
+  latency_ms: number;
+  query_analyzed: string;
+  consultation_id?: string | null;
+  top_candidates: RealtimePredictionCandidate[];
+  emergency_alert?: RealtimeEmergencyAlert | null;
+  syndromic_clusters: string[];
+  open_domain_matched: boolean;
+  message?: string;
+  is_unstructured_note?: boolean;
+  extracted_findings?: string[];
+  extracted_negated?: string[];
+  extracted_vitals?: Record<string, any>;
+  diagnostic_markers?: string[];
+  note_summary?: string | null;
+  section_breakdown?: Record<string, string> | null;
+  quantitative_labs?: Record<string, any> | null;
+  calculated_indices?: CalculatedIndices | null;
+  background_history?: string[] | null;
+  differentiating_recommendation?: DifferentiatingRecommendation | null;
+  criteria_evaluations?: CriteriaEvaluation[] | null;
+  must_not_miss_candidates?: MustNotMissCandidate[] | null;
+  bedside_clarifying_questions?: BedsideClarifyingQuestion[] | null;
+  comparison_matrix?: DiagnosticComparisonItem[] | null;
+  clinical_mdm_summary?: string | null;
+}
+
+export interface RealtimePredictionPayload {
+  symptoms: string;
+  negated_symptoms?: string[];
+  travel_history?: string[];
+  days_since_return?: number;
+  consultation_id?: string;
+}
+
+export async function predictRealtime(
+  payload: RealtimePredictionPayload,
+): Promise<ApiResult<RealtimePredictionResponse>> {
+  return authedFetch<RealtimePredictionResponse>(
+    `${BASE_URL}/api/v1/consultations/predict-realtime`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      timeoutMs: 5000, // <30ms expected
+    },
+  );
+}
+
+export async function getConsultationRealtimePrediction(
+  consultationId: string,
+  symptoms?: string
+): Promise<ApiResult<RealtimePredictionResponse>> {
+  const qs = symptoms ? `?symptoms=${encodeURIComponent(symptoms)}` : "";
+  return authedFetch<RealtimePredictionResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultationId}/predict-realtime${qs}`,
+    { timeoutMs: 5000 }
   );
 }
 
@@ -1709,3 +1945,87 @@ export interface AdminStatsResponse {
 export async function getAdminStats(): Promise<ApiResult<AdminStatsResponse>> {
   return authedFetch<AdminStatsResponse>(`${BASE_URL}/api/v1/admin/stats`);
 }
+
+// RAG types merged above — see lines ~892. Disease Intelligence & AI Status below:
+
+// ------------------------------------------------------------------
+// Disease Intelligence API
+// ------------------------------------------------------------------
+
+export interface EpidemiologyData {
+  global_incidence?: string;
+  mortality_rate?: string;
+  affected_regions?: string[];
+  outbreak_status?: string;
+  seasonal_pattern?: string;
+  high_risk_groups?: string[];
+}
+
+export interface SpecialPopulationWarning {
+  population: string;
+  warning: string;
+  recommendation: string;
+}
+
+export interface DiseaseIntelligenceResponse {
+  disease_name: string;
+  icd11_code?: string;
+  who_classification?: string;
+  disease_class?: string;
+  is_notifiable?: boolean;
+  is_outbreak_active?: boolean;
+  summary: string;
+  pathophysiology?: string;
+  etiology?: string;
+  cardinal_symptoms: string[];
+  symptoms: string[];
+  signs_on_examination?: string[];
+  red_flags: string[];
+  incubation_period?: string;
+  disease_stages?: string[];
+  prognosis?: string;
+  complications?: string[];
+  first_line_treatment?: string;
+  treatments: string[];
+  medications?: string[];
+  monitoring_parameters?: string[];
+  investigations?: string[];
+  differential_diagnosis_clues?: string[];
+  epidemiology?: EpidemiologyData;
+  prevention?: string[];
+  public_health_measures?: string[];
+  special_populations?: SpecialPopulationWarning[];
+  data_sources?: string[];
+  generated_at?: string;
+  cache_hit?: boolean;
+}
+
+/** GET /api/v1/intelligence/disease/{name} — Comprehensive disease profile */
+export async function getDiseaseIntelligence(
+  diseaseName: string,
+  consultationId?: string
+): Promise<ApiResult<DiseaseIntelligenceResponse>> {
+  const params = consultationId ? `?consultation_id=${consultationId}` : "";
+  return authedFetch<DiseaseIntelligenceResponse>(
+    `${BASE_URL}/api/v1/intelligence/disease/${encodeURIComponent(diseaseName)}${params}`,
+    { timeoutMs: 90000 }
+  );
+}
+
+// ------------------------------------------------------------------
+// AI Status check
+// ------------------------------------------------------------------
+
+export interface AIStatusResponse {
+  llm_available: boolean;
+  mode: "llm_active" | "static_kb_fallback" | "unknown";
+  note: string;
+  model?: string;
+  circuit_breaker_open?: boolean;
+}
+
+/** GET /ai-status — Check if LLM is available or running in fallback mode */
+export async function getAIStatus(): Promise<ApiResult<AIStatusResponse>> {
+  return authedFetch<AIStatusResponse>(`${BASE_URL}/ai-status`, { timeoutMs: 5000 });
+}
+

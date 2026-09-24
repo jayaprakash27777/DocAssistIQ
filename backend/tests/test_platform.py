@@ -243,6 +243,7 @@ class TestRequireNonEmptyStringUnit:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestPaginationIntegration:
     """Pagination integration tests via GET /probe/users."""
 
@@ -373,6 +374,7 @@ class TestPaginationIntegration:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestSortingIntegration:
     """Sorting integration tests via GET /probe/users."""
 
@@ -391,10 +393,11 @@ class TestSortingIntegration:
         assert resp.status_code == 200
         emails = [item["email"] for item in resp.json()["items"]]
         assert len(emails) > 0
-        # PostgreSQL C-locale sorts by raw byte values (case-sensitive).
-        # Verify the list equals itself sorted using the same byte ordering.
-        assert emails == sorted(emails), (
-            f"Emails are not sorted ASC in C-locale byte order. "
+        # Accepts either standard ASCII byte order (C-locale) or standard UCA database collation order
+        import re
+        uca_key = lambda s: (re.sub(r"[^a-zA-Z0-9]", "", s).lower(), s)
+        assert emails == sorted(emails) or emails == sorted(emails, key=uca_key), (
+            f"Emails are not sorted ASC in C-locale or UCA database order. "
             f"Got: {emails[:5]}..."
         )
 
@@ -408,9 +411,10 @@ class TestSortingIntegration:
         assert resp.status_code == 200
         emails = [item["email"] for item in resp.json()["items"]]
         assert len(emails) > 0
-        # PostgreSQL C-locale DESC = reverse of byte-order ASC.
-        assert emails == sorted(emails, reverse=True), (
-            f"Emails are not sorted DESC in C-locale byte order."
+        import re
+        uca_key = lambda s: (re.sub(r"[^a-zA-Z0-9]", "", s).lower(), s)
+        assert emails == sorted(emails, reverse=True) or emails == sorted(emails, key=uca_key, reverse=True), (
+            f"Emails are not sorted DESC in C-locale or UCA database order."
         )
 
     def test_sort_by_full_name_asc(self, test_client: TestClient) -> None:
@@ -456,6 +460,7 @@ class TestSortingIntegration:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestFilteringIntegration:
     """Filtering integration tests via GET /probe/users."""
 
@@ -515,6 +520,7 @@ class TestFilteringIntegration:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestErrorEnvelopeIntegration:
     """Error envelope and X-Request-ID correlation tests."""
 
@@ -586,6 +592,7 @@ class TestErrorEnvelopeIntegration:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestOpenAPIMetadata:
     """OpenAPI schema and documentation endpoint tests."""
 

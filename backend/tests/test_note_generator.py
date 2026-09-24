@@ -10,7 +10,9 @@ def auth_headers(test_client: TestClient) -> dict:
     token = _register_and_login(test_client)
     return {"Authorization": f"Bearer {token}"}
 
+@pytest.mark.integration
 def test_occ_update_note(test_client: TestClient, auth_headers: dict):
+
     # 1. Create a consultation
     res = test_client.post(
         f"{_BASE_URL}/consultations",

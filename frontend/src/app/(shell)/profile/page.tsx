@@ -206,7 +206,7 @@ export default function DoctorProfilePage() {
           <div className="flex-grow pt-2">
             <div className="flex flex-col md:flex-row md:items-center gap-3 mb-2">
               <h1 className="text-3xl md:text-4xl font-black tracking-tight text-[var(--text-primary)]">
-                Dr. {user?.full_name}
+                Dr. {user?.full_name?.replace(/^dr\.?\s*/i, '')}
               </h1>
               {cfg && (
                 <div className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest border shadow-sm ${cfg.badgeClass}`}>

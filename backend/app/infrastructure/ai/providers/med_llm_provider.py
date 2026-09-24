@@ -24,7 +24,7 @@ class LocalMedicalLLMProvider(DiagnosisProvider):
     """
     def __init__(
         self, 
-        model_name: str = "llama3.2:latest", 
+        model_name: str = "llama3.1:8b", 
         base_url: str = "http://localhost:11434",
         is_research_mode: bool = True
     ):

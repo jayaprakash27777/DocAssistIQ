@@ -164,3 +164,17 @@ async def verify_doctor(
     )
     
     return DoctorResponse.model_validate(doctor)
+
+
+@router.post(
+    "/verify-all",
+    summary="Bulk verify all pending doctors (admin only)",
+    responses=API_RESPONSES,
+)
+async def verify_all_doctors(
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    count = await doctor_service.admin_verify_all_pending(db, admin)
+    return {"status": "success", "verified_count": count}
+

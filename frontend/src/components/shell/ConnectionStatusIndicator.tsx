@@ -8,15 +8,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getStoredToken } from "@/lib/api";
 import { getSharedRealtimeClient, type WSConnectionState } from "@/lib/ws";
 
 export function ConnectionStatusIndicator() {
   const [state, setState] = useState<WSConnectionState>('CONNECTING');
 
   useEffect(() => {
-    // We get the token from cookies or localstorage in a real app
-    // Here we'll just mock it or grab it if it was injected
-    const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1] || 'mock-jwt';
+    const token = getStoredToken();
+    if (!token) {
+      setState('UNAVAILABLE');
+      return;
+    }
     
     const client = getSharedRealtimeClient(token);
     client.connect();

@@ -29,7 +29,7 @@ export function Skeleton({
 }: SkeletonProps) {
   return (
     <UiSkeleton
-      className={className}
+      className={`skeleton ${className}`.trim()}
       style={{ width, height, borderRadius }}
       aria-hidden="true"
     />

@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     # Hugging Face (Phase 26)
     hf_token: str | None = None
 
+    # Local LLM Engine Models
+    default_llm_model: str = "ii-medical:8b"
+    fast_llm_model: str = "llama3.2:latest"
+
     # --------------------------------------------------------
     # Startup validation
     # --------------------------------------------------------

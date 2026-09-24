@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 from typing import Literal
 import uuid
@@ -12,8 +13,8 @@ class KnowledgeEntityResponse(BaseModel):
     name: str
     status: str
     is_ai_generated: bool
-    created_at: str
-    updated_at: str
+    created_at: datetime | str
+    updated_at: datetime | str
 
     model_config = ConfigDict(from_attributes=True)
 

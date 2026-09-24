@@ -10,55 +10,95 @@ import { motion, AnimatePresence } from "framer-motion";
 import ClinicalLoader from "./ClinicalLoader";
 import { AlertTriangle, AlertCircle, FileText, CheckCircle2 } from "lucide-react";
 
+const PRIORITY_STYLES: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  "HIGH PRIORITY": { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-200",    dot: "bg-red-500" },
+  "CONDITIONAL":   { bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-200",  dot: "bg-amber-500" },
+  "IF INDICATED":  { bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-200",   dot: "bg-blue-400" },
+};
+
 const Section = ({ title, items, color, icon: Icon, consultationId, disease }: { title: string, items: any[], color: string, icon: any, consultationId: string, disease: string }) => {
   if (items.length === 0) return null;
   return (
     <div className="mb-8 last:mb-0">
-      <h6 className={`text-sm font-bold uppercase tracking-widest mb-6 flex items-center gap-3 ${color}`}>
-        <Icon className="w-5 h-5" /> {title}
+      <h6 className={`text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 ${color}`}>
+        <Icon className="w-4 h-4" /> {title}
+        <span className="ml-auto text-[10px] font-black text-slate-400 normal-case tracking-normal">
+          {items.length} test{items.length !== 1 ? "s" : ""} · Drag any to Clinical Note
+        </span>
       </h6>
-      <div className="space-y-4">
-        {items.map((item: any, idx: number) => (
-          <motion.div 
-            key={`${item.investigation_name}-${idx}`}
-            draggable={true}
-            onDragStart={(e) => {
-              e.dataTransfer.setData("text/plain", `Plan: Order ${item.name || item.investigation_name} - ${item.rationale || item.reason}`);
-            }}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className="group px-6 py-5 bg-white/70 rounded-2xl border border-white hover:border-blue-300 transition-all duration-300 shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(59,130,246,0.1)] relative overflow-hidden backdrop-blur-xl cursor-grab active:cursor-grabbing"
-          >
-            <div className="flex justify-between items-start gap-6 relative z-10">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="text-slate-300 hover:text-slate-500 cursor-grab px-1 -ml-2" title="Drag to Clinical Note">
-                    <span className="text-xl leading-none">⠿</span>
-                  </div>
-                  <span className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">
-                    {item.name || item.investigation_name}
-                  </span>
-                  {item.is_fasting_required && (
-                    <span className="px-2.5 py-1 text-xs font-bold uppercase tracking-widest bg-[var(--color-warning-50)] text-[var(--color-warning-700)] rounded-full">
-                      Fasting
+      <div className="space-y-3">
+        {items.map((item: any, idx: number) => {
+          const pStyle = PRIORITY_STYLES[item.priority] || PRIORITY_STYLES["IF INDICATED"];
+          // Rich drag payload for clinical note
+          const dragText = [
+            `${item.priority}: ${item.name || item.investigation_name}`,
+            item.rationale ? `  Rationale: ${item.rationale}` : "",
+            item.evidence  ? `  Evidence: ${item.evidence}` : "",
+            item.safety_flags?.length ? `  ⚠️ Safety: ${item.safety_flags.join("; ")}` : "",
+          ].filter(Boolean).join("\n");
+
+          return (
+            <motion.div
+              key={`${item.investigation_name}-${idx}`}
+              draggable={true}
+              onDragStart={(e) => {
+                const de = (e as unknown as DragEvent);
+                if (de.dataTransfer) {
+                  de.dataTransfer.setData("text/plain", dragText);
+                  de.dataTransfer.effectAllowed = "copy";
+                }
+              }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.06 }}
+              className={`group relative px-5 py-4 rounded-2xl border ${pStyle.border} ${pStyle.bg} hover:shadow-md hover:border-slate-300/80 transition-all duration-200 cursor-grab active:cursor-grabbing active:scale-[0.99] active:opacity-80 backdrop-blur-md`}
+            >
+              {/* Drag tooltip */}
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
+                <div className="bg-slate-800 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-lg whitespace-nowrap">
+                  ⠿ Drag to Clinical Note
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${pStyle.dot}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className={`font-bold text-sm ${pStyle.text} leading-tight`}>
+                      {item.name || item.investigation_name}
                     </span>
+                    <span className={`flex-shrink-0 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${pStyle.border} ${pStyle.text} ${pStyle.bg}`}>
+                      {item.priority}
+                    </span>
+                  </div>
+                  {item.rationale && (
+                    <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">{item.rationale}</p>
+                  )}
+                  {item.evidence && (
+                    <p className="text-[10px] text-slate-400 mt-1 font-medium italic">📚 {item.evidence}</p>
+                  )}
+                  {item.safety_flags?.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {item.safety_flags.map((flag: string, fi: number) => (
+                        <span key={fi} className="text-[9px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                          ⚠️ {flag}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed font-medium">
-                  {item.rationale || item.reason}
-                </p>
               </div>
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <FeedbackButtons 
-                  suggestionId={`inv-${consultationId}-${disease}-${item.name || item.investigation_name}`} 
-                  suggestionType="investigation" 
-                  suggestionContext={item} 
+
+              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <FeedbackButtons
+                  suggestionId={`inv-${consultationId}-${disease}-${item.name || item.investigation_name}`}
+                  suggestionType="investigation"
+                  suggestionContext={item}
                 />
               </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );
@@ -110,13 +150,13 @@ export default function InvestigationPanel({ consultationId, disease, competing 
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-6 p-6 overflow-hidden rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 bg-white/40 backdrop-blur-2xl relative"
+      className="mt-6 p-7 overflow-hidden rounded-3xl shadow-[0_12px_44px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.95)] border border-slate-200/80 bg-white/90 backdrop-blur-3xl relative"
     >
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-300 to-cyan-300 opacity-70"></div>
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400 opacity-80" />
       
-      <div className="flex items-start justify-between mb-8 pb-5 border-b border-white/50">
+      <div className="flex items-start justify-between mb-8 pb-5 border-b border-slate-200/60">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-white/80 rounded-2xl shadow-sm border border-blue-100/50 flex items-center justify-center backdrop-blur-md">
+          <div className="p-3 bg-white rounded-2xl shadow-sm border border-blue-100 flex items-center justify-center ring-2 ring-blue-50">
             <FileText className="w-6 h-6 text-blue-600" />
           </div>
           <div>

@@ -153,6 +153,196 @@ def evaluate_altered_consciousness(rep: ClinicalRepresentationResponse) -> Safet
         )
     return None
 
+def evaluate_cauda_equina(rep: ClinicalRepresentationResponse) -> SafetyFlag | None:
+    """Detect Cauda Equina Syndrome (saddle anesthesia, acute retention, bilateral weakness/sciatica)."""
+    has_ces = False
+    is_negated = False
+    ces_keywords = [
+        "saddle anesthesia", "saddle numbness", "urinary retention",
+        "bowel incontinence", "bladder incontinence", "loss of bowel control",
+        "loss of bladder control", "bilateral sciatica", "cauda equina"
+    ]
+    for symptom in rep.symptoms:
+        val = symptom.value.lower()
+        if any(kw in val for kw in ces_keywords):
+            has_ces = True
+    for neg in rep.negations:
+        val = neg.value.lower()
+        if any(kw in val for kw in ces_keywords):
+            is_negated = True
+    if has_ces and not is_negated:
+        return SafetyFlag(
+            rule_id="RF-006",
+            rule_version="1.0.0",
+            category="RED_FLAG",
+            severity="CRITICAL",
+            message="Possible Cauda Equina Syndrome detected (saddle anesthesia, acute urinary retention, or bilateral neurological deficit). Emergency spinal MRI and urgent neurosurgical/spine consult required.",
+            source="RedFlagEngine"
+        )
+    return None
+
+def evaluate_thunderclap_headache(rep: ClinicalRepresentationResponse) -> SafetyFlag | None:
+    """Detect Thunderclap Headache / Subarachnoid Hemorrhage."""
+    has_sah = False
+    is_negated = False
+    sah_keywords = [
+        "thunderclap headache", "worst headache of life", "worst headache ever",
+        "explosive headache", "sudden severe headache"
+    ]
+    for symptom in rep.symptoms:
+        val = symptom.value.lower()
+        if any(kw in val for kw in sah_keywords) or ("headache" in val and ("sudden" in val or "explosive" in val) and ("severe" in val or "10/10" in val)):
+            has_sah = True
+    for neg in rep.negations:
+        val = neg.value.lower()
+        if any(kw in val for kw in sah_keywords):
+            is_negated = True
+    if has_sah and not is_negated:
+        return SafetyFlag(
+            rule_id="RF-007",
+            rule_version="1.0.0",
+            category="RED_FLAG",
+            severity="CRITICAL",
+            message="Thunderclap or explosive onset headache detected. Evaluate immediately for subarachnoid hemorrhage (STAT non-contrast head CT and lumbar puncture if CT negative).",
+            source="RedFlagEngine"
+        )
+    return None
+
+def evaluate_aortic_dissection(rep: ClinicalRepresentationResponse) -> SafetyFlag | None:
+    """Detect acute aortic dissection (tearing or ripping chest/back pain)."""
+    has_dissection = False
+    is_negated = False
+    dissection_keywords = [
+        "tearing chest pain", "ripping chest pain", "tearing back pain",
+        "ripping back pain", "interscapular tearing", "aortic dissection"
+    ]
+    for symptom in rep.symptoms:
+        val = symptom.value.lower()
+        if any(kw in val for kw in dissection_keywords) or (("chest pain" in val or "back pain" in val) and ("tearing" in val or "ripping" in val)):
+            has_dissection = True
+    for neg in rep.negations:
+        val = neg.value.lower()
+        if any(kw in val for kw in dissection_keywords):
+            is_negated = True
+    if has_dissection and not is_negated:
+        return SafetyFlag(
+            rule_id="RF-008",
+            rule_version="1.0.0",
+            category="RED_FLAG",
+            severity="CRITICAL",
+            message="Tearing or ripping chest/interscapular pain detected. Urgent evaluation for acute aortic dissection (STAT CT angiography of chest and abdomen) required.",
+            source="RedFlagEngine"
+        )
+    return None
+
+def evaluate_torsion(rep: ClinicalRepresentationResponse) -> SafetyFlag | None:
+    """Detect testicular or ovarian torsion (acute severe scrotal/adnexal pain)."""
+    has_torsion = False
+    is_negated = False
+    torsion_keywords = [
+        "testicular torsion", "severe testicular pain", "acute scrotal pain",
+        "scrotal swelling with pain", "ovarian torsion", "acute adnexal pain"
+    ]
+    for symptom in rep.symptoms:
+        val = symptom.value.lower()
+        if any(kw in val for kw in torsion_keywords):
+            has_torsion = True
+    for neg in rep.negations:
+        val = neg.value.lower()
+        if any(kw in val for kw in torsion_keywords):
+            is_negated = True
+    if has_torsion and not is_negated:
+        return SafetyFlag(
+            rule_id="RF-009",
+            rule_version="1.0.0",
+            category="RED_FLAG",
+            severity="CRITICAL",
+            message="Acute scrotal or adnexal pain suspicious for testicular or ovarian torsion detected. Immediate Doppler ultrasound and emergent surgical consultation (<6h time window) required.",
+            source="RedFlagEngine"
+        )
+    return None
+
+def evaluate_necrotizing_fasciitis(rep: ClinicalRepresentationResponse) -> SafetyFlag | None:
+    """Detect necrotizing soft tissue infection (pain out of proportion, crepitus, hemorrhagic bullae)."""
+    has_nec = False
+    is_negated = False
+    nec_keywords = [
+        "necrotizing fasciitis", "pain out of proportion", "gas gangrene",
+        "crepitus", "subcutaneous emphysema", "skin necrosis", "dishwater discharge"
+    ]
+    for symptom in rep.symptoms:
+        val = symptom.value.lower()
+        if any(kw in val for kw in nec_keywords):
+            has_nec = True
+    for neg in rep.negations:
+        val = neg.value.lower()
+        if any(kw in val for kw in nec_keywords):
+            is_negated = True
+    if has_nec and not is_negated:
+        return SafetyFlag(
+            rule_id="RF-010",
+            rule_version="1.0.0",
+            category="RED_FLAG",
+            severity="CRITICAL",
+            message="Signs concerning for necrotizing soft tissue infection/fasciitis detected. Immediate emergency surgical exploration/debridement and broad-spectrum IV antimicrobial coverage required.",
+            source="RedFlagEngine"
+        )
+    return None
+
+def evaluate_airway_compromise(rep: ClinicalRepresentationResponse) -> SafetyFlag | None:
+    """Detect acute airway obstruction or epiglottitis (stridor, drooling, tripoding)."""
+    has_airway = False
+    is_negated = False
+    airway_keywords = [
+        "stridor", "epiglottitis", "drooling and inability to swallow",
+        "tripod position", "tripoding", "airway compromise", "choking"
+    ]
+    for symptom in rep.symptoms:
+        val = symptom.value.lower()
+        if any(kw in val for kw in airway_keywords):
+            has_airway = True
+    for neg in rep.negations:
+        val = neg.value.lower()
+        if any(kw in val for kw in airway_keywords):
+            is_negated = True
+    if has_airway and not is_negated:
+        return SafetyFlag(
+            rule_id="RF-011",
+            rule_version="1.0.0",
+            category="RED_FLAG",
+            severity="CRITICAL",
+            message="Acute stridor, tripoding, or severe upper airway compromise detected. Maintain calm, prepare for immediate emergency airway intervention (anesthesiology/ENT stat).",
+            source="RedFlagEngine"
+        )
+    return None
+
+def evaluate_ectopic_pregnancy(rep: ClinicalRepresentationResponse) -> SafetyFlag | None:
+    """Detect ruptured ectopic pregnancy (acute pelvic pain, syncope, shoulder tip pain)."""
+    has_ectopic = False
+    is_negated = False
+    ectopic_keywords = [
+        "ectopic pregnancy", "ruptured ectopic", "shoulder tip pain with pelvic pain",
+        "severe pelvic pain with syncope", "adnexal mass with severe pain"
+    ]
+    for symptom in rep.symptoms:
+        val = symptom.value.lower()
+        if any(kw in val for kw in ectopic_keywords):
+            has_ectopic = True
+    for neg in rep.negations:
+        val = neg.value.lower()
+        if any(kw in val for kw in ectopic_keywords):
+            is_negated = True
+    if has_ectopic and not is_negated:
+        return SafetyFlag(
+            rule_id="RF-012",
+            rule_version="1.0.0",
+            category="RED_FLAG",
+            severity="CRITICAL",
+            message="Severe acute pelvic pain concerning for ruptured ectopic pregnancy detected. Urgent STAT pelvic ultrasound, quantitative beta-hCG, and emergent surgical consultation required.",
+            source="RedFlagEngine"
+        )
+    return None
+
 # The master list of versioned red-flag rules
 RED_FLAG_RULES = [
     RedFlagRule(
@@ -184,5 +374,48 @@ RED_FLAG_RULES = [
         rule_version="1.0.0",
         description="Altered Consciousness Rule",
         evaluator=evaluate_altered_consciousness
-    )
+    ),
+    RedFlagRule(
+        rule_id="RF-006",
+        rule_version="1.0.0",
+        description="Cauda Equina Syndrome Rule",
+        evaluator=evaluate_cauda_equina
+    ),
+    RedFlagRule(
+        rule_id="RF-007",
+        rule_version="1.0.0",
+        description="Thunderclap Headache Rule",
+        evaluator=evaluate_thunderclap_headache
+    ),
+    RedFlagRule(
+        rule_id="RF-008",
+        rule_version="1.0.0",
+        description="Aortic Dissection Rule",
+        evaluator=evaluate_aortic_dissection
+    ),
+    RedFlagRule(
+        rule_id="RF-009",
+        rule_version="1.0.0",
+        description="Testicular or Ovarian Torsion Rule",
+        evaluator=evaluate_torsion
+    ),
+    RedFlagRule(
+        rule_id="RF-010",
+        rule_version="1.0.0",
+        description="Necrotizing Fasciitis Rule",
+        evaluator=evaluate_necrotizing_fasciitis
+    ),
+    RedFlagRule(
+        rule_id="RF-011",
+        rule_version="1.0.0",
+        description="Acute Airway Compromise Rule",
+        evaluator=evaluate_airway_compromise
+    ),
+    RedFlagRule(
+        rule_id="RF-012",
+        rule_version="1.0.0",
+        description="Ruptured Ectopic Pregnancy Rule",
+        evaluator=evaluate_ectopic_pregnancy
+    ),
 ]
+

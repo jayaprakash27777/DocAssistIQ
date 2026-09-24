@@ -27,6 +27,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DELETE FROM embedding_records")
     op.alter_column('embedding_records', 'embedding',
                existing_type=pgvector.sqlalchemy.vector.VECTOR(dim=768),
                type_=pgvector.sqlalchemy.vector.VECTOR(dim=1536),

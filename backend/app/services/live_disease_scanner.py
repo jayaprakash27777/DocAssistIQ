@@ -464,13 +464,14 @@ class OutbreakScanner:
                 text = await asyncio.wait_for(_fetch_cdc_travel_notices(), timeout=8.0)
             if not text:
                 return []
-            # Parse the text into fake alert dicts (one per line that looks like an alert)
+            # Parse the text into structured alert dicts (one per line that looks like an alert)
             alerts = []
             for line in text.split("\n"):
                 if len(line) > 20 and any(kw in line.lower() for kw in
                     ["outbreak", "alert", "novel", "disease", "epidemic"]):
                     alerts.append({"source": name, "title": line.strip()[:120], "summary": ""})
             return alerts[:10]
+
         except Exception:
             return []
 
@@ -488,17 +489,53 @@ outbreak_scanner = OutbreakScanner()
 # Main integration: merged KB for scoring engine
 # ---------------------------------------------------------------------------
 
+_CACHED_MERGED_KB: Optional[dict] = None
+_CACHED_MERGED_TIMESTAMP: float = 0.0
+
 def get_merged_disease_kb() -> dict:
-    """Returns static KB + all live dynamic entries merged."""
+    """Returns static KB + open-domain catalog + all live dynamic entries merged, cached in memory."""
+    global _CACHED_MERGED_KB, _CACHED_MERGED_TIMESTAMP
+    now = time.monotonic()
+    if _CACHED_MERGED_KB is not None and (now - _CACHED_MERGED_TIMESTAMP) < 60.0:
+        return _CACHED_MERGED_KB
+
     from app.services.offline_disease_kb import DISEASE_KB
-    dynamic = get_all_dynamic_diseases()
-    if not dynamic:
-        return DISEASE_KB
+    import re
+
     merged = dict(DISEASE_KB)
-    for slug, profile in dynamic.items():
-        display = profile.get("disease_name", slug.replace("_", " ").title() + " (Emerging)")
-        if display not in merged:
-            merged[display] = profile
+    try:
+        from app.services.open_domain_medical_engine import OPEN_DOMAIN_ENTITIES
+        for name, meta in OPEN_DOMAIN_ENTITIES.items():
+            if name not in merged:
+                hallmarks = meta.get("hallmark_symptoms", [])
+                cardinals = hallmarks[:5]
+                symptoms_expanded = list(hallmarks)
+                for h in hallmarks:
+                    for w in re.findall(r"\w+", h.lower()):
+                        if len(w) > 3 and w not in symptoms_expanded and w not in {"with", "from", "after", "high", "severe", "acute", "sudden"}:
+                            symptoms_expanded.append(w)
+
+                merged[name] = {
+                    "symptoms": symptoms_expanded,
+                    "cardinal_symptoms": cardinals,
+                    "hemorrhagic": "hemorrhag" in meta.get("category", "").lower(),
+                    "geographic_zones": ["Global", "South America", "Peru", "Brazil", "Amazon", "Africa", "Asia", "North America", "Europe"],
+                    "clusters": ["febrile_illness", "specialist_subspecialty"],
+                    "incubation_min": 1,
+                    "incubation_max": 21,
+                    "severity": meta.get("severity", "high"),
+                }
+    except Exception:
+        pass
+
+    dynamic = get_all_dynamic_diseases()
+    if dynamic:
+        for slug, profile in dynamic.items():
+            display = profile.get("disease_name", slug.replace("_", " ").title() + " (Emerging)")
+            if display not in merged:
+                merged[display] = profile
+    _CACHED_MERGED_KB = merged
+    _CACHED_MERGED_TIMESTAMP = now
     return merged
 
 

@@ -50,44 +50,46 @@ export default function NewPatientProfile() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 py-6 px-4">
       <header className="flex flex-col gap-4">
         <Link
           href="/patients"
-          className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors w-fit"
+          className="flex items-center gap-2 text-sm text-slate-500 hover:text-teal-700 transition-colors w-fit font-semibold"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Patients
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-            <UserPlus className="w-8 h-8 text-blue-400" />
+          <h1 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3 font-heading">
+            <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 border border-teal-200/60 flex items-center justify-center shrink-0 shadow-sm">
+              <UserPlus className="w-5 h-5" />
+            </div>
             Create Patient Record
           </h1>
-          <p className="text-gray-400 mt-1">
-            Register a new de-identified patient profile for the current tenant.
+          <p className="text-slate-500 mt-1.5 text-sm font-medium">
+            Register a new de-identified longitudinal patient profile for the clinical registry.
           </p>
         </div>
       </header>
 
-      <div className="bg-blue-900/20 border border-blue-500/20 rounded-xl p-4 flex gap-3">
-        <ShieldAlert className="w-6 h-6 text-blue-400 shrink-0" />
-        <p className="text-sm text-blue-300">
-          <strong>Clinical Safety Requirement:</strong> Do not enter any Personally Identifiable Information (PII) such as Name, Date of Birth, Address, or SSN/NHS Number. Use opaque reference IDs only.
+      <div className="bg-sky-50/80 border border-sky-200/70 rounded-2xl p-4 flex gap-3.5 shadow-sm">
+        <ShieldAlert className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
+        <p className="text-xs text-sky-900 leading-relaxed m-0 font-medium">
+          <strong className="font-bold">Clinical Safety Requirement:</strong> Do not enter any Personally Identifiable Information (PII) such as Name, Date of Birth, Address, or SSN/NHS Number. Use opaque reference IDs only.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 space-y-6 backdrop-blur-xl">
+      <form onSubmit={handleSubmit} className="glass-panel-4k gpu-accelerated border border-slate-200/90 rounded-3xl p-8 space-y-6 bg-white/85 backdrop-blur-2xl shadow-[0_12px_36px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9)] ring-1 ring-black/5">
         {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-lg text-sm">
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl text-sm font-medium">
             {error}
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Patient Reference ID <span className="text-red-400">*</span>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Patient Reference ID <span className="text-red-500">*</span>
             </label>
             <input
               required
@@ -95,20 +97,20 @@ export default function NewPatientProfile() {
               value={patientRef}
               onChange={(e) => setPatientRef(e.target.value)}
               placeholder="e.g., EMR-8492-A"
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-white/90 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all shadow-sm font-mono text-sm"
             />
-            <p className="text-xs text-gray-500 mt-1">An opaque identifier from your hospital system.</p>
+            <p className="text-[11px] text-slate-400 mt-1">An opaque identifier from your hospital system.</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
                 Age Group (Optional)
               </label>
               <select
                 value={ageGroup}
                 onChange={(e) => setAgeGroup(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-white/90 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all shadow-sm text-sm"
               >
                 <option value="">Select range...</option>
                 <option value="0-18">0-18</option>
@@ -119,13 +121,13 @@ export default function NewPatientProfile() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
                 Biological Sex (Optional)
               </label>
               <select
                 value={sex}
                 onChange={(e) => setSex(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-white/90 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all shadow-sm text-sm"
               >
                 <option value="">Select sex...</option>
                 <option value="male">Male</option>
@@ -136,7 +138,7 @@ export default function NewPatientProfile() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
               Baseline Conditions (Optional)
             </label>
             <input
@@ -144,23 +146,23 @@ export default function NewPatientProfile() {
               value={conditionsText}
               onChange={(e) => setConditionsText(e.target.value)}
               placeholder="e.g., hypertension, type_2_diabetes"
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-white/90 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all shadow-sm text-sm"
             />
-            <p className="text-xs text-gray-500 mt-1">Comma separated list of chronic conditions.</p>
+            <p className="text-[11px] text-slate-400 mt-1">Comma separated list of chronic conditions.</p>
           </div>
         </div>
 
-        <div className="pt-4 border-t border-gray-700 flex justify-end gap-3">
+        <div className="pt-4 border-t border-slate-100 flex justify-end items-center gap-3">
           <Link
             href="/patients"
-            className="px-4 py-2 text-gray-300 hover:text-white transition-colors font-medium"
+            className="px-4 py-2 text-slate-500 hover:text-slate-800 transition-colors font-semibold text-sm"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={loading || !patientRef.trim()}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-medium shadow-lg shadow-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-teal-500 to-indigo-600 hover:brightness-110 text-white px-6 py-2.5 rounded-xl transition-all font-bold text-sm shadow-md shadow-teal-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Creating..." : "Create Record"}
           </button>

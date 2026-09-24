@@ -3,6 +3,7 @@ from typing import List, Literal, Optional
 
 class PolypharmacyRequest(BaseModel):
     proposed_medications: List[str] = Field(..., description="List of medications the doctor is considering prescribing")
+    current_medications: Optional[List[str]] = Field(default=None, description="Optional current medications to evaluate")
 
 class InteractionDetail(BaseModel):
     severity: Literal["CRITICAL", "WARNING", "MINOR", "SAFE"] = Field(..., description="Severity of the interaction")

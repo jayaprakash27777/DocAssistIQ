@@ -7,10 +7,11 @@ Only admins can register or verify sources.
 from __future__ import annotations
 
 import datetime
+import json
 import uuid
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import AuthorizationError, NotFoundError, ValidationError
@@ -28,7 +29,6 @@ async def list_sources(
 ) -> tuple[list[Source], int]:
     """Return paginated list of all sources."""
     offset = (page - 1) * page_size
-    from sqlalchemy import func
 
     count_r = await db.execute(select(func.count()).select_from(Source))
     total = count_r.scalar_one()
@@ -76,22 +76,24 @@ async def create_source(
     )
     
     db.add(source)
+    await db.flush()  # Populate source.id for audit log linkage
+
     db.add(
         AuditLog(
             actor_id=admin_id,
             action="source.registered",
             entity_type="source",
-            entity_id=None,
+            entity_id=source.id,
             severity="info",
-            details={"code": payload.code},
+            diff=json.dumps({"code": payload.code, "name": payload.name}),
         )
     )
-    await db.flush()
-    await db.refresh(source)
     await db.commit()
+    await db.refresh(source)
 
     log.info("source_registered", source_id=str(source.id), admin_id=str(admin_id))
     return source
+
 
 
 async def update_source(
@@ -122,7 +124,7 @@ async def update_source(
             entity_type="source",
             entity_id=source.id,
             severity="info",
-            details={"license_reset": updated_license},
+            diff=json.dumps({"license_reset": updated_license}),
         )
     )
     await db.commit()
@@ -145,7 +147,7 @@ async def verify_source(
 
     source.is_production_suitable = True
     source.status = "active"
-    source.last_verified_at = datetime.datetime.now(datetime.UTC).isoformat()
+    source.last_verified_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     db.add(
         AuditLog(

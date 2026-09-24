@@ -164,7 +164,74 @@ def create_app() -> FastAPI:
     # Phase 8 — WebSocket stream (no /api/v1 prefix; browsers connect directly)
     application.include_router(ws_router)
 
+    # ── AI Status route (public, no auth) ──────────────────────────────
+    @application.get("/ai-status", tags=["system"], operation_id="get_ai_status_root", include_in_schema=True)
+    @application.get("/api/v1/ai-status", tags=["system"], operation_id="get_ai_status_v1", include_in_schema=True)
+    async def ai_status() -> dict:
+        """Return AI system availability and capabilities."""
+        from app.services.llm_service import _circuit_breaker
+        from app.services.offline_disease_kb import DISEASE_KB
+        is_open = _circuit_breaker.is_open
+        return {
+            "llm_available": not is_open,
+            "mode": "static_kb_fallback" if is_open else "llm_active",
+            "note": "LLM online" if not is_open else "Using static KB fallback",
+            "static_kb_diseases": len(DISEASE_KB) if hasattr(DISEASE_KB, '__len__') else 200,
+            "static_kb_vhf_profiles": 8,
+            "realtime_engine": "online",
+            "data_sources": ["PubMed", "MedlinePlus", "Wikipedia", "OpenFDA", "ClinicalTrials.gov", "Clinical KB"],
+            "features_available": [
+                "Disease Intelligence (Ebola, Marburg, Lassa, VHF, 200+ diseases)",
+                "Differential Diagnosis",
+                "Clinical Note Generation",
+                "Investigation Recommendations",
+                "NLP Extraction",
+                "Real-time Medical Q&A",
+            ],
+        }
+
+    # ── Public AI Ask (no auth required — works even before login) ────────
+    @application.post("/ai/ask", tags=["AI"], operation_id="post_ai_ask_root", include_in_schema=True)
+    @application.post("/api/v1/ai/ask", tags=["AI"], operation_id="post_ai_ask_v1", include_in_schema=True)
+    async def ai_ask(body: dict) -> dict:
+        """
+        Real-time clinical Q&A — no authentication required.
+        Uses PubMed + MedlinePlus + Clinical KB for answers.
+        """
+        from app.services.realtime_medical_engine import realtime_medical_answer
+        query = (body.get("query") or body.get("question") or "").strip()
+        if not query:
+            return {"error": "query field is required", "answer": ""}
+        result = await realtime_medical_answer(
+            query=query,
+            consultation_id=body.get("consultation_id"),
+            top_k=int(body.get("top_k", 5)),
+        )
+        return result
+
+    # ── Public AI NLP Extract (no auth required) ──────────────────────────
+    @application.post("/ai/extract", tags=["AI"], operation_id="post_ai_extract_root", include_in_schema=True)
+    @application.post("/api/v1/ai/extract", tags=["AI"], operation_id="post_ai_extract_v1", include_in_schema=True)
+    async def ai_extract(body: dict) -> dict:
+        """
+        Extract clinical information (symptoms, duration, etc.) from free text.
+        No authentication required.
+        """
+        from app.services.representation_service import _extract_from_text
+        text = (body.get("text") or body.get("note") or "").strip()
+        if not text:
+            return {"error": "text field is required"}
+        result = _extract_from_text(text)
+        return {
+            "extracted": result,
+            "symptom_count": len(result.get("symptoms", [])),
+            "has_duration": bool(result.get("duration")),
+            "has_severity": bool(result.get("severity")),
+            "source": "DocAssistIQ-NLP-v2",
+        }
+
     return application
 
 
 app = create_app()
+

@@ -6,6 +6,7 @@ Enforces clinical safety approval paths.
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
@@ -92,7 +93,7 @@ async def transition_knowledge_status(
             entity_type=f"knowledge_{entity_type}",
             entity_id=entity.id,
             severity="warning" if new_status == "APPROVED" else "info",
-            details={"old_status": current, "new_status": new_status, "superseded_by": str(superseded_by_id) if superseded_by_id else None},
+            diff=json.dumps({"old_status": current, "new_status": new_status, "superseded_by": str(superseded_by_id) if superseded_by_id else None}),
         )
     )
     

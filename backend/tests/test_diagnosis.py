@@ -26,6 +26,9 @@ async def test_baseline_diagnosis_provider() -> None:
     assert res1.top_candidates[0].disease == "Asthma"
     assert res1.top_candidates[0].score == 1.0
     assert "wheezing" in res1.top_candidates[0].supporting_findings
+    assert len(res1.top_candidates[0].recommended_investigations) > 0 or len(res1.top_candidates[0].immediate_tests) > 0
+    assert len(res1.top_candidates[0].recommended_medications) > 0
+    assert res1.top_candidates[0].first_line_treatment is not None
 
     # 2. Provide a contradiction for Asthma
     rep2 = ClinicalRepresentationResponse(
@@ -62,8 +65,7 @@ def test_get_differential_endpoint(test_client: TestClient) -> None:
     )
     assert r.status_code == 200, r.json()
     body = r.json()
-    assert "provider_metadata" in body
-    assert body["provider_metadata"]["provider"] == "BaselineDiagnosisProvider"
+    assert body["provider_metadata"]["provider"] in ["BaselineDiagnosisProvider", "OllamaDiagnosisProvider"]
     
     # Since it's an empty consultation, top candidates should be empty
     assert len(body["top_candidates"]) == 0

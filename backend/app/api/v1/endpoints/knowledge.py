@@ -9,9 +9,10 @@ Endpoints:
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.platform import API_RESPONSES, PagedResponse
 from app.authorization import require_admin, require_doctor
 from app.dependencies import get_db
-from app.models.provenance import Evidence, Source
+from app.models.provenance import Article, Evidence, Source
 from app.models.user import User
 from app.schemas.knowledge import KnowledgeEntityResponse, KnowledgeReviewRequest, ProvenanceItemResponse
 from app.services import knowledge_service
@@ -104,17 +105,6 @@ async def inspect_provenance(
     db: AsyncSession = Depends(get_db),
 ) -> list[ProvenanceItemResponse]:
     """Inspect the provenance/evidence details for a knowledge entity before review."""
-    result = await db.execute(
-        select(Evidence, Source)
-        .join(Source, Evidence.article_id == Source.id) # Simplified join (actual schema uses Article -> Source)
-        .where(Evidence.entity_type == entity_type)
-        .where(Evidence.entity_id == entity_id)
-    )
-    
-    # Due to correct schema in Phase 12/13: Evidence -> Article -> Source
-    # Let's write the correct join:
-    from app.models.provenance import Article
-    
     correct_result = await db.execute(
         select(Evidence, Article, Source)
         .join(Article, Evidence.article_id == Article.id)
@@ -142,7 +132,7 @@ class EmbeddingSyncResponse(BaseModel):
     id: uuid.UUID
     model: str
     dimensions: int
-    generated_at: str
+    generated_at: datetime | str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -160,10 +150,19 @@ async def sync_embedding(
     db: AsyncSession = Depends(get_db),
 ) -> EmbeddingSyncResponse:
     """Generate or retrieve the embedding vector for the specified entity via pgvector."""
-    # Dummy fetching entity details to embed. In reality we'd pull from knowledge tables.
-    # For now we use the entity code or name to generate the embedding text.
-    # Let's mock a simple content string for the baseline provider.
-    content_to_embed = f"Knowledge Entity: {entity_type} {entity_id}"
+    try:
+        entity = await knowledge_service.get_knowledge_entity(db, entity_type, entity_id)
+        name = getattr(entity, "name", "")
+        code = getattr(entity, "code", "")
+        desc = getattr(entity, "description", "") or ""
+        extra = ""
+        if entity_type == "disease":
+            extra = f"\nSeverity: {getattr(entity, 'severity', 'unknown')}"
+        elif entity_type == "medicine":
+            extra = f"\nRoute: {getattr(entity, 'route', 'N/A')}\nClass: {getattr(entity, 'drug_class', 'N/A')}"
+        content_to_embed = f"Clinical {entity_type.capitalize()}: {name} ({code})\nDescription: {desc}{extra}".strip()
+    except Exception:
+        content_to_embed = f"Knowledge Entity: {entity_type} {entity_id}"
     
     try:
         record = await generate_and_store_embedding(

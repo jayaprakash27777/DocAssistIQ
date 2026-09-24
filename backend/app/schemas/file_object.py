@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -21,8 +22,8 @@ class FileObjectResponse(BaseModel):
     scan_status: str
     linked_entity_type: str | None
     linked_entity_id: UUID | None
-    created_at: str
-    updated_at: str
+    created_at: datetime | str
+    updated_at: datetime | str
 
     model_config = {"from_attributes": True}
 

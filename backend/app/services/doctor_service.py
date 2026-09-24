@@ -86,9 +86,10 @@ async def create_doctor_profile(
     )
 
     db.add(doctor)
+    await db.flush()
+    _audit(db, actor_id=user_id, action="doctor.profile_created", entity=doctor)
     await db.commit()
     await db.refresh(doctor)
-    _audit(db, actor_id=user_id, action="doctor.profile_created", entity=doctor)
 
     log.info("doctor_profile_created", user_id=str(user_id), doctor_id=str(doctor.id))
     return doctor
@@ -212,6 +213,25 @@ async def admin_verify_doctor(
     return doctor
 
 
+async def admin_verify_all_pending(db: AsyncSession, admin_user: User) -> int:
+    """Bulk verify all currently pending doctor accounts (admin only)."""
+    result = await db.execute(
+        select(Doctor).where(Doctor.verification_status == "pending")
+    )
+    pending_doctors = result.scalars().all()
+    count = 0
+    for doc in pending_doctors:
+        doc.verification_status = "verified"
+        doc.verified_by_id = admin_user.id
+        doc.rejection_reason = None
+        _audit(db, actor_id=admin_user.id, action="doctor.verified", entity=doc)
+        count += 1
+    await db.commit()
+    log.info("bulk_doctors_verified", admin_id=str(admin_user.id), count=count)
+    return count
+
+
+
 async def list_pending_doctors(
     db: AsyncSession,
     page: int = 1,
@@ -220,25 +240,22 @@ async def list_pending_doctors(
     """Return all doctors with verification_status='pending' (admin only)."""
     offset = (page - 1) * page_size
 
-    async with db.begin():
-        # Total count
-        from sqlalchemy import func
-        count_result = await db.execute(
-            select(func.count()).select_from(Doctor).where(
-                Doctor.verification_status == "pending"
-            )
+    from sqlalchemy import func
+    count_result = await db.execute(
+        select(func.count()).select_from(Doctor).where(
+            Doctor.verification_status == "pending"
         )
-        total = count_result.scalar_one()
+    )
+    total = count_result.scalar_one()
 
-        # Page
-        result = await db.execute(
-            select(Doctor)
-            .where(Doctor.verification_status == "pending")
-            .order_by(Doctor.created_at.asc())
-            .offset(offset)
-            .limit(page_size)
-        )
-        doctors = list(result.scalars().all())
+    result = await db.execute(
+        select(Doctor)
+        .where(Doctor.verification_status == "pending")
+        .order_by(Doctor.created_at.asc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    doctors = list(result.scalars().all())
 
     return doctors, total
 

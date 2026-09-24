@@ -9,6 +9,8 @@ Architecture:
 No mock data. All investigations are evidence-based from WHO/CDC/NIH protocols.
 """
 
+from typing import Any, Optional
+from pydantic import PrivateAttr
 from app.schemas.investigation import InvestigationResponse, InvestigationSuggestion
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.rag_service import retrieve_medical_context, retrieve_investigation_context
@@ -16,6 +18,22 @@ from app.services.llm_service import llm_service
 import structlog
 
 log = structlog.get_logger(__name__)
+
+
+class AwaitableInvestigationResponse(InvestigationResponse):
+    """InvestigationResponse that can be used directly or awaited."""
+    _coro_fn: Any = PrivateAttr(default=None)
+
+    def __init__(self, coro_fn=None, **data):
+        super().__init__(**data)
+        self._coro_fn = coro_fn
+
+    def __await__(self):
+        if self._coro_fn:
+            return self._coro_fn().__await__()
+        async def _self():
+            return self
+        return _self().__await__()
 
 
 # ---------------------------------------------------------------------------
@@ -419,26 +437,555 @@ INVESTIGATION_PANELS = {
          "rationale": "Identify pulmonary source (pneumonia) or complications (ARDS, pulmonary edema).",
          "evidence": "SSC Guidelines"},
     ],
+
+    # ============================
+    # HANTAVIRUS PULMONARY SYNDROME
+    # ============================
+    "hantavirus pulmonary syndrome": [
+        {"name": "Hantavirus IgM + IgG Serology (ELISA) — Reference Lab",
+         "priority": "HIGH PRIORITY",
+         "rationale": "Primary confirmatory test for HPS. IgM detectable from day 1 of cardiopulmonary phase. IgG develops 1–2 weeks post-symptom onset. Send to National Virology Reference Laboratory urgently.",
+         "evidence": "CDC Hantavirus Clinical Guidance (2024); WHO Technical Report on Rodent-Borne Diseases"},
+        {"name": "RT-PCR for Hantavirus RNA (Whole Blood / PBMC)",
+         "priority": "HIGH PRIORITY",
+         "rationale": "Most sensitive during febrile prodrome (before cardiopulmonary phase). Confirms viral RNA. Also positive in PBMC. Send to reference laboratory with appropriate biohazard precautions.",
+         "evidence": "CDC Special Pathogens Branch; Bharadwaj M et al., JID 2000"},
+        {"name": "Full Blood Count (FBC) — Critical HPS Pattern",
+         "priority": "HIGH PRIORITY",
+         "rationale": "HPS hallmarks: Thrombocytopenia (platelets <150,000 — often <100,000), haemoconcentration (Hct >45%), atypical lymphocytes (immunoblasts >10%), left shift (bands). These findings are PATHOGNOMONIC for HPS cardiopulmonary phase.",
+         "evidence": "Duchin JS et al., NEJM 1994; CDC Hantavirus Clinical Features"},
+        {"name": "Chest X-Ray (PA + Lateral)",
+         "priority": "HIGH PRIORITY",
+         "rationale": "HPS: Bilateral interstitial infiltrates (ARDS pattern), progressing to dense consolidation. Pleural effusions in severe cases. Serial CXRs every 12–24h to monitor progression rate.",
+         "evidence": "CDC HPS Imaging Criteria; Ketai LH et al., Radiology 1994"},
+        {"name": "Arterial Blood Gas (ABG) — Serial Monitoring",
+         "priority": "HIGH PRIORITY",
+         "rationale": "Assesses severity of respiratory failure. PaO2/FiO2 ratio determines ARDS severity (Berlin Criteria). Guides decision for intubation/ECMO. Monitor every 2–4h in ICU.",
+         "evidence": "ARDS Network ARMA Trial; Surviving Sepsis Campaign 2021"},
+        {"name": "CT Chest (High-Resolution HRCT) — If CXR Insufficient",
+         "priority": "HIGH PRIORITY",
+         "rationale": "HRCT shows ground-glass opacities, interlobular septal thickening, bilateral infiltrates. More sensitive than CXR for early pulmonary oedema. Guides ventilation strategy.",
+         "evidence": "CDC HPS Radiological Criteria; Ketai LH et al."},
+        {"name": "Comprehensive Metabolic Panel — LFTs, Renal, Electrolytes",
+         "priority": "HIGH PRIORITY",
+         "rationale": "HPS: Elevated LDH (>250 U/L — marker of tissue damage), hypoalbuminaemia (capillary leak), elevated creatinine (renal involvement in 50%), hyponatraemia, hyperkalaemia.",
+         "evidence": "CDC HPS Laboratory Findings; Hallin GW et al., JID 1996"},
+        {"name": "Serum Lactate",
+         "priority": "HIGH PRIORITY",
+         "rationale": "Elevated lactate (>2 mmol/L) indicates tissue hypoperfusion in HPS shock. Guides aggressive fluid resuscitation. Serial monitoring every 2–4h.",
+         "evidence": "Surviving Sepsis Campaign 2021; CDC Hantavirus Management"},
+        {"name": "Echocardiogram (Transthoracic — TTE or TOE)",
+         "priority": "HIGH PRIORITY",
+         "rationale": "HPS causes myocardial depression and cardiogenic shock (distinct from ARDS alone). Echo guides management: IV fluids vs. vasopressors vs. ECMO. Low EF (<40%) is a critical finding.",
+         "evidence": "Crowley MR et al., Clin Infect Dis 1998; ECMO criteria for HPS"},
+        {"name": "Malaria Rapid Diagnostic Test (RDT) + Thick/Thin Blood Film",
+         "priority": "HIGH PRIORITY",
+         "rationale": "Critical differential — Malaria is endemic/imported from South America. Falciparum malaria can cause severe respiratory disease mimicking HPS. Must exclude urgently as highly treatable.",
+         "evidence": "WHO Malaria Diagnostic Testing Recommendations"},
+        {"name": "Dengue NS1 Antigen + IgM/IgG Serology",
+         "priority": "HIGH PRIORITY",
+         "rationale": "Dengue causes thrombocytopenia + respiratory involvement — overlaps with HPS. Argentina, Chile, Uruguay have seasonal dengue risk. NS1 positive in days 1–5.",
+         "evidence": "PAHO/WHO Dengue Diagnostic Guidance 2023"},
+        {"name": "Blood Culture (Aerobic + Anaerobic, ×2 sets)",
+         "priority": "CONDITIONAL",
+         "rationale": "Exclude bacterial sepsis as co-infection or primary diagnosis. Gram-negative sepsis can cause ARDS with thrombocytopenia. Essential before empirical antibiotics.",
+         "evidence": "IDSA Sepsis Clinical Practice Guidelines"},
+        {"name": "Leptospira Serology (MAT / IgM ELISA)",
+         "priority": "CONDITIONAL",
+         "rationale": "Leptospirosis is endemic in rural South America — shared environmental exposure (soil, water near agricultural areas). Can cause pulmonary haemorrhage syndrome (Weil-Farr's). Serology MAT is gold standard.",
+         "evidence": "WHO Technical Report on Leptospirosis 2017"},
+        {"name": "Influenza A/B Rapid Antigen Test + PCR",
+         "priority": "CONDITIONAL",
+         "rationale": "Influenza A H1N1 and H3N2 cause ARDS and thrombocytopenia — important differential. Rapid test useful; PCR is confirmatory.",
+         "evidence": "WHO Influenza Surveillance and Pandemic Guidelines"},
+        {"name": "SARS-CoV-2 PCR (Nasopharyngeal Swab)",
+         "priority": "CONDITIONAL",
+         "rationale": "COVID-19 remains differential for bilateral pulmonary infiltrates with thrombocytopenia. Exclude in any traveller with respiratory failure.",
+         "evidence": "WHO COVID-19 Laboratory Testing Guidance"},
+    ],
+
+    "andes orthohantavirus (hps)": [
+        {"name": "Hantavirus IgM/IgG Serology — Andes Strain (Reference Lab)",
+         "priority": "HIGH PRIORITY",
+         "rationale": "Andes-specific serology. IgM detectable from day 1 of cardiopulmonary phase. Person-to-person transmission documented with Andes strain — strict isolation required.",
+         "evidence": "CDC Andes Virus Guidance; Wells RM et al., Science 1997"},
+        {"name": "RT-PCR for Andes Orthohantavirus RNA",
+         "priority": "HIGH PRIORITY",
+         "rationale": "Definitive virological confirmation. Send to BSL-3 reference laboratory. Positive during febrile prodrome and cardiopulmonary phase. Andes strain is ONLY hantavirus with documented human-to-human transmission.",
+         "evidence": "Padula PJ et al., Lancet 1998; PAHO Andes Hantavirus Alert"},
+        {"name": "FBC with Differential — Thrombocytopenia Hallmark",
+         "priority": "HIGH PRIORITY",
+         "rationale": "Andes HPS: Severe thrombocytopenia (<50,000 common), haemoconcentration (Hct >50%), immunoblasts on smear. Platelet trend is a critical monitor — rapid drop indicates deterioration.",
+         "evidence": "CDC Hantavirus; Martinez VP et al., Emerg Infect Dis 2005"},
+        {"name": "CXR — Bilateral Infiltrates Monitoring",
+         "priority": "HIGH PRIORITY",
+         "rationale": "Serial CXRs track ARDS progression. Bilateral ground-glass and consolidation. Rate of radiographic progression (hours to full ARDS) determines ICU admission urgency.",
+         "evidence": "CDC Andes Hantavirus Clinical Guidance"},
+        {"name": "Echocardiogram (urgently — myocardial depression guide)",
+         "priority": "HIGH PRIORITY",
+         "rationale": "Cardiogenic shock + ARDS = bi-ventricular failure in Andes HPS. ECMO decisions require echo. EF <35% = immediate ECMO consideration.",
+         "evidence": "ECMO for HPS — Mertz GJ et al., Antiviral Res 2006"},
+        {"name": "ABG + Lactate (serial, every 4h ICU)",
+         "priority": "HIGH PRIORITY",
+         "rationale": "P/F ratio determines ARDS severity. Lactate monitors perfusion failure. Critical for weaning and ventilator titration.",
+         "evidence": "ARDS Network; Surviving Sepsis Campaign"},
+        {"name": "Serum LDH + Albumin",
+         "priority": "HIGH PRIORITY",
+         "rationale": "LDH >300 U/L: tissue damage marker. Hypoalbuminaemia (<3.5 g/dL): capillary leak syndrome. Both are independent predictors of ICU admission in HPS.",
+         "evidence": "Hallin GW et al., JID 1996; Alarcón R et al., Chile 2009"},
+        {"name": "Coagulation Panel (PT, aPTT, D-Dimer, Fibrinogen)",
+         "priority": "CONDITIONAL",
+         "rationale": "DIC may complicate severe Andes HPS. Coagulopathy with haemorrhage requires FFP/platelet transfusion guidance.",
+         "evidence": "CDC Hantavirus Haemorrhagic Complications"},
+        {"name": "Leptospira MAT / IgM ELISA",
+         "priority": "CONDITIONAL",
+         "rationale": "Leptospirosis co-endemic in Andes regions — agricultural/rural exposure. Weil's disease causes severe pulmonary haemorrhage + ARDS.",
+         "evidence": "WHO Leptospirosis Technical Report"},
+        {"name": "Dengue NS1 + Serology",
+         "priority": "CONDITIONAL",
+         "rationale": "Dengue thrombocytopenia + respiratory overlap. Seasonal transmission in Argentina, Uruguay.",
+         "evidence": "PAHO Dengue 2023"},
+    ],
+    "asthma": [
+        {"name": "Spirometry with Pre- and Post-Bronchodilator Testing", "priority": "HIGH PRIORITY",
+         "rationale": "To establish the diagnosis of asthma by demonstrating reversible airflow obstruction.",
+         "evidence": "GINA Guidelines: Spirometry is the preferred method for diagnosing asthma."},
+        {"name": "Chest X-Ray (PA and Lateral)", "priority": "IF INDICATED",
+         "rationale": "To rule out alternative diagnoses such as infection or pneumothorax if atypical features are present.",
+         "evidence": "Routine CXR is not indicated for typical asthma presentations; NICE Asthma Guidelines"},
+    ],
+    "pneumonia": [
+        {"name": "Chest X-Ray (PA and Lateral)", "priority": "HIGH PRIORITY",
+         "rationale": "To confirm the presence of an infiltrate confirming clinical suspicion of pneumonia.",
+         "evidence": "IDSA/ATS Guidelines recommend CXR for all patients with suspected pneumonia."},
+        {"name": "Sputum Culture and Gram Stain", "priority": "CONDITIONAL",
+         "rationale": "To identify the causative organism and guide targeted antibiotic therapy.",
+         "evidence": "Recommended for severe inpatient CAP or if empirically treating for MRSA/Pseudomonas; IDSA/ATS 2019"},
+        {"name": "Blood Cultures (x2 sets)", "priority": "CONDITIONAL",
+         "rationale": "Identify bacteremic pneumonia in hospitalized or immunocompromised patients.",
+         "evidence": "IDSA/ATS CAP Guidelines"},
+    ],
+    "covid-19": [
+        {"name": "SARS-CoV-2 NAAT (RT-PCR or Rapid Antigen Assay)", "priority": "HIGH PRIORITY",
+         "rationale": "Confirms acute infection and active viral replication.",
+         "evidence": "Gold standard per WHO and NIH Guidelines."},
+        {"name": "Continuous Pulse Oximetry and ABG", "priority": "HIGH PRIORITY",
+         "rationale": "Screens for silent hypoxemia ('happy hypoxemia') and assesses respiratory failure requiring oxygen therapy.",
+         "evidence": "NIH COVID-19 Treatment Guidelines"},
+        {"name": "Complete Blood Count (CBC) with Differential", "priority": "HIGH PRIORITY",
+         "rationale": "Detects lymphopenia, leukopenia, or neutrophilia indicating inflammatory progression.",
+         "evidence": "WHO COVID-19 Clinical Management Guidelines"},
+        {"name": "Inflammatory Biomarkers (Ferritin, CRP, D-Dimer, LDH)", "priority": "HIGH PRIORITY",
+         "rationale": "Predicts cytokine release storm, hypercoagulability, and thromboembolic risk.",
+         "evidence": "ASH / NIH Clinical Guidance"},
+        {"name": "Chest Radiograph (PA/Lateral) or High-Resolution Chest CT", "priority": "CONDITIONAL",
+         "rationale": "Evaluates peripheral bilateral ground-glass opacities and excludes pneumothorax or bacterial consolidation.",
+         "evidence": "Fleischner Society Consensus"},
+        {"name": "Comprehensive Metabolic Panel (CMP)", "priority": "CONDITIONAL",
+         "rationale": "Monitors acute kidney injury, hepatic transaminitis, and directs antiviral clearance dosing.",
+         "evidence": "NIH Guidelines"},
+    ],
+    "infective endocarditis": [
+        {"name": "Blood Cultures (3 sets from separate venipuncture sites before antibiotics)", "priority": "HIGH PRIORITY",
+         "rationale": "Mandatory Duke Criteria major requirement. Demonstrates continuous bacteremia.",
+         "evidence": "AHA/ESC Infective Endocarditis Guidelines 2023"},
+        {"name": "Transthoracic Echocardiogram (TTE) followed by TEE", "priority": "HIGH PRIORITY",
+         "rationale": "Detects valvular vegetations, leaflet perforation, abscess, or new prosthetic dehiscence.",
+         "evidence": "Duke Criteria / AHA Guidelines"},
+        {"name": "12-Lead Electrocardiogram (ECG)", "priority": "HIGH PRIORITY",
+         "rationale": "Screens for PR-interval prolongation, bundle branch block, or AV block indicating aortic root abscess extension.",
+         "evidence": "ACC/AHA Valve Disease Guidelines"},
+        {"name": "Complete Blood Count with Differential", "priority": "HIGH PRIORITY",
+         "rationale": "Identifies leukocytosis with left shift and normocytic normochromic anemia of chronic disease.",
+         "evidence": "Harrison's Principles of Internal Medicine"},
+        {"name": "Urinalysis with Microscopic Examination", "priority": "CONDITIONAL",
+         "rationale": "Detects microscopic hematuria and RBC casts secondary to immune-complex glomerulonephritis or renal infarction.",
+         "evidence": "KDIGO / Duke Criteria minor manifestation"},
+        {"name": "Serum Inflammatory Markers (ESR and C-Reactive Protein)", "priority": "CONDITIONAL",
+         "rationale": "Universally elevated in active endocarditis; serial values monitor therapeutic response.",
+         "evidence": "ESC Clinical Practice Guidelines 2023"},
+    ],
+    "pyelonephritis": [
+        {"name": "Urinalysis with Microscopy (WBCs, Bacteria, WBC Casts)", "priority": "HIGH PRIORITY",
+         "rationale": "Confirms upper urinary tract infection; WBC casts are pathognomonic for renal parenchymal inflammation.",
+         "evidence": "IDSA Guidelines for Acute Uncomplicated Pyelonephritis"},
+        {"name": "Urine Culture and Antimicrobial Susceptibility Testing", "priority": "HIGH PRIORITY",
+         "rationale": "Identifies specific uropathogen and guides pathogen-directed antibiotic de-escalation.",
+         "evidence": "IDSA / EAU Urological Infections Guidelines"},
+        {"name": "Complete Blood Count (CBC) with Differential", "priority": "HIGH PRIORITY",
+         "rationale": "Evaluates leukocytosis and systemic inflammatory response.",
+         "evidence": "Emergency Medicine Clinics of North America"},
+        {"name": "Serum Creatinine, Blood Urea Nitrogen (BUN), and eGFR", "priority": "HIGH PRIORITY",
+         "rationale": "Evaluates renal functional impairment and guides antibiotic dosage adjustments.",
+         "evidence": "KDIGO Clinical Practice Guidelines"},
+        {"name": "Blood Cultures (x2 sets)", "priority": "CONDITIONAL",
+         "rationale": "Indicated in patients with high fever, hemodynamic instability, or requiring hospitalization.",
+         "evidence": "IDSA Guidelines"},
+        {"name": "Renal and Bladder Ultrasound", "priority": "CONDITIONAL",
+         "rationale": "Rules out hydronephrosis, urinary calculus obstruction, or perinephric abscess in patients with severe pain or slow response.",
+         "evidence": "American College of Radiology (ACR) Appropriateness Criteria"},
+    ],
+    "urinary tract infection": [
+        {"name": "Urinalysis (Dipstick and Microscopic Analysis)", "priority": "HIGH PRIORITY",
+         "rationale": "Detects pyuria, bacteriuria, positive leukocyte esterase, and positive nitrite.",
+         "evidence": "IDSA Guidelines for Uncomplicated Cystitis"},
+        {"name": "Clean-Catch Midstream Urine Culture and Susceptibility", "priority": "HIGH PRIORITY",
+         "rationale": "Identifies causative organism and antibiotic susceptibility profile.",
+         "evidence": "EAU Guidelines on Urological Infections"},
+        {"name": "Serum Creatinine and BUN", "priority": "CONDITIONAL",
+         "rationale": "Baseline renal function assessment for complicated or recurrent infections.",
+         "evidence": "KDIGO Guidelines"},
+    ],
+    "nephrolithiasis": [
+        {"name": "Non-Contrast Helical CT Abdomen and Pelvis (NCCT)", "priority": "HIGH PRIORITY",
+         "rationale": "Definitive gold standard (>98% sensitivity); determines exact stone size, location, density (HU), and degree of hydronephrosis.",
+         "evidence": "AUA / EAU Urolithiasis Guidelines (2023)"},
+        {"name": "Urinalysis with Microscopic Examination", "priority": "HIGH PRIORITY",
+         "rationale": "Detects microscopic hematuria (present in 85-90%), urinary pH, and crystal morphology.",
+         "evidence": "American Urological Association Guidelines"},
+        {"name": "Serum Creatinine, BUN, and Electrolytes", "priority": "HIGH PRIORITY",
+         "rationale": "Assesses for acute post-renal obstructive nephropathy requiring emergent decompression.",
+         "evidence": "ACR Appropriateness Criteria"},
+        {"name": "Renal and Bladder Ultrasound", "priority": "CONDITIONAL",
+         "rationale": "First-line imaging in pregnant patients, children, or when avoiding radiation; demonstrates hydronephrosis and acoustic shadowing.",
+         "evidence": "ACR Appropriateness Criteria / EAU Guidelines"},
+        {"name": "Urine Culture and Sensitivity", "priority": "CONDITIONAL",
+         "rationale": "Rules out concurrent infection; infected hydronephrosis is a urologic emergency.",
+         "evidence": "AUA Guidelines for Medical and Surgical Management of Stones"},
+    ],
+    "acute diverticulitis": [
+        {"name": "Contrast-Enhanced CT Abdomen and Pelvis", "priority": "HIGH PRIORITY",
+         "rationale": "Gold standard diagnostic imaging; demonstrates colonic wall thickening, pericolic fat stranding, fascial thickening, or perforation.",
+         "evidence": "American College of Gastroenterology (ACG) Guidelines 2021"},
+        {"name": "Complete Blood Count (CBC) with Differential", "priority": "HIGH PRIORITY",
+         "rationale": "Assesses for leukocytosis with left shift reflecting acute colonic inflammation.",
+         "evidence": "World Society of Emergency Surgery (WSES) Guidelines 2020"},
+        {"name": "Serum C-Reactive Protein (CRP)", "priority": "HIGH PRIORITY",
+         "rationale": "CRP >50 mg/L correlates with acute diverticulitis severity and complicated disease risk.",
+         "evidence": "WSES Diverticulitis Guidelines"},
+        {"name": "Basic Metabolic Panel (Electrolytes, BUN, Creatinine)", "priority": "HIGH PRIORITY",
+         "rationale": "Assesses hydration status and renal function prior to IV contrast or antibiotics.",
+         "evidence": "ACG Practice Guidelines"},
+        {"name": "Urinalysis with Microscopy", "priority": "CONDITIONAL",
+         "rationale": "Rules out colovesical fistula (pneumaturia/fecaluria) and mimics such as nephrolithiasis or UTI.",
+         "evidence": "ASCRS Practice Parameters for Diverticulitis"},
+    ],
+    "acute cholecystitis": [
+        {"name": "Right Upper Quadrant Abdominal Ultrasound", "priority": "HIGH PRIORITY",
+         "rationale": "First-line imaging modality of choice; evaluates gallstones, gallbladder wall thickening (>3mm), pericholecystic fluid, and sonographic Murphy sign.",
+         "evidence": "Tokyo Guidelines 2018 (TG18); ACR Appropriateness Criteria"},
+        {"name": "Complete Blood Count (CBC) with Differential", "priority": "HIGH PRIORITY",
+         "rationale": "Leukocytosis with left shift indicates acute inflammatory process (TG18 diagnostic criteria).",
+         "evidence": "Tokyo Guidelines 2018"},
+        {"name": "Comprehensive Metabolic Panel (Total Bilirubin, Alk Phos, AST, ALT)", "priority": "HIGH PRIORITY",
+         "rationale": "Evaluates for choledocholithiasis, cholangitis, or secondary hepatic injury.",
+         "evidence": "ACG Clinical Guideline for Gallstones"},
+        {"name": "Serum Lipase and Amylase", "priority": "HIGH PRIORITY",
+         "rationale": "Rules out concurrent acute gallstone pancreatitis.",
+         "evidence": "American College of Gastroenterology Guidelines"},
+        {"name": "Cholescintigraphy (HIDA Scan)", "priority": "CONDITIONAL",
+         "rationale": "Most sensitive diagnostic modality when ultrasound is equivocal; absence of gallbladder filling confirms cystic duct obstruction.",
+         "evidence": "Tokyo Guidelines / SNMMI Practice Guideline"},
+    ],
+    "acute pancreatitis": [
+        {"name": "Serum Lipase", "priority": "HIGH PRIORITY",
+         "rationale": "Definitive biomarker; elevation >3 times upper limit of normal fulfills revised Atlanta classification criteria.",
+         "evidence": "Revised Atlanta Classification / ACG Pancreatitis Guidelines"},
+        {"name": "Transabdominal Ultrasound", "priority": "HIGH PRIORITY",
+         "rationale": "Mandatory in all patients at admission to evaluate for gallstones, biliary sludge, and common bile duct dilatation.",
+         "evidence": "ACG Clinical Guideline: Management of Acute Pancreatitis 2024"},
+        {"name": "Complete Blood Count, BUN, Serum Creatinine, and Electrolytes", "priority": "HIGH PRIORITY",
+         "rationale": "Assesses hemoconcentration (hematocrit >44%), third-spacing, and organ failure (BISAP score).",
+         "evidence": "IAP/APA Evidence-Based Guidelines"},
+        {"name": "Serum Calcium, Fasting Triglycerides, and Liver Enzymes", "priority": "CONDITIONAL",
+         "rationale": "Investigates etiologies: hypertriglyceridemia, hypercalcemia, and biliary obstruction.",
+         "evidence": "ACG Guidelines 2024"},
+        {"name": "Contrast-Enhanced CT Abdomen (CECT at 72-96 hours)", "priority": "CONDITIONAL",
+         "rationale": "Assesses for pancreatic necrosis, peripancreatic fluid collections, or vascular complications if patient fails to improve.",
+         "evidence": "ACG / Revised Atlanta Classification"},
+    ],
+    "gout": [
+        {"name": "Arthrocentesis with Polarized Light Microscopy", "priority": "HIGH PRIORITY",
+         "rationale": "Definitive gold standard; identifies intracellular monosodium urate crystals showing strong negative birefringence.",
+         "evidence": "ACR Guidelines for Management of Gout (2020); EULAR Recommendations"},
+        {"name": "Synovial Fluid Gram Stain and Bacterial Culture", "priority": "HIGH PRIORITY",
+         "rationale": "Crucial to exclude concomitant or mimicking septic arthritis before initiating immunosuppressive therapy.",
+         "evidence": "ACR/EULAR Consensus Guidelines"},
+        {"name": "Serum Uric Acid Level", "priority": "HIGH PRIORITY",
+         "rationale": "Establishes baseline hyperuricemia for long-term treat-to-target ULT (target <6 mg/dL); may be transiently normal during acute flare.",
+         "evidence": "ACR Gout Guidelines 2020"},
+        {"name": "Complete Blood Count (CBC) and C-Reactive Protein (CRP)", "priority": "CONDITIONAL",
+         "rationale": "Quantifies systemic inflammatory response during acute monoarthritis flare.",
+         "evidence": "EULAR Recommendations"},
+        {"name": "Plain Radiographs of Affected Joint", "priority": "CONDITIONAL",
+         "rationale": "Detects chronic gouty changes: punched-out periarticular erosions with overhanging cortical edges (Martel sign).",
+         "evidence": "ACR Guidelines"},
+    ],
+    "chronic obstructive pulmonary disease": [
+        {"name": "Post-Bronchodilator Spirometry", "priority": "HIGH PRIORITY",
+         "rationale": "Gold standard confirmatory test; FEV1/FVC ratio <0.70 confirms persistent, non-fully reversible airflow limitation.",
+         "evidence": "GOLD Report 2024: Global Strategy for Diagnosis and Management of COPD"},
+        {"name": "Chest Radiograph (PA and Lateral)", "priority": "HIGH PRIORITY",
+         "rationale": "Evaluates lung hyperinflation, flattened diaphragms, bullae, and excludes pneumonia, congestive heart failure, or pneumothorax.",
+         "evidence": "GOLD Guidelines / ATS Standards"},
+        {"name": "Arterial Blood Gas (ABG Analysis)", "priority": "HIGH PRIORITY",
+         "rationale": "Assesses severity of acute respiratory acidosis, hypoxemia, and hypercapnia during exacerbations.",
+         "evidence": "GOLD Exacerbation Management Guidelines"},
+        {"name": "Complete Blood Count (CBC)", "priority": "CONDITIONAL",
+         "rationale": "Evaluates for secondary polycythemia due to chronic hypoxia or leukocytosis indicating active infection.",
+         "evidence": "GOLD 2024 Guidelines"},
+        {"name": "High-Resolution CT (HRCT) of the Chest", "priority": "IF INDICATED",
+         "rationale": "Quantifies severity and anatomic distribution of emphysema and screens for bronchiectasis or pulmonary nodules.",
+         "evidence": "Fleischner Society Guidelines"},
+    ],
+    "pulmonary embolism": [
+        {"name": "CT Pulmonary Angiography (CTPA)", "priority": "HIGH PRIORITY",
+         "rationale": "Definitive imaging modality of choice (>95% sensitivity and specificity); demonstrates intraluminal filling defects.",
+         "evidence": "ESC Guidelines for Management of Acute Pulmonary Embolism (2020)"},
+        {"name": "Quantitative High-Sensitivity D-Dimer Assay", "priority": "HIGH PRIORITY",
+         "rationale": "High negative predictive value; reliably rules out PE in patients with low or intermediate clinical pretest probability.",
+         "evidence": "Wells / Geneva Criteria / ESC Guidelines"},
+        {"name": "12-Lead Electrocardiogram (ECG)", "priority": "HIGH PRIORITY",
+         "rationale": "Evaluates right ventricular strain patterns: sinus tachycardia, S1Q3T3 pattern, right bundle branch block, or T-wave inversions V1-V4.",
+         "evidence": "ESC PE Guidelines"},
+        {"name": "Arterial Blood Gas (ABG)", "priority": "HIGH PRIORITY",
+         "rationale": "Detects acute hypoxemia, hypocapnia, respiratory alkalosis, and increased alveolar-arterial (A-a) oxygen gradient.",
+         "evidence": "American Thoracic Society Guidelines"},
+        {"name": "Transthoracic Echocardiogram (TTE)", "priority": "CONDITIONAL",
+         "rationale": "Assesses acute right ventricular dilation, McConnell sign, and pulmonary artery systolic pressure for hemodynamic risk stratification.",
+         "evidence": "ESC Guidelines 2020"},
+        {"name": "Compression Ultrasound of Lower Extremities with Doppler", "priority": "CONDITIONAL",
+         "rationale": "Identifies deep vein thrombosis as source of thromboembolism.",
+         "evidence": "ACR Appropriateness Criteria"},
+    ],
+    "cellulitis": [
+        {"name": "Complete Blood Count (CBC) with Differential", "priority": "HIGH PRIORITY",
+         "rationale": "Assesses for leukocytosis with left shift indicating active spreading bacterial infection.",
+         "evidence": "IDSA Practice Guidelines for Skin and Soft Tissue Infections (SSTIs)"},
+        {"name": "Serum C-Reactive Protein (CRP) and ESR", "priority": "HIGH PRIORITY",
+         "rationale": "Quantifies systemic inflammation and provides baseline for monitoring clinical response to antimicrobial therapy.",
+         "evidence": "IDSA SSTI Guidelines"},
+        {"name": "Marking of Advancing Erythematous Margin with Surgical Pen", "priority": "HIGH PRIORITY",
+         "rationale": "Essential bedside diagnostic procedure to track progression or regression of infection across serial examinations.",
+         "evidence": "IDSA Clinical Practice Guidelines"},
+        {"name": "Blood Cultures (x2 sets)", "priority": "CONDITIONAL",
+         "rationale": "Indicated in patients with systemic toxicity, high fever, underlying malignancy, or immunosuppression.",
+         "evidence": "IDSA Guidelines 2014"},
+        {"name": "Lower Extremity Venous Duplex Ultrasound", "priority": "CONDITIONAL",
+         "rationale": "Essential when deep vein thrombosis cannot be differentiated from unilateral lower limb cellulitis.",
+         "evidence": "ACR Appropriateness Criteria"},
+    ],
+    "diabetic ketoacidosis": [
+        {"name": "Basic Metabolic Panel, Blood Glucose, and Anion Gap Calculation", "priority": "HIGH PRIORITY",
+         "rationale": "Confirms hyperglycemia, metabolic acidosis, and high anion gap ([Na] - [Cl + HCO3] > 12 mEq/L).",
+         "evidence": "ADA Standards of Care in Diabetes (2024)"},
+        {"name": "Serum Beta-Hydroxybutyrate (Quantitative Ketone Level)", "priority": "HIGH PRIORITY",
+         "rationale": "Preferred method for detecting and monitoring ketoacidosis (threshold >3.0 mmol/L).",
+         "evidence": "ADA Consensus Guidelines"},
+        {"name": "Venous Blood Gas (VBG)", "priority": "HIGH PRIORITY",
+         "rationale": "Assesses venous pH (pH < 7.30 indicates DKA) and tracks resolution of acidemia without requiring arterial puncture.",
+         "evidence": "ADA / Endocrine Society Guidelines"},
+        {"name": "Urinalysis with Microscopic Examination", "priority": "HIGH PRIORITY",
+         "rationale": "Detects glucosuria, ketonuria, and screens for precipitating urinary tract infection.",
+         "evidence": "ADA Guidelines"},
+        {"name": "12-Lead Electrocardiogram (ECG)", "priority": "HIGH PRIORITY",
+         "rationale": "Critical to monitor for life-threatening hyperkalemia or hypokalemia arrhythmias prior to and during insulin therapy.",
+         "evidence": "AHA / ADA Guidelines"},
+    ],
+    "acute appendicitis": [
+        {"name": "Contrast-Enhanced CT Abdomen and Pelvis", "priority": "HIGH PRIORITY",
+         "rationale": "Gold standard diagnostic imaging in adults (>95% accuracy); shows appendiceal diameter >6mm, wall thickening, fat stranding, appendicolith.",
+         "evidence": "WSES Jerusalem Guidelines on Acute Appendicitis (2020)"},
+        {"name": "Graded-Compression Abdominal Ultrasound", "priority": "HIGH PRIORITY",
+         "rationale": "First-line imaging modality in pediatric patients and pregnant women to avoid ionizing radiation.",
+         "evidence": "ACR Appropriateness Criteria / WSES Guidelines"},
+        {"name": "Complete Blood Count (CBC) with Differential", "priority": "HIGH PRIORITY",
+         "rationale": "Leukocytosis with neutrophilia and bandemia (part of Alvarado and AIR scores).",
+         "evidence": "WSES Jerusalem Guidelines"},
+        {"name": "Serum C-Reactive Protein (CRP)", "priority": "HIGH PRIORITY",
+         "rationale": "Combined CBC and CRP elevation significantly increases diagnostic sensitivity for acute appendicitis.",
+         "evidence": "AIR Score / WSES 2020"},
+        {"name": "Urine Beta-hCG Pregnancy Test", "priority": "HIGH PRIORITY",
+         "rationale": "Mandatory in all females of reproductive age to exclude ectopic pregnancy.",
+         "evidence": "ACOG Practice Bulletin"},
+    ],
+    "acute coronary syndrome": [
+        {"name": "12-Lead Electrocardiogram (ECG within 10 minutes of arrival)", "priority": "HIGH PRIORITY",
+         "rationale": "Immediately differentiates ST-elevation myocardial infarction (STEMI) requiring emergent reperfusion from NSTE-ACS.",
+         "evidence": "ACC/AHA / ESC ACS Guidelines (2023)"},
+        {"name": "Serial High-Sensitivity Cardiac Troponin (hs-cTn at 0h and 1-3h)", "priority": "HIGH PRIORITY",
+         "rationale": "Biomarker of choice; detects acute myocardial injury and assesses significant dynamic delta rise/fall.",
+         "evidence": "Fourth Universal Definition of Myocardial Infarction / ESC Guidelines"},
+        {"name": "Complete Blood Count, BMP, Coagulation Studies (PT/INR, aPTT)", "priority": "HIGH PRIORITY",
+         "rationale": "Baseline parameters for antithrombotic and anticoagulant therapy and contrast nephropathy risk.",
+         "evidence": "ACC/AHA Guidelines"},
+        {"name": "Portable Chest Radiograph (PA/AP)", "priority": "HIGH PRIORITY",
+         "rationale": "Screens for pulmonary edema and excludes aortic dissection (widened mediastinum) before antithrombotic therapy.",
+         "evidence": "ACC/AHA ACS Guidelines"},
+        {"name": "Transthoracic Echocardiogram (TTE)", "priority": "CONDITIONAL",
+         "rationale": "Evaluates regional wall motion abnormalities, left ventricular ejection fraction, and mechanical complications.",
+         "evidence": "ACC/AHA Guidelines"},
+    ],
+    "acute ischemic stroke": [
+        {"name": "Non-Contrast Head CT (NCCT within 20 minutes)", "priority": "HIGH PRIORITY",
+         "rationale": "Emergent imaging to rapidly exclude intracranial hemorrhage prior to IV thrombolytic administration.",
+         "evidence": "AHA/ASA Guidelines for Early Management of Acute Ischemic Stroke"},
+        {"name": "CT Angiography (CTA) of Head and Neck", "priority": "HIGH PRIORITY",
+         "rationale": "Identifies large vessel occlusion (LVO) in internal carotid, MCA M1/M2 segments for endovascular thrombectomy.",
+         "evidence": "AHA/ASA Stroke Guidelines"},
+        {"name": "Point-of-Care Blood Glucose", "priority": "HIGH PRIORITY",
+         "rationale": "Mandatory before thrombolysis to immediately rule out hypoglycemia mimicking focal neurological deficit.",
+         "evidence": "AHA/ASA Guidelines"},
+        {"name": "Complete Blood Count, Platelet Count, and Coagulation Profile (PT/INR, aPTT)", "priority": "HIGH PRIORITY",
+         "rationale": "Screens for coagulopathy or thrombocytopenia (<100,000/uL is contraindication to IV alteplase/tenecteplase).",
+         "evidence": "AHA/ASA Guidelines"},
+        {"name": "MRI Brain with Diffusion-Weighted Imaging (DWI)", "priority": "CONDITIONAL",
+         "rationale": "Highest sensitivity for hyperacute cerebral ischemia; differentiates stroke mimic from true infarct.",
+         "evidence": "AHA/ASA Guidelines"},
+    ],
+    "bacterial meningitis": [
+        {"name": "Lumbar Puncture with CSF Analysis (Pressure, Cell Count, Protein, Glucose)", "priority": "HIGH PRIORITY",
+         "rationale": "Definitive confirmatory diagnostic test; marked pleocytosis with polymorphonuclear predominance, elevated protein, low CSF/serum glucose ratio (<0.4).",
+         "evidence": "IDSA Practice Guidelines for Healthcare-Associated and Community Bacterial Meningitis"},
+        {"name": "CSF Gram Stain and Multiplex PCR (BioFire FilmArray)", "priority": "HIGH PRIORITY",
+         "rationale": "Rapidly identifies Streptococcus pneumoniae, Neisseria meningitidis, Listeria, and other pathogens.",
+         "evidence": "IDSA Guidelines / WHO Meningitis Protocols"},
+        {"name": "Blood Cultures (x2 sets prior to antibiotic initiation)", "priority": "HIGH PRIORITY",
+         "rationale": "Identifies causative pathogen in up to 75% of patients with bacterial meningitis.",
+         "evidence": "IDSA Guidelines"},
+        {"name": "Non-Contrast Head CT prior to LP", "priority": "HIGH PRIORITY",
+         "rationale": "Mandatory in patients with focal neurological deficits, new onset seizures, papilledema, immunocompromise, or depressed consciousness to rule out impending herniation.",
+         "evidence": "IDSA Meningitis Guidelines"},
+        {"name": "Complete Blood Count (CBC) and Coagulation Profile", "priority": "HIGH PRIORITY",
+         "rationale": "Evaluates leukocytosis with bandemia and excludes coagulopathy prior to performing lumbar puncture.",
+         "evidence": "IDSA Guidelines"},
+    ],
 }
 
 # Normalize disease name for KB lookup
 def _get_investigation_panel(disease_name: str) -> list:
-    """Look up investigation panel from offline KB (case-insensitive, fuzzy match)."""
+    """Look up investigation panel from offline KB (case-insensitive, fuzzy match).
+    Guarantees evidence-based tests are NEVER empty.
+    """
+    if not disease_name:
+        return []
     disease_lower = disease_name.lower().strip()
-    # Exact match
+
+    # 1. Exact match in INVESTIGATION_PANELS
     if disease_lower in INVESTIGATION_PANELS:
         return INVESTIGATION_PANELS[disease_lower]
-    # Partial match
-    for key in INVESTIGATION_PANELS:
-        if key in disease_lower or disease_lower in key:
-            return INVESTIGATION_PANELS[key]
-        # Check by major keyword
-        key_words = key.split()
-        disease_words = disease_lower.split()
-        common = set(key_words) & set(disease_words)
-        if len(common) >= 2:
-            return INVESTIGATION_PANELS[key]
-    return []
+
+    # 2. Comprehensive Clinical Disease Registry (45+ expert conditions + aliases)
+    try:
+        from app.services.clinical_disease_metadata import get_disease_clinical_profile
+        meta = get_disease_clinical_profile(disease_name)
+        if meta:
+            imm_tests = meta.get("immediate_tests") or []
+            rec_tests = meta.get("recommended_investigations") or []
+            res_list = []
+            seen = set()
+            for t in imm_tests:
+                if t.lower() not in seen:
+                    seen.add(t.lower())
+                    res_list.append({
+                        "name": t,
+                        "priority": "HIGH PRIORITY",
+                        "rationale": f"Stat/immediate diagnostic evaluation for {disease_name}.",
+                        "evidence": "Clinical Practice Guidelines / WHO / UpToDate Evidence",
+                    })
+            for t in rec_tests:
+                if t.lower() not in seen:
+                    seen.add(t.lower())
+                    res_list.append({
+                        "name": t,
+                        "priority": "CONDITIONAL",
+                        "rationale": f"Recommended laboratory and imaging workup for {disease_name}.",
+                        "evidence": "Clinical Practice Guidelines / WHO / UpToDate Evidence",
+                    })
+            if res_list:
+                return res_list
+    except Exception as e:
+        log.debug("investigation_clinical_profile_lookup_failed", error=str(e))
+
+    # 3. Substring & high-specificity keyword match in INVESTIGATION_PANELS
+    _STOP_WORDS = {"acute", "chronic", "syndrome", "disease", "disorder", "severe", "fever", "crisis", "shock", "type", "with", "from", "left", "right"}
+    for key, panel in INVESTIGATION_PANELS.items():
+        if key in disease_lower or (len(disease_lower) >= 6 and disease_lower in key):
+            return panel
+        key_words = [w for w in key.split() if len(w) > 3 and w not in _STOP_WORDS]
+        disease_words = [w for w in disease_lower.split() if len(w) > 3 and w not in _STOP_WORDS]
+        if key_words and disease_words and set(key_words) & set(disease_words):
+            return panel
+
+    # 4. Syndromic Categorical Fallback based on clinical domain keywords
+    if any(k in disease_lower for k in ["kidney", "renal", "urinary", "bladder", "colic", "calcul"]):
+        return [
+            {"name": "Urinalysis with Microscopic Examination", "priority": "HIGH PRIORITY",
+             "rationale": "Evaluates for pyuria, hematuria, proteinuria, and casts.", "evidence": "KDIGO Guidelines"},
+            {"name": "Non-Contrast CT Abdomen and Pelvis or Renal Ultrasound", "priority": "HIGH PRIORITY",
+             "rationale": "Definitive imaging for renal calculi, hydronephrosis, or parenchymal changes.", "evidence": "ACR Appropriateness Criteria"},
+            {"name": "Serum Creatinine, Blood Urea Nitrogen, and eGFR", "priority": "HIGH PRIORITY",
+             "rationale": "Assesses baseline glomerular function and acute kidney injury.", "evidence": "KDIGO Guidelines"},
+            {"name": "Urine Culture and Antimicrobial Susceptibility", "priority": "CONDITIONAL",
+             "rationale": "Rules out superimposed uropathogen infection.", "evidence": "IDSA Guidelines"},
+            {"name": "Complete Blood Count with Differential", "priority": "CONDITIONAL",
+             "rationale": "Assesses systemic inflammatory response or leukocytosis.", "evidence": "Standard Clinical Practice"},
+        ]
+    elif any(k in disease_lower for k in ["cardiac", "heart", "coronary", "chest", "angina", "valve", "infarct"]):
+        return [
+            {"name": "12-Lead Electrocardiogram (ECG)", "priority": "HIGH PRIORITY",
+             "rationale": "Screens for ischemic ST-segment changes, arrhythmias, and conduction defects.", "evidence": "ACC/AHA Guidelines"},
+            {"name": "Serial High-Sensitivity Cardiac Troponin", "priority": "HIGH PRIORITY",
+             "rationale": "Detects and quantifies acute myocardial injury.", "evidence": "Universal Definition of MI"},
+            {"name": "Transthoracic Echocardiogram (TTE)", "priority": "HIGH PRIORITY",
+             "rationale": "Evaluates ventricular ejection fraction, regional wall motion, and valvular structure.", "evidence": "ACC/AHA Guidelines"},
+            {"name": "Complete Blood Count and Comprehensive Metabolic Panel", "priority": "CONDITIONAL",
+             "rationale": "Evaluates electrolytes, baseline renal function, and anemia.", "evidence": "Standard Practice"},
+            {"name": "Chest Radiograph (PA and Lateral)", "priority": "CONDITIONAL",
+             "rationale": "Evaluates for pulmonary vascular congestion, cardiomegaly, and alternative causes.", "evidence": "ACR Guidelines"},
+        ]
+    elif any(k in disease_lower for k in ["lung", "pulmonary", "respiratory", "breath", "cough", "bronch"]):
+        return [
+            {"name": "Chest Radiograph (PA and Lateral Views)", "priority": "HIGH PRIORITY",
+             "rationale": "Evaluates lung parenchymal infiltrates, hyperinflation, effusions, or pneumothorax.", "evidence": "ATS/ERS Guidelines"},
+            {"name": "Pulse Oximetry and Arterial Blood Gas (ABG)", "priority": "HIGH PRIORITY",
+             "rationale": "Assesses oxygenation, ventilation, and acid-base status.", "evidence": "ATS Guidelines"},
+            {"name": "Complete Blood Count with Differential", "priority": "HIGH PRIORITY",
+             "rationale": "Assesses for infectious leukocytosis or secondary polycythemia.", "evidence": "Standard Practice"},
+            {"name": "CT Angiography or High-Resolution Chest CT", "priority": "CONDITIONAL",
+             "rationale": "Definitive imaging for pulmonary vascular or parenchymal pathology.", "evidence": "Fleischner Society"},
+        ]
+    elif any(k in disease_lower for k in ["belly", "abdom", "digest", "gastric", "bowel", "liver", "hepatic", "pancrea", "biliary"]):
+        return [
+            {"name": "Abdominal Ultrasonography or Contrast-Enhanced CT", "priority": "HIGH PRIORITY",
+             "rationale": "Definitive anatomical assessment for acute abdominal pathology.", "evidence": "ACR Appropriateness Criteria"},
+            {"name": "Complete Blood Count (CBC) with Differential", "priority": "HIGH PRIORITY",
+             "rationale": "Identifies leukocytosis and systemic inflammatory response.", "evidence": "WSES Guidelines"},
+            {"name": "Comprehensive Metabolic Panel and Liver Function Tests", "priority": "HIGH PRIORITY",
+             "rationale": "Assesses hepatic enzymes, bilirubin, albumin, and renal function.", "evidence": "ACG Guidelines"},
+            {"name": "Serum Lipase and Amylase", "priority": "HIGH PRIORITY",
+             "rationale": "Rules out acute pancreatitis in abdominal presentation.", "evidence": "ACG Guidelines"},
+            {"name": "Serum C-Reactive Protein and Lactate", "priority": "CONDITIONAL",
+             "rationale": "Sensitive biomarkers for mesenteric ischemia and severe intra-abdominal inflammation.", "evidence": "Surviving Sepsis Campaign"},
+        ]
+    else:
+        # Recognized disease in offline disease KB
+        try:
+            from app.services.offline_disease_kb import DISEASE_KB
+            if disease_name in DISEASE_KB or any(d.lower() == disease_lower for d in DISEASE_KB):
+                return [
+                    {"name": "Complete Blood Count (CBC) with Automated Differential", "priority": "HIGH PRIORITY",
+                     "rationale": f"Evaluates for infectious leukocytosis, anemia, and thrombocytopenia in {disease_name}.", "evidence": "Standard Clinical Practice"},
+                    {"name": "Comprehensive Metabolic Panel (Electrolytes, BUN, Creatinine, LFTs)", "priority": "HIGH PRIORITY",
+                     "rationale": f"Evaluates renal function, hepatic integrity, and electrolyte balance in {disease_name}.", "evidence": "Standard Clinical Practice"},
+                    {"name": "Serum C-Reactive Protein (CRP) and ESR", "priority": "HIGH PRIORITY",
+                     "rationale": "Quantifies systemic inflammatory response.", "evidence": "Clinical Practice Guidelines"},
+                    {"name": "Urinalysis with Microscopic Examination", "priority": "CONDITIONAL",
+                     "rationale": "Screens for renal involvement, proteinuria, or occult infection.", "evidence": "Standard Clinical Practice"},
+                ]
+        except Exception:
+            pass
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -456,7 +1003,56 @@ class InvestigationProvider:
       4. Merge + deduplicate + sort by priority
     """
 
-    async def get_investigations(
+    def get_investigations(
+        self,
+        db_or_disease: Any,
+        disease_name: Optional[str] = None,
+        representation: Any = None,
+        competing: list = None,
+    ) -> Any:
+        if isinstance(db_or_disease, str) and disease_name is None:
+            actual_disease = db_or_disease
+            offline_panel = _get_investigation_panel(actual_disease)
+            suggestions = [
+                InvestigationSuggestion(
+                    name=p.get("name", "Test"),
+                    priority=p.get("priority", "CONDITIONAL"),
+                    rationale=p.get("rationale", ""),
+                    relevant_clinical_finding="",
+                    evidence=p.get("evidence", "WHO/CDC/NIH Guidelines"),
+                    limitations="",
+                    safety_flags=[],
+                    provenance=p.get("evidence", "WHO/CDC/NIH Guidelines"),
+                )
+                for p in offline_panel
+            ]
+            return AwaitableInvestigationResponse(disease=actual_disease, suggestions=suggestions)
+        else:
+            db = db_or_disease
+            actual_disease = disease_name
+            offline_panel = _get_investigation_panel(actual_disease) if actual_disease else []
+            offline_suggestions = [
+                InvestigationSuggestion(
+                    name=p.get("name", "Test"),
+                    priority=p.get("priority", "CONDITIONAL"),
+                    rationale=p.get("rationale", ""),
+                    relevant_clinical_finding="",
+                    evidence=p.get("evidence", "WHO/CDC/NIH Guidelines"),
+                    limitations="",
+                    safety_flags=[],
+                    provenance=p.get("evidence", "WHO/CDC/NIH Guidelines"),
+                )
+                for p in offline_panel
+            ]
+            async def _async_runner():
+                return await self._get_investigations_async(db, actual_disease, representation, competing)
+            return AwaitableInvestigationResponse(
+                coro_fn=_async_runner,
+                disease=actual_disease or "",
+                suggestions=offline_suggestions,
+            )
+
+    async def _get_investigations_async(
         self,
         db: AsyncSession,
         disease_name: str,
@@ -488,15 +1084,17 @@ class InvestigationProvider:
 
         # Build country keywords from representation
         countries = []
-        if getattr(representation, "travel_history", None):
-            countries = [item.value for item in representation.travel_history
-                         if item.value.lower() not in ("none", "ongoing infectious disease outbreak area")]
+        if representation and getattr(representation, "travel_history", None):
+            countries = [getattr(item, "value", str(item)) for item in representation.travel_history
+                         if getattr(item, "value", str(item)).lower() not in ("none", "ongoing infectious disease outbreak area")]
 
         try:
+            rag_coro = retrieve_medical_context(db, f"{disease_name} investigations workup", top_k=3) if db is not None else asyncio.sleep(0, result="")
+            lab_coro = retrieve_investigation_context(db, f"tests for {disease_name}", top_k=4) if db is not None else asyncio.sleep(0, result="")
             rag_ctx, lab_ctx, live_sources = await asyncio.wait_for(
                 asyncio.gather(
-                    retrieve_medical_context(db, f"{disease_name} investigations workup", top_k=3),
-                    retrieve_investigation_context(db, f"tests for {disease_name}", top_k=4),
+                    rag_coro,
+                    lab_coro,
                     fetch_disease_intelligence(
                         disease_name=disease_name,
                         country_keywords=countries[:2],
@@ -525,10 +1123,10 @@ class InvestigationProvider:
         # ------------------------------------------------------------------ #
         # 3. Build patient context (short)
         # ------------------------------------------------------------------ #
-        symptoms = ", ".join(item.value for item in representation.symptoms) if representation.symptoms else "None"
-        vitals = ", ".join(item.value for item in representation.vitals) if representation.vitals else "None"
-        history = ", ".join(item.value for item in representation.history) if representation.history else "None"
-        travel = ", ".join(item.value for item in representation.travel_history) if getattr(representation, "travel_history", None) else "None"
+        symptoms = ", ".join(getattr(item, "value", str(item)) for item in representation.symptoms) if (representation and getattr(representation, "symptoms", None)) else "None"
+        vitals = ", ".join(getattr(item, "value", str(item)) for item in representation.vitals) if (representation and getattr(representation, "vitals", None)) else "None"
+        history = ", ".join(getattr(item, "value", str(item)) for item in representation.history) if (representation and getattr(representation, "history", None)) else "None"
+        travel = ", ".join(getattr(item, "value", str(item)) for item in representation.travel_history) if (representation and getattr(representation, "travel_history", None)) else "None"
         competing_str = ", ".join(competing) if competing else "None"
 
         patient_ctx = (

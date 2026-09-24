@@ -28,14 +28,18 @@ class RAGQueryRequest(BaseModel):
 
 class RAGCitation(BaseModel):
     """A specific piece of retrieved evidence mapped to a source."""
-    evidence_id: uuid.UUID
+    evidence_id: Optional[uuid.UUID] = None
     claim: str
     evidence_grade: Optional[str] = None
     recommendation_grade: Optional[str] = None
     source_name: str
-    source_code: str
+    source_code: Optional[str] = "literature"
+    source_type: Optional[str] = "clinical_source"
+    excerpt: Optional[str] = None
+    relevance_score: Optional[float] = 0.8
     article_doi: Optional[str] = None
     entity_code: Optional[str] = None
+    url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -47,6 +51,11 @@ class RAGResponse(BaseModel):
     insufficient_evidence: bool = Field(
         ..., description="True if no reliable evidence was found above baseline thresholds."
     )
-    citations: List[RAGCitation]
+    citations: List[RAGCitation] = []
+    confidence_score: Optional[float] = 0.8
+    retrieval_count: Optional[int] = 0
+    fallback_used: Optional[bool] = False
+    model_used: Optional[str] = "DocAssistIQ-RAG-v3"
+    data_sources: Optional[List[str]] = []
 
     model_config = ConfigDict(from_attributes=True)
