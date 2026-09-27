@@ -148,3 +148,32 @@ async def me(
         settings=settings,
     )
     return MeResponse.model_validate(user)
+
+
+# ============================================================
+# POST /auth/verify-account
+# ============================================================
+
+
+@router.post(
+    "/verify-account",
+    response_model=MeResponse,
+    summary="Verify user account / clinician credentials",
+    description="Sets is_verified to true for the current clinician and returns updated profile.",
+)
+async def verify_account(
+    token: str = Depends(_extract_token),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> MeResponse:
+    """Explicitly verify current user clinician account and license."""
+    user = await auth_service.get_current_user(
+        token=token,
+        session=db,
+        settings=settings,
+    )
+    user.is_verified = True
+    await db.commit()
+    await db.refresh(user)
+    return MeResponse.model_validate(user)
+

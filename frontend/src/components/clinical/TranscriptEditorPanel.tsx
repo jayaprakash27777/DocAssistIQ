@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Edit3, CheckCircle2, History, X, Save, ShieldAlert } from "lucide-react";
+import { Search, Edit3, CheckCircle2, History, X, Save, ShieldAlert, Stethoscope, User } from "lucide-react";
 import type { TranscriptResponse, TranscriptSegmentResponse } from "@/lib/api";
 
 interface TranscriptEditorPanelProps {
@@ -165,7 +165,7 @@ export default function TranscriptEditorPanel({
                           ? "bg-indigo-50 text-indigo-700 border-indigo-200" 
                           : "bg-emerald-50 text-emerald-700 border-emerald-200"
                       }`}>
-                        {isDoctor ? "🩺" : "🧑"} {seg.speaker_label || "Unknown Speaker"}
+                        {isDoctor ? <Stethoscope className="w-3.5 h-3.5 shrink-0" /> : <User className="w-3.5 h-3.5 shrink-0" />} {seg.speaker_label || "Unknown Speaker"}
                       </span>
                       <span className="text-[11px] text-slate-400 font-mono">
                         {new Date(seg.start_time * 1000).toISOString().substr(14, 5)} - {new Date(seg.end_time * 1000).toISOString().substr(14, 5)}

@@ -5,6 +5,7 @@
 import React, { useState } from "react";
 import { verifyCitation, type ClaimVerificationResponse } from "@/lib/api";
 import { useToast } from "@/components/shell/ToastProvider";
+import { ShieldCheck } from "lucide-react";
 
 export default function CitationVerifier() {
   const { toast } = useToast();
@@ -36,9 +37,10 @@ export default function CitationVerifier() {
 
   return (
     <div className="flex flex-col h-full bg-white border-l shadow-sm">
-      <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-          <span className="text-purple-600">🛡️</span> Citation Verifier
+      <div className="p-4 border-b bg-purple-50/70 flex items-center justify-between">
+        <h3 className="font-semibold text-purple-950 flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-purple-600" />
+          <span>Citation Verifier</span>
         </h3>
       </div>
 

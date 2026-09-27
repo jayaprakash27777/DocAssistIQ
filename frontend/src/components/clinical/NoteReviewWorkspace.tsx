@@ -10,6 +10,7 @@ import ClinicalNoteEditor from "@/components/clinical/ClinicalNoteEditor";
 import RAGAssistant from "@/components/clinical/RAGAssistant";
 import CitationVerifier from "@/components/clinical/CitationVerifier";
 import ExplanationPanel from "@/components/clinical/ExplanationPanel";
+import { ShieldCheck, Sparkles, Brain, Check, X } from "lucide-react";
 
 export default function NoteReviewWorkspace({ consultationId }: { consultationId: string }) {
   const [consultation, setConsultation] = useState<ConsultationResponse | null>(null);
@@ -89,32 +90,36 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
                           setExplainFindingId(finding.id);
                           setRightPanel("explain");
                         }}
-                        className="text-xs px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 font-medium transition-colors"
+                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 font-medium transition-colors"
                         title="Why was this finding suggested?"
                       >
-                        🧠 Evidence
+                        <Brain className="w-3 h-3 text-indigo-600" /> Evidence
                       </button>
                       {finding.status === 'suggested' && (
                         <>
                           <button 
                             onClick={() => handleFindingReview(finding.id, "confirm")}
-                            className="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 font-semibold transition-colors"
+                            className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 font-semibold transition-colors"
                           >
-                            Accept
+                            <Check className="w-3 h-3 text-emerald-600" /> Accept
                           </button>
                           <button 
                             onClick={() => handleFindingReview(finding.id, "reject")}
-                            className="text-xs px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg hover:bg-rose-100 font-semibold transition-colors"
+                            className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg hover:bg-rose-100 font-semibold transition-colors"
                           >
-                            Reject
+                            <X className="w-3 h-3 text-rose-600" /> Reject
                           </button>
                         </>
                       )}
                       {finding.status === 'confirmed' && (
-                        <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">✓ Confirmed</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                          <Check className="w-3 h-3 text-emerald-600" /> Confirmed
+                        </span>
                       )}
                       {finding.status === 'rejected' && (
-                        <span className="text-xs text-rose-700 font-semibold bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg">✗ Rejected</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-rose-700 font-semibold bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg">
+                          <X className="w-3 h-3 text-rose-600" /> Rejected
+                        </span>
                       )}
                     </div>
                   </div>
@@ -156,15 +161,17 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
         <div className="bg-slate-50/80 backdrop-blur-md border-b border-slate-200/80 p-3 flex justify-end gap-2.5 relative z-20">
           <button
             onClick={() => setRightPanel(rightPanel === "verify" ? "none" : "verify")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all shadow-sm ${rightPanel === "verify" ? 'bg-purple-600 text-white shadow-purple-600/20' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all shadow-sm ${rightPanel === "verify" ? 'bg-purple-600 text-white shadow-purple-600/20' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
           >
-            {rightPanel === "verify" ? "Hide Verifier" : "🛡️ Verify Citation"}
+            <ShieldCheck className={`w-3.5 h-3.5 ${rightPanel === "verify" ? "text-white" : "text-purple-600"}`} />
+            <span>{rightPanel === "verify" ? "Hide Verifier" : "Verify Citation"}</span>
           </button>
           <button
             onClick={() => setRightPanel(rightPanel === "rag" ? "none" : "rag")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all shadow-sm ${rightPanel === "rag" ? 'bg-teal-600 text-white shadow-teal-600/20' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all shadow-sm ${rightPanel === "rag" ? 'bg-teal-600 text-white shadow-teal-600/20' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
           >
-            {rightPanel === "rag" ? "Hide Assistant" : "✨ Knowledge Assistant"}
+            <Sparkles className={`w-3.5 h-3.5 ${rightPanel === "rag" ? "text-white" : "text-teal-600"}`} />
+            <span>{rightPanel === "rag" ? "Hide Assistant" : "Knowledge Assistant"}</span>
           </button>
         </div>
 

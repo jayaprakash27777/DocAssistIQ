@@ -12,37 +12,68 @@
 
 "use client";
 
-import { FormEvent, useCallback, useState } from "react";
+import { FormEvent, useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createConsultation, PLACEHOLDER_LABEL } from "@/lib/api";
 import { useToast } from "@/components/shell/ToastProvider";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Stethoscope, HeartPulse, Activity, AlertTriangle, ShieldAlert, Globe } from "lucide-react";
 
 const MIN_CHARS = 10;
 const MAX_CHARS = 10_000;
 
 const CLINICAL_SCENARIO_STARTERS = [
   {
+    id: "appendicitis",
     label: "RLQ Pain (Appendicitis)",
-    icon: "🩺",
+    iconType: "scope",
     text: "42-year-old male presents with acute periumbilical abdominal pain migrating to the right lower quadrant over the past 24 hours. Accompanied by nausea, anorexia, and subjective fever. On examination, localized tenderness at McBurney's point with positive Rovsing's sign and mild rebound tenderness. BP: 128/82, HR: 94, Temp: 38.1°C, SpO2: 99%."
   },
   {
+    id: "acs",
     label: "Chest Pain (Suspected ACS)",
-    icon: "❤️",
+    iconType: "heart",
     text: "58-year-old female with history of hypertension and hyperlipidemia presents with sudden onset substernal chest tightness radiating to the left arm and jaw for 2 hours. Associated with diaphoresis, dyspnea, and mild nausea. Denies relief with rest. Vitals: BP: 154/92, HR: 88, RR: 20, SpO2: 96% on room air."
   },
   {
+    id: "pneumonia",
     label: "Fever & Cough (Pneumonia)",
-    icon: "🫁",
+    iconType: "activity",
     text: "65-year-old female presents with a 4-day history of high-grade fever, chills, pleuritic right-sided chest pain, and productive cough with rust-colored sputum. Auscultation reveals bronchial breath sounds and inspiratory crackles in the right lower lobe with dullness to percussion. Vitals: BP: 118/76, HR: 104, RR: 24, SpO2: 92% on room air, Temp: 38.8°C."
   },
   {
+    id: "pe",
     label: "Dyspnea & Leg Swelling (PE)",
-    icon: "⚠️",
+    iconType: "alert",
     text: "34-year-old female presents with sudden onset shortness of breath and pleuritic chest pain following an 8-hour international flight 3 days ago. Also notes unilateral right calf pain and swelling. Vital signs: HR: 112 bpm, BP: 110/70, RR: 26 /min, SpO2: 91% on room air. Right calf is erythematous with 3cm increased circumference."
+  },
+];
+
+const OUTBREAK_SCENARIO_STARTERS = [
+  {
+    id: "nipah-kerala",
+    label: "Kerala: Nipah Alert",
+    state: "Kerala",
+    text: "28-year-old male from Kozhikode, Kerala presents with 4-day history of sudden high fever, headache, dizziness, mental confusion, myalgia, and progressive acute respiratory distress. Vitals: Temp: 39.4°C, HR: 116 bpm, BP: 98/60, SpO2: 89% on ambient air. Family notes recent contact with fallen orchard fruit in endemic district."
+  },
+  {
+    id: "chandipura-gujarat",
+    label: "Gujarat: Chandipura Alert",
+    state: "Gujarat",
+    text: "7-year-old child from Sabarkantha, Gujarat presents with sudden high-grade fever, recurrent vomiting, drowsiness progressing rapidly to altered sensorium, generalized convulsions, and hepatomegaly within 24 hours of onset during monsoon season. Sandfly exposure reported."
+  },
+  {
+    id: "kfd-karnataka",
+    label: "Karnataka: Monkey Fever (KFD)",
+    state: "Karnataka",
+    text: "36-year-old male farmer from Shimoga, Karnataka presents with sudden severe frontal headache, high persistent fever, conjunctival suffusion, severe backache, prostration, and petechial hemorrhages after clearing forest area where monkey deaths were reported."
+  },
+  {
+    id: "marburg-global",
+    label: "Global: Marburg Notice",
+    state: "Rwanda / WHO",
+    text: "38-year-old healthcare worker returning from Kigali, Rwanda presents with abrupt high fever, severe headache, malaise, non-bloody diarrhea followed by hematemesis, epistaxis, spontaneous bleeding from IV puncture sites, and maculopapular rash."
   },
 ];
 
@@ -54,6 +85,22 @@ export default function NewConsultationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check if coming from Outbreak Surveillance Radar
+    const simQuery = sessionStorage.getItem("outbreak_simulation_query");
+    const targetDisease = sessionStorage.getItem("outbreak_target_disease");
+    if (simQuery) {
+      setText(simQuery);
+      sessionStorage.removeItem("outbreak_simulation_query");
+      sessionStorage.removeItem("outbreak_target_disease");
+      toast.success(
+        targetDisease
+          ? `Loaded ${targetDisease} epidemic surveillance scenario from Outbreak Radar!`
+          : "Loaded epidemic outbreak scenario from Surveillance Radar!"
+      );
+    }
+  }, [toast]);
 
   const charCount = text.length;
   const charPct = Math.min(100, (charCount / MAX_CHARS) * 100);
@@ -142,31 +189,72 @@ export default function NewConsultationPage() {
           </div>
 
           {/* Quick Clinical Scenario Starters */}
-          <div className="mb-4 bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5 font-heading">
-                <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                1-Click Clinical Scenario Starters:
-              </span>
-              <span className="text-[10px] text-slate-400 font-medium">Click to populate intake scenario</span>
+          <div className="mb-4 bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3.5 shadow-2xs space-y-3">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5 font-heading">
+                  <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                  1-Click Clinical Scenario Starters:
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium">Click to populate intake scenario</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {CLINICAL_SCENARIO_STARTERS.map((s) => (
+                  <button
+                    key={s.label}
+                    type="button"
+                    onClick={() => {
+                      setText(s.text);
+                      if (fieldError) setFieldError(null);
+                      toast.success(`Loaded ${s.label} scenario`);
+                    }}
+                    disabled={submitting}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-xs font-semibold text-slate-700 hover:text-teal-900 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {s.iconType === "heart" ? (
+                      <HeartPulse className="w-3.5 h-3.5 text-rose-500" />
+                    ) : s.iconType === "scope" ? (
+                      <Stethoscope className="w-3.5 h-3.5 text-teal-600" />
+                    ) : s.iconType === "alert" ? (
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                    ) : (
+                      <Activity className="w-3.5 h-3.5 text-blue-500" />
+                    )}
+                    <span>{s.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {CLINICAL_SCENARIO_STARTERS.map((s) => (
-                <button
-                  key={s.label}
-                  type="button"
-                  onClick={() => {
-                    setText(s.text);
-                    if (fieldError) setFieldError(null);
-                    toast.success(`Loaded ${s.label} scenario`);
-                  }}
-                  disabled={submitting}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-xs font-semibold text-slate-700 hover:text-teal-900 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
-                >
-                  <span>{s.icon}</span>
-                  <span>{s.label}</span>
-                </button>
-              ))}
+
+            {/* Outbreak Surveillance Live Feed Starters */}
+            <div className="pt-2.5 border-t border-slate-200/60">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-rose-700 flex items-center gap-1.5 font-heading">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+                  Live Outbreak Feed Test Scenarios (India State-Wide &amp; Global):
+                </span>
+                <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                  Auto-Detects in Differential
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {OUTBREAK_SCENARIO_STARTERS.map((obs) => (
+                  <button
+                    key={obs.id}
+                    type="button"
+                    onClick={() => {
+                      setText(obs.text);
+                      if (fieldError) setFieldError(null);
+                      toast.success(`Loaded ${obs.label} scenario! Differential diagnosis will prioritize epidemic outbreak.`);
+                    }}
+                    disabled={submitting}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-50 to-amber-50 hover:from-rose-100 hover:to-amber-100 border border-rose-300 text-xs font-bold text-rose-900 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+                    <span>{obs.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

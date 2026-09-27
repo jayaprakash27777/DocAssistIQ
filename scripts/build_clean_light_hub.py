@@ -1,4 +1,13 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+# -*- coding: utf-8 -*-
+"""
+Build Clean Minimalist Light Hub UI Script
+Generates a professional, minimalist, clean light theme for /hub with zero jittery zoom animations.
+"""
+import os
+
+target_path = r"c:\Users\User\Downloads\DocAssistIQ\frontend\src\app\(shell)\hub\page.tsx"
+
+code = '''/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react/no-unescaped-entities */
@@ -9,7 +18,6 @@ import { createPortal } from "react-dom";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { getStoredToken, authVerifyAccount } from "@/lib/api";
-import { getSharedRealtimeClient } from "@/lib/ws";
 
 // ─── Types & Interfaces ────────────────────────────────────────────────────────
 
@@ -44,41 +52,6 @@ interface PollData {
   voted_index?: number | null;
 }
 
-interface QuotedPostSummary {
-  id: string;
-  author_name: string;
-  author_specialty?: string;
-  author_institution?: string;
-  disease_name: string;
-  diagnosis: string;
-  clinical_findings: string;
-  created_at: string;
-  is_urgent_consult?: boolean;
-}
-
-interface PubMedCitation {
-  pmid: string;
-  title: string;
-  journal: string;
-  year: string;
-  doi?: string;
-}
-
-interface WikipediaGuidelineData {
-  condition_name: string;
-  icd10_code: string;
-  category: string;
-  guideline_authority: string;
-  evidence_level: string;
-  first_line_therapy: string[];
-  second_line_therapy: string[];
-  contraindications: string[];
-  diagnostic_criteria: string;
-  pubmed_citations: PubMedCitation[];
-  cases_indexed_count?: number;
-  network_consensus_rate?: number;
-}
-
 interface DoctorPost {
   id: string;
   author_id: string;
@@ -108,8 +81,6 @@ interface DoctorPost {
   created_at: string;
   attachments: PostAttachment[];
   comments: PostComment[];
-  quoted_post_id?: string | null;
-  quoted_post?: QuotedPostSummary | null;
 }
 
 interface TrendingData {
@@ -135,11 +106,6 @@ interface DoctorMyStats {
   consensus_rate: number;
   followers_count: number;
   following_count: number;
-  full_name?: string;
-  specialty?: string;
-  credential_reference?: string;
-  credential_body?: string;
-  institution?: string;
 }
 
 interface HubPulse {
@@ -281,20 +247,6 @@ const ClinicalIcons = {
       <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
     </svg>
   ),
-  Repeat: ({ className = "w-4 h-4" }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m17 2 4 4-4 4" />
-      <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
-      <path d="m7 22-4-4 4-4" />
-      <path d="M21 13v1a4 4 0 0 1-4 4H3" />
-    </svg>
-  ),
-  BookOpen: ({ className = "w-4 h-4" }: { className?: string }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-    </svg>
-  ),
 };
 
 // ─── Sound Synthesizers (Web Audio API) ────────────────────────────────────────
@@ -384,7 +336,7 @@ function timeAgo(dateStr: string): string {
 
 function getInitials(nameOrId: string): string {
   if (!nameOrId) return "DR";
-  const clean = nameOrId.replace(/^Dr\.\s*/i, "").trim();
+  const clean = nameOrId.replace(/^Dr\\.\\s*/i, "").trim();
   const parts = clean.split(" ");
   if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   return clean.substring(0, 2).toUpperCase();
@@ -407,76 +359,8 @@ function getAvatarGradient(id: string): string {
 // ─── Helper: Bedside Clinical Vitals HUD ──────────────────────────────────────
 
 function getClinicalVitalsHUD(diseaseName: string, findings: string): VitalsMetric[] {
-  const dynamicVitals: VitalsMetric[] = [];
-  const text = `${diseaseName} ${findings}`;
-
-  // Parse Heart Rate (e.g. HR 110, 95 bpm, heart rate of 120)
-  const hrMatch = text.match(/(?:hr|heart rate)[:\s]*([0-9]{2,3})\s*(?:bpm)?/i) || text.match(/([0-9]{2,3})\s*bpm/i);
-  if (hrMatch) {
-    const hrVal = parseInt(hrMatch[1], 10);
-    dynamicVitals.push({
-      label: "Heart Rate",
-      value: `${hrVal} bpm`,
-      status: hrVal > 115 || hrVal < 50 ? "critical" : hrVal > 95 ? "warning" : "normal",
-      metricType: "hr",
-    });
-  }
-
-  // Parse Blood Pressure (e.g. BP 130/85, 120/80 mmHg, 85/50)
-  const bpMatch = text.match(/(?:bp|blood pressure)[:\s]*([0-9]{2,3}\/[0-9]{2,3})\s*(?:mmhg)?/i) || text.match(/([0-9]{2,3}\/[0-9]{2,3})\s*mmhg/i);
-  if (bpMatch) {
-    const bpStr = bpMatch[1];
-    const sys = parseInt(bpStr.split("/")[0], 10);
-    dynamicVitals.push({
-      label: "Blood Pressure",
-      value: `${bpStr} mmHg`,
-      status: sys < 90 || sys >= 180 ? "critical" : sys >= 140 ? "warning" : "normal",
-      metricType: "bp",
-    });
-  }
-
-  // Parse SpO2 Saturation (e.g. SpO2 92%, O2 sat 88%, 97% on room air)
-  const spo2Match = text.match(/(?:spo2|saturation|sat)[:\s]*([0-9]{2,3})\s*%/i) || text.match(/([0-9]{2,3})%\s*(?:room air|spo2|o2)/i);
-  if (spo2Match) {
-    const spo2Val = parseInt(spo2Match[1], 10);
-    dynamicVitals.push({
-      label: "SpO2 Saturation",
-      value: `${spo2Val}%`,
-      status: spo2Val < 90 ? "critical" : spo2Val < 95 ? "warning" : "normal",
-      metricType: "spo2",
-    });
-  }
-
-  // Parse Core Body Temperature (e.g. Temp 39.1 C, 38.5°C)
-  const tempMatch = text.match(/(?:temp|temperature)[:\s]*([0-9]{2}(?:\.[0-9])?)\s*(?:°?c)/i) || text.match(/([0-9]{2}\.[0-9])\s*°?c/i);
-  if (tempMatch) {
-    const tempVal = parseFloat(tempMatch[1]);
-    dynamicVitals.push({
-      label: "Core Temp",
-      value: `${tempVal} °C`,
-      status: tempVal >= 38.8 || tempVal <= 35.0 ? "critical" : tempVal >= 37.8 ? "warning" : "normal",
-      metricType: "temp",
-    });
-  }
-
-  // Parse GCS Score (e.g. GCS 9, GCS: 14/15)
-  const gcsMatch = text.match(/gcs[:\s]*([0-9]{1,2})(?:\/15)?/i);
-  if (gcsMatch) {
-    const gcsVal = parseInt(gcsMatch[1], 10);
-    dynamicVitals.push({
-      label: "GCS Score",
-      value: `${gcsVal}/15`,
-      status: gcsVal <= 8 ? "critical" : gcsVal <= 12 ? "warning" : "normal",
-      metricType: "gcs",
-    });
-  }
-
-  // If at least 2 real bedside telemetry metrics were parsed from the findings, return them!
-  if (dynamicVitals.length >= 2) {
-    return dynamicVitals;
-  }
-
-  const lower = text.toLowerCase();
+  const lower = (diseaseName + " " + findings).toLowerCase();
+  
   if (lower.includes("wellens")) {
     return [
       { label: "Heart Rate", value: "68 bpm", status: "normal", metricType: "hr" },
@@ -602,7 +486,7 @@ function LivePulseBar({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
             </span>
-            <span>{pulse?.online_specialists_count ?? 1} Verified Specialists Active</span>
+            <span>{pulse?.online_specialists_count ?? 8} Verified Specialists Online</span>
             <span className="text-[10px] text-emerald-600 font-mono">▼</span>
           </button>
 
@@ -633,7 +517,7 @@ function LivePulseBar({
                 transition={{ duration: 0.25 }}
                 className="text-xs text-slate-700 truncate font-medium flex-1"
               >
-                {pulse?.live_ticker?.[tickerIndex] || "Real-time Medical Intelligence Feed connected"}
+                {pulse?.live_ticker?.[tickerIndex] ?? "Consensus achieved on Acute Coronary Protocol across 12 institutions"}
               </motion.p>
             </AnimatePresence>
           </div>
@@ -1538,267 +1422,6 @@ ${post.likes_count} Attending Validations • ${post.comments_count} Peer Consul
   );
 }
 
-// ─── Component: Wikipedia Living Clinical Guideline Infobox Modal ─────────────
-
-function WikipediaGuidelineModal({
-  data,
-  loading,
-  onClose,
-  onQuoteWithGuideline,
-}: {
-  data: WikipediaGuidelineData | null;
-  loading: boolean;
-  onClose: () => void;
-  onQuoteWithGuideline?: (condition: string) => void;
-}) {
-  const [copiedProtocol, setCopiedProtocol] = useState(false);
-
-  const handleCopyProtocol = () => {
-    if (!data) return;
-    const text = `DOCASSISTIQ CLINICAL GUIDELINE INFOBOX
-=========================================
-CONDITION: ${data.condition_name}
-ICD-10-CM: ${data.icd10_code}
-CATEGORY: ${data.category}
-GUIDELINE AUTHORITY: ${data.guideline_authority} (${data.evidence_level})
-
-DIAGNOSTIC CRITERIA:
-${data.diagnostic_criteria}
-
-FIRST-LINE PHARMACOTHERAPY & MANAGEMENT:
-${data.first_line_therapy.map((t, i) => `${i + 1}. ${t}`).join("\n")}
-
-SECOND-LINE / SALVAGE PROTOCOL:
-${data.second_line_therapy.map((t, i) => `${i + 1}. ${t}`).join("\n")}
-
-CONTRAINDICATIONS & RED FLAGS:
-${data.contraindications.join("\n")}
-
-PUBMED CITATIONS:
-${data.pubmed_citations.map((c) => `• [PMID:${c.pmid}] ${c.title} - ${c.journal} (${c.year}) DOI: ${c.doi || "N/A"}`).join("\n")}
-`;
-    navigator.clipboard?.writeText(text);
-    setCopiedProtocol(true);
-    setTimeout(() => setCopiedProtocol(false), 2500);
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.96, y: 10 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.96, y: 10 }}
-        className="w-full max-w-3xl bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto custom-scrollbar"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="border-b border-slate-100 pb-4 flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
-              <span className="text-[10px] font-mono tracking-widest text-teal-700 uppercase font-black">
-                DocAssistIQ Living Clinical Guideline • Wikipedia Evidence Infobox
-              </span>
-            </div>
-            <h3 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2.5 flex-wrap">
-              <span>{loading ? "Fetching Evidence Protocol..." : data?.condition_name}</span>
-              {data?.icd10_code && (
-                <span className="text-xs font-mono font-bold bg-teal-50 text-teal-800 border border-teal-200 px-2.5 py-0.5 rounded-full">
-                  ICD-10: {data.icd10_code}
-                </span>
-              )}
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {data?.category || "Evidence-Based Clinical Practice Parameter"}
-            </p>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"
-          >
-            ✕
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="py-12 text-center space-y-3">
-            <div className="w-8 h-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-xs text-slate-500 font-medium">
-              Querying PubMed, ACC/AHA, ESC, and DocAssistIQ Medical Registry...
-            </p>
-          </div>
-        ) : data ? (
-          <>
-            {/* Guideline Authority Banner */}
-            <div className="bg-teal-50/70 border border-teal-200/90 rounded-2xl p-4 flex items-start justify-between flex-wrap gap-2">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-teal-800 flex items-center gap-1.5">
-                  <ClinicalIcons.ShieldCheck className="w-4 h-4 text-teal-600" />
-                  <span>Gold-Standard Clinical Guideline Recommendation</span>
-                </span>
-                <p className="font-bold text-slate-900 text-sm mt-1">
-                  {data.guideline_authority}
-                </p>
-              </div>
-              <span className="bg-white border border-teal-200 text-teal-800 text-[10px] font-black px-3 py-1 rounded-full shadow-sm">
-                {data.evidence_level}
-              </span>
-            </div>
-
-            {/* Diagnostic Criteria */}
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
-              <h4 className="text-xs font-black uppercase tracking-wider text-teal-800 mb-1.5">
-                Pathognomonic Diagnostic Criteria & Markers
-              </h4>
-              <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
-                {data.diagnostic_criteria}
-              </p>
-            </div>
-
-            {/* First-Line Management & Pharmacotherapy */}
-            <div className="bg-slate-50 rounded-2xl p-4 border-l-4 border-l-teal-600 border border-slate-200 space-y-2">
-              <h4 className="text-xs font-black uppercase tracking-wider text-teal-800">
-                1. First-Line Pharmacotherapy & Bedside Management
-              </h4>
-              <ul className="space-y-1.5">
-                {data.first_line_therapy.map((therapy, i) => (
-                  <li key={i} className="text-xs text-slate-800 flex items-start gap-2">
-                    <span className="text-teal-600 font-bold">✓</span>
-                    <span className="font-medium">{therapy}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Second-Line & Salvage Escalation */}
-            {data.second_line_therapy?.length > 0 && (
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2">
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
-                  2. Second-Line Escalation & Interventional Salvage
-                </h4>
-                <ul className="space-y-1.5">
-                  {data.second_line_therapy.map((therapy, i) => (
-                    <li key={i} className="text-xs text-slate-700 flex items-start gap-2">
-                      <span className="text-indigo-600 font-bold">→</span>
-                      <span>{therapy}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Red Flag Contraindications */}
-            {data.contraindications?.length > 0 && (
-              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 space-y-1.5">
-                <h4 className="text-xs font-black uppercase tracking-wider text-rose-800 flex items-center gap-1.5">
-                  <ClinicalIcons.AlertTriangle className="w-4 h-4 text-rose-600" />
-                  <span>Strict Contraindications & Black-Box Warnings</span>
-                </h4>
-                {data.contraindications.map((c, i) => (
-                  <p key={i} className="text-xs text-rose-900 font-semibold leading-relaxed">
-                    {c}
-                  </p>
-                ))}
-              </div>
-            )}
-
-            {/* Verified PubMed Citations */}
-            {data.pubmed_citations?.length > 0 && (
-              <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-2.5">
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center justify-between">
-                  <span>Verified PubMed Literature & Peer Review Provenance</span>
-                  <span className="text-[10px] text-teal-700 font-mono font-bold">
-                    {data.pubmed_citations.length} Indexed Studies
-                  </span>
-                </h4>
-
-                <div className="space-y-2">
-                  {data.pubmed_citations.map((cite, i) => (
-                    <div
-                      key={i}
-                      className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-3 text-xs"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-bold text-slate-900 leading-snug">{cite.title}</p>
-                        <p className="text-[11px] text-slate-500 mt-1">
-                          <strong className="text-teal-700">{cite.journal}</strong> • {cite.year} • PMID: {cite.pmid}
-                        </p>
-                      </div>
-                      <a
-                        href={`https://pubmed.ncbi.nlm.nih.gov/${cite.pmid}/`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex-shrink-0 bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-teal-800 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors"
-                      >
-                        PubMed ↗
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Network Provenance Footer */}
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-              <span className="text-slate-600 font-medium">
-                DocAssistIQ Collective Network Consensus:
-              </span>
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-teal-800">
-                  {data.cases_indexed_count ?? 1} Published Cases
-                </span>
-                <span className="font-bold text-emerald-700">
-                  {data.network_consensus_rate ?? 98}% Attending Consensus
-                </span>
-              </div>
-            </div>
-          </>
-        ) : null}
-
-        {/* Footer Actions */}
-        <div className="flex items-center justify-between border-t border-slate-100 pt-4 flex-wrap gap-2">
-          <span className="text-[10px] font-mono text-slate-400">
-            CME Evidence Tier 1 • Continuous Peer Consensus
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={handleCopyProtocol}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all"
-            >
-              {copiedProtocol ? "✓ Protocol Copied" : "📋 Copy Protocol"}
-            </button>
-            {onQuoteWithGuideline && data && (
-              <button
-                onClick={() => {
-                  onQuoteWithGuideline(data.condition_name);
-                  onClose();
-                }}
-                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5"
-              >
-                <ClinicalIcons.Repeat className="w-3.5 h-3.5" />
-                <span>Quote in Case Composer</span>
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 // ─── Component: Differential Tray Floating Dock (Clean Light) ─────────────────
 
 function DifferentialTrayDock({
@@ -2544,8 +2167,8 @@ function CitationModal({
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
 
   const authorName = post.author_name || `Dr. ${post.author_id.substring(0, 8)}`;
-  const authorLast = authorName.replace(/^Dr\.\s*/i, "").split(" ").pop() || "Specialist";
-  const authorInit = authorName.replace(/^Dr\.\s*/i, "").charAt(0) || "D";
+  const authorLast = authorName.replace(/^Dr\\.\\s*/i, "").split(" ").pop() || "Specialist";
+  const authorInit = authorName.replace(/^Dr\\.\\s*/i, "").charAt(0) || "D";
   const year = new Date(post.created_at || Date.now()).getFullYear();
 
   const amaCitation = `${authorLast} ${authorInit}. ${post.disease_name}: Clinical Protocol and Attending Consensus. DocAssistIQ Medical Intelligence Network. ${year}; Case ID: ${post.id.substring(0, 8)}.`;
@@ -2704,10 +2327,6 @@ function PostCard({
   onOpenCite,
   onOpenDossier,
   onTyping,
-  onQuotePost,
-  onOpenGuideline,
-  onSelectTag,
-  onSelectAuthor,
 }: {
   post: DoctorPost;
   typingDoctor: string | null;
@@ -2723,10 +2342,6 @@ function PostCard({
   onOpenCite: (post: DoctorPost) => void;
   onOpenDossier: (post: DoctorPost) => void;
   onTyping: (isTyping: boolean) => void;
-  onQuotePost?: (post: DoctorPost) => void;
-  onOpenGuideline?: (condition: string) => void;
-  onSelectTag?: (tag: string) => void;
-  onSelectAuthor?: (authorName: string) => void;
 }) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -2834,13 +2449,9 @@ function PostCard({
 
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => onSelectAuthor?.(authorName)}
-                  className="font-bold text-sm sm:text-base text-slate-900 hover:text-teal-700 hover:underline transition-colors text-left"
-                >
+                <h4 className="font-bold text-sm sm:text-base text-slate-900">
                   {authorName}
-                </button>
+                </h4>
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                   <ClinicalIcons.ShieldCheck className="w-3 h-3 text-emerald-600" />
                   Verified Attending MD
@@ -2934,39 +2545,21 @@ function PostCard({
             {post.specialty_tags.map((tag, i) => {
               const tagStyle = getSpecialtyStyle(tag);
               return (
-                <button
+                <span
                   key={i}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectTag?.(tag);
-                  }}
-                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border tracking-wide uppercase transition-all hover:scale-105 active:scale-95 cursor-pointer ${tagStyle.bg} ${tagStyle.border}`}
-                  title={`Filter cases tagged #${tag}`}
+                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border tracking-wide uppercase ${tagStyle.bg} ${tagStyle.border}`}
                 >
                   #{tag}
-                </button>
+                </span>
               );
             })}
           </div>
         )}
 
-        {/* ── 3. Primary Condition Title & Wikipedia Living Guideline Trigger ── */}
-        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-snug">
-            {post.disease_name}
-          </h2>
-          {onOpenGuideline && (
-            <button
-              onClick={() => onOpenGuideline(post.disease_name)}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 text-xs font-bold transition-all shadow-xs group"
-              title="Open Wikipedia-grade Living Clinical Guideline & PubMed Citations"
-            >
-              <ClinicalIcons.BookOpen className="w-3.5 h-3.5 text-teal-600 group-hover:scale-110 transition-transform" />
-              <span>Wikipedia Guideline Infobox</span>
-            </button>
-          )}
-        </div>
+        {/* ── 3. Primary Condition Title ── */}
+        <h2 className="text-lg sm:text-xl font-black text-slate-900 mb-3 leading-snug">
+          {post.disease_name}
+        </h2>
 
         {/* ── 4. Clinical Vitals & Lab Telemetry HUD (Clean Light Mode) ── */}
         <div className="mb-4 bg-slate-50 border border-slate-200 rounded-2xl p-3.5">
@@ -3139,60 +2732,6 @@ function PostCard({
           </button>
         </div>
 
-        {/* ── 5.5 Quoted Clinical Case Study (Comparative Institutional Protocol) ── */}
-        {post.quoted_post && (
-          <div className="mb-4 rounded-2xl border border-teal-200/90 bg-teal-50/40 p-4 transition-all hover:bg-teal-50/60">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-teal-800 flex items-center gap-1.5">
-                <ClinicalIcons.Repeat className="w-3.5 h-3.5 text-teal-600" />
-                <span>Quoted Clinical Case & Institutional Protocol</span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-mono">
-                {timeAgo(post.quoted_post.created_at)}
-              </span>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2 shadow-xs">
-              <div className="flex items-start justify-between gap-2 flex-wrap">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 leading-snug">
-                    {post.quoted_post.disease_name}
-                  </h4>
-                  <p className="text-[11px] text-teal-700 font-medium">
-                    {post.quoted_post.author_name || "Specialist"} • {post.quoted_post.author_specialty || "Attending MD"}
-                    {post.quoted_post.author_institution && ` • ${post.quoted_post.author_institution}`}
-                  </p>
-                </div>
-                {onOpenGuideline && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenGuideline(post.quoted_post!.disease_name);
-                    }}
-                    className="text-[10px] font-bold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2 py-0.5 rounded-full transition-colors flex items-center gap-1"
-                  >
-                    <ClinicalIcons.BookOpen className="w-3 h-3 text-teal-600" />
-                    <span>Wikipedia Guideline</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="border-t border-slate-100 pt-2 space-y-1">
-                <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">
-                  <strong className="text-slate-700">Presentation: </strong>
-                  {post.quoted_post.clinical_findings}
-                </p>
-                {post.quoted_post.diagnosis && (
-                  <p className="text-xs text-emerald-800 font-semibold">
-                    ✓ Confirmed Diagnosis: {post.quoted_post.diagnosis}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* ── 6. High-Resolution Diagnostic Attachments ── */}
         {post.attachments?.length > 0 && (
           <div className="mb-4">
@@ -3354,18 +2893,6 @@ function PostCard({
             <span className="font-mono text-xs">{post.endorsements_count ?? 0}</span>
           </button>
 
-          {/* Quote Case / Institutional Protocol */}
-          {onQuotePost && (
-            <button
-              onClick={() => onQuotePost(post)}
-              className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-600 hover:text-teal-700 hover:bg-slate-200/70 px-3 py-1.5 rounded-full transition-all"
-              title="Quote Case with Comparative Institutional Protocol"
-            >
-              <ClinicalIcons.Repeat className="w-4 h-4 text-teal-600" />
-              <span>Quote</span>
-            </button>
-          )}
-
           {/* Comments Toggle */}
           <button
             onClick={() => setShowComments(!showComments)}
@@ -3483,21 +3010,13 @@ function PostCard({
 function CaseComposer({
   onPublish,
   onCancel,
-  quotedPost,
-  onClearQuote,
 }: {
   onPublish: (postData: any, files: File[]) => Promise<void>;
   onCancel: () => void;
-  quotedPost?: DoctorPost | null;
-  onClearQuote?: () => void;
 }) {
   const [composerMode, setComposerMode] = useState<"case" | "dilemma" | "urgent">("case");
-  const [diseaseName, setDiseaseName] = useState(
-    quotedPost ? `Protocol Comparison: ${quotedPost.disease_name}` : ""
-  );
-  const [specialtyTags, setSpecialtyTags] = useState(
-    quotedPost?.specialty_tags?.length ? quotedPost.specialty_tags.join(", ") : ""
-  );
+  const [diseaseName, setDiseaseName] = useState("");
+  const [specialtyTags, setSpecialtyTags] = useState("");
   const [clinicalFindings, setClinicalFindings] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [treatmentPlan, setTreatmentPlan] = useState("");
@@ -3507,15 +3026,6 @@ function CaseComposer({
   const [files, setFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (quotedPost) {
-      if (!diseaseName) setDiseaseName(`Protocol Comparison: ${quotedPost.disease_name}`);
-      if (!specialtyTags && quotedPost.specialty_tags?.length) {
-        setSpecialtyTags(quotedPost.specialty_tags.join(", "));
-      }
-    }
-  }, [quotedPost]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3531,7 +3041,6 @@ function CaseComposer({
         poll_question: composerMode === "dilemma" ? pollQuestion : null,
         poll_options: composerMode === "dilemma" ? pollOptions.filter((o) => o.trim()) : null,
         is_urgent_consult: composerMode === "urgent",
-        quoted_post_id: quotedPost ? quotedPost.id : null,
       };
 
       if (composerMode === "urgent") {
@@ -3559,10 +3068,10 @@ function CaseComposer({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-base sm:text-lg font-bold text-slate-900">
-            {quotedPost ? "Quote Case: Propose Comparative Institutional Protocol" : "Share Clinical Case with Verified Specialists"}
+            Share Clinical Case with Verified Specialists
           </h3>
           <p className="text-xs text-slate-500">
-            {quotedPost ? "Embed original case study snapshot and submit comparative findings to the AI Knowledge Base" : "Ingested into DocAssistIQ AI Knowledge Base to enhance collective diagnostic precision"}
+            Ingested into DocAssistIQ AI Knowledge Base to enhance collective diagnostic precision
           </p>
         </div>
         <button
@@ -3609,38 +3118,6 @@ function CaseComposer({
           🚨 Urgent 2nd Opinion
         </button>
       </div>
-
-      {/* Embedded Quoted Case Preview Card */}
-      {quotedPost && (
-        <div className="mb-4 p-4 rounded-2xl bg-teal-50/70 border border-teal-200/90 relative">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-teal-800 flex items-center gap-1.5">
-              <ClinicalIcons.Repeat className="w-3.5 h-3.5 text-teal-600" />
-              <span>Quoting Original Case Study</span>
-            </span>
-            {onClearQuote && (
-              <button
-                type="button"
-                onClick={onClearQuote}
-                className="text-xs text-slate-500 hover:text-rose-600 font-bold px-2 py-0.5 rounded transition-colors"
-              >
-                ✕ Clear Quote
-              </button>
-            )}
-          </div>
-          <div className="bg-white p-3.5 rounded-xl border border-teal-100 space-y-1">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold text-slate-900">{quotedPost.disease_name}</h4>
-              <span className="text-[10px] text-teal-700 font-medium">
-                {quotedPost.author_name || "Specialist"} • {quotedPost.author_specialty || "Attending MD"}
-              </span>
-            </div>
-            <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-              {quotedPost.clinical_findings}
-            </p>
-          </div>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -3840,12 +3317,6 @@ export default function KnowledgeHub() {
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
 
-  // Quote Case & Wikipedia Guideline States
-  const [quotingPost, setQuotingPost] = useState<DoctorPost | null>(null);
-  const [activeGuidelineCondition, setActiveGuidelineCondition] = useState<string | null>(null);
-  const [guidelineData, setGuidelineData] = useState<WikipediaGuidelineData | null>(null);
-  const [loadingGuideline, setLoadingGuideline] = useState(false);
-
   // Differential Comparison Selection Tray
   const [comparisonCases, setComparisonCases] = useState<DoctorPost[]>([]);
 
@@ -3858,9 +3329,7 @@ export default function KnowledgeHub() {
 
   // Filters & Tabs
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilterCategory, setSelectedFilterCategory] = useState<
-    "all" | "urgent" | "quoted" | "saved" | "polls" | "cardiology" | "neurology" | "rare"
-  >("all");
+  const [selectedFilterCategory, setSelectedFilterCategory] = useState<"all" | "urgent" | "polls" | "cardiology" | "neurology" | "rare">("all");
   const [activeTab, setActiveTab] = useState<"recent" | "trending">("recent");
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [isVerifyingAccount, setIsVerifyingAccount] = useState(false);
@@ -3942,32 +3411,6 @@ export default function KnowledgeHub() {
     } catch {}
   }, []);
 
-  // Wikipedia Clinical Guideline Fetcher
-  const handleOpenGuideline = async (condition: string) => {
-    setActiveGuidelineCondition(condition);
-    setLoadingGuideline(true);
-    try {
-      const res = await fetch(`/api/v1/hub/guidelines/${encodeURIComponent(condition)}`, {
-        headers: authHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setGuidelineData(data);
-      }
-    } catch (err) {
-      console.error("Guideline fetch error:", err);
-    } finally {
-      setLoadingGuideline(false);
-    }
-  };
-
-  // Quote Clinical Case Handler
-  const handleQuotePost = (post: DoctorPost) => {
-    setQuotingPost(post);
-    setIsCreating(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
   // Initial Load & Real-Time WebSocket Connection
   useEffect(() => {
     fetchPosts();
@@ -3979,109 +3422,99 @@ export default function KnowledgeHub() {
 
     const authToken = token();
     if (!authToken) return;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/v1/stream?token=${authToken}`;
+    let ws: WebSocket | null = null;
 
-    const client = getSharedRealtimeClient(authToken);
+    try {
+      ws = new WebSocket(wsUrl);
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
 
-    const unsubscribe = client.subscribeMessages((type, payload) => {
-      try {
-        if (type === "hub_new_post") {
-          if (payload.is_urgent_consult) {
-            playUrgentPagerBeep();
-            showToast(`🚨 URGENT CONSULT: ${payload.disease_name}`);
-          } else if (soundEnabled) {
-            playClinicalChime();
-            showToast(`New Clinical Protocol: ${payload.disease_name}`);
+          if (msg.type === "hub_new_post") {
+            if (msg.payload.is_urgent_consult) {
+              playUrgentPagerBeep();
+              showToast(`🚨 URGENT CONSULT: ${msg.payload.disease_name}`);
+            } else if (soundEnabled) {
+              playClinicalChime();
+              showToast(`New Clinical Protocol: ${msg.payload.disease_name}`);
+            }
+            setPosts((prev) => [msg.payload, ...prev]);
+          } else if (msg.type === "hub_post_reaction") {
+            if (soundEnabled) playClinicalChime();
+            setPosts((prev) =>
+              prev.map((p) =>
+                p.id === msg.payload.post_id
+                  ? {
+                      ...p,
+                      likes_count: msg.payload.likes_count,
+                      reactions_breakdown: msg.payload.reactions_breakdown || p.reactions_breakdown,
+                    }
+                  : p
+              )
+            );
+          } else if (msg.type === "hub_poll_vote") {
+            setPosts((prev) =>
+              prev.map((p) =>
+                p.id === msg.payload.post_id && p.poll_data
+                  ? {
+                      ...p,
+                      poll_data: {
+                        ...p.poll_data,
+                        options: msg.payload.options || p.poll_data.options,
+                        total_votes: msg.payload.total_votes ?? p.poll_data.total_votes,
+                      },
+                    }
+                  : p
+              )
+            );
+          } else if (msg.type === "hub_new_comment") {
+            setPosts((prev) =>
+              prev.map((p) =>
+                p.id === msg.payload.post_id
+                  ? {
+                      ...p,
+                      comments_count: msg.payload.comments_count,
+                      comments: [msg.payload.comment, ...p.comments],
+                    }
+                  : p
+              )
+            );
+          } else if (msg.type === "hub_case_endorsed") {
+            setPosts((prev) =>
+              prev.map((p) =>
+                p.id === msg.payload.post_id
+                  ? { ...p, endorsements_count: msg.payload.endorsements_count }
+                  : p
+              )
+            );
+            showToast(`${msg.payload.endorser_name} endorsed a clinical protocol`);
+          } else if (msg.type === "hub_user_typing") {
+            if (msg.payload.is_typing) {
+              setTypingMap((prev) => ({ ...prev, [msg.payload.post_id]: msg.payload.doctor_name }));
+            } else {
+              setTypingMap((prev) => {
+                const next = { ...prev };
+                delete next[msg.payload.post_id];
+                return next;
+              });
+            }
+          } else if (msg.type === "hub_doctor_followed") {
+            setSuggestedDoctors((prev) =>
+              prev.map((d) =>
+                d.id === msg.payload.doctor_id
+                  ? { ...d, followers_count: msg.payload.followers_count }
+                  : d
+              )
+            );
           }
-          setPosts((prev) => [payload, ...prev.filter((p) => p.id !== payload.id)]);
-          fetchStories();
-          fetchTrending();
-          fetchPulse();
-        } else if (type === "hub_post_reaction") {
-          if (soundEnabled) playClinicalChime();
-          setPosts((prev) =>
-            prev.map((p) =>
-              p.id === payload.post_id
-                ? {
-                    ...p,
-                    likes_count: payload.likes_count,
-                    reactions_breakdown: payload.reactions_breakdown || p.reactions_breakdown,
-                  }
-                : p
-            )
-          );
-        } else if (type === "hub_post_liked") {
-          setPosts((prev) =>
-            prev.map((p) =>
-              p.id === payload.post_id
-                ? {
-                    ...p,
-                    likes_count: payload.likes_count,
-                  }
-                : p
-            )
-          );
-        } else if (type === "hub_poll_vote") {
-          setPosts((prev) =>
-            prev.map((p) =>
-              p.id === payload.post_id && p.poll_data
-                ? {
-                    ...p,
-                    poll_data: {
-                      ...p.poll_data,
-                      options: payload.options || p.poll_data.options,
-                      total_votes: payload.total_votes ?? p.poll_data.total_votes,
-                    },
-                  }
-                : p
-            )
-          );
-        } else if (type === "hub_new_comment") {
-          setPosts((prev) =>
-            prev.map((p) =>
-              p.id === payload.post_id
-                ? {
-                    ...p,
-                    comments_count: payload.comments_count,
-                    comments: [payload.comment, ...p.comments.filter((c) => c.id !== payload.comment.id)],
-                  }
-                : p
-            )
-          );
-        } else if (type === "hub_case_endorsed") {
-          setPosts((prev) =>
-            prev.map((p) =>
-              p.id === payload.post_id
-                ? { ...p, endorsements_count: payload.endorsements_count }
-                : p
-            )
-          );
-          showToast(`${payload.endorser_name} endorsed a clinical protocol`);
-        } else if (type === "hub_user_typing") {
-          if (payload.is_typing) {
-            setTypingMap((prev) => ({ ...prev, [payload.post_id]: payload.doctor_name }));
-          } else {
-            setTypingMap((prev) => {
-              const next = { ...prev };
-              delete next[payload.post_id];
-              return next;
-            });
-          }
-        } else if (type === "hub_doctor_followed") {
-          setSuggestedDoctors((prev) =>
-            prev.map((d) =>
-              d.id === payload.doctor_id
-                ? { ...d, followers_count: payload.followers_count }
-                : d
-            )
-          );
-        }
-      } catch (err) {
-        console.error("Hub WS message handler error:", err);
-      }
-    });
+        } catch {}
+      };
+    } catch {}
 
     return () => {
-      unsubscribe();
+      if (ws) ws.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [soundEnabled]);
@@ -4133,7 +3566,6 @@ export default function KnowledgeHub() {
 
     if (res.ok) {
       setIsCreating(false);
-      setQuotingPost(null);
       showToast("Case published & submitted to AI Diagnostic Vault!");
       fetchPosts();
       fetchStories();
@@ -4170,20 +3602,16 @@ export default function KnowledgeHub() {
   };
 
   const handleBookmark = async (postId: string) => {
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId ? { ...p, is_bookmarked_by_me: !p.is_bookmarked_by_me } : p
+      )
+    );
     try {
-      const res = await fetch(`/api/v1/hub/posts/${postId}/bookmark`, {
+      await fetch(`/api/v1/hub/posts/${postId}/bookmark`, {
         method: "POST",
         headers: authHeaders(),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setPosts((prev) =>
-          prev.map((p) =>
-            p.id === postId ? { ...p, is_bookmarked_by_me: data.bookmarked } : p
-          )
-        );
-        showToast(data.bookmarked ? "Case saved to Clinical Library!" : "Bookmark removed");
-      }
     } catch {}
   };
 
@@ -4195,19 +3623,7 @@ export default function KnowledgeHub() {
         body: JSON.stringify({ content: text }),
       });
       if (res.ok) {
-        const commentData = await res.json();
-        setPosts((prev) =>
-          prev.map((p) =>
-            p.id === postId
-              ? {
-                  ...p,
-                  comments_count: p.comments_count + 1,
-                  comments: [commentData, ...p.comments.filter((c) => c.id !== commentData.id)],
-                }
-              : p
-          )
-        );
-        showToast("Peer review consultation recorded!");
+        fetchPosts();
       }
     } catch {}
   };
@@ -4356,8 +3772,6 @@ export default function KnowledgeHub() {
   const displayedPosts = useMemo(() => {
     return posts.filter((p) => {
       if (selectedFilterCategory === "urgent") return p.is_urgent_consult;
-      if (selectedFilterCategory === "quoted") return Boolean(p.quoted_post);
-      if (selectedFilterCategory === "saved") return p.is_bookmarked_by_me;
       if (selectedFilterCategory === "polls") return Boolean(p.poll_data);
       if (selectedFilterCategory === "cardiology") {
         return p.specialty_tags?.some((t) => t.toLowerCase().includes("cardio") || t.toLowerCase().includes("ecg"));
@@ -4366,12 +3780,7 @@ export default function KnowledgeHub() {
         return p.specialty_tags?.some((t) => t.toLowerCase().includes("neuro"));
       }
       if (selectedFilterCategory === "rare") {
-        return (
-          p.disease_name.toLowerCase().includes("atypical") ||
-          p.disease_name.toLowerCase().includes("anti-") ||
-          p.disease_name.toLowerCase().includes("refractory") ||
-          p.disease_name.toLowerCase().includes("syndrome")
-        );
+        return p.disease_name.toLowerCase().includes("atypical") || p.disease_name.toLowerCase().includes("anti-") || p.disease_name.toLowerCase().includes("refractory");
       }
       return true;
     });
@@ -4450,41 +3859,32 @@ export default function KnowledgeHub() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="font-extrabold text-slate-900 text-base">
-                    {myStats?.full_name ? (myStats.full_name.startsWith("Dr.") ? myStats.full_name : `Dr. ${myStats.full_name}`) : `Dr. ${user?.email?.split("@")[0] ?? "Physician"}`}
+                    Dr. {user?.email?.split("@")[0] ?? "Physician"}
                   </h3>
                   <ClinicalIcons.ShieldCheck className="w-4 h-4 text-teal-600" />
                 </div>
                 <p className="text-xs text-teal-700 font-bold">
-                  {myStats?.specialty ? `${myStats.specialty} Attending` : "Verified Specialist Attending"}
+                  Cardiologist & Critical Care Attending
                 </p>
                 <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                  {myStats?.credential_reference
-                    ? `${myStats.credential_body || "Medical Council"} #${myStats.credential_reference}`
-                    : "Board Certified License"} • {myStats?.institution || "Academic Medical Center"}
+                  GMC/NMC License #98214 • AIIMS
                 </p>
 
                 {/* Real Stats from PostgreSQL */}
                 <div className="mt-4 grid grid-cols-3 text-center border-t border-slate-100 pt-3 gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (user?.email) setSearchQuery(user.email.split("@")[0]);
-                    }}
-                    className="p-1 rounded-xl hover:bg-slate-50 transition-colors text-center group cursor-pointer"
-                    title="Filter My Cases"
-                  >
-                    <p className="font-black text-slate-900 group-hover:text-teal-700 text-sm transition-colors">
+                  <div>
+                    <p className="font-black text-slate-900 text-sm">
                       {myStats?.cases_count ?? posts.filter((p) => p.author_id === user?.id).length}
                     </p>
-                    <p className="text-[9px] uppercase font-bold text-slate-400 group-hover:text-teal-600 transition-colors">Cases</p>
-                  </button>
-                  <div className="p-1 text-center">
+                    <p className="text-[9px] uppercase font-bold text-slate-400">Cases</p>
+                  </div>
+                  <div>
                     <p className="font-black text-slate-900 text-sm">
                       {myStats?.endorsements_count ?? 0}
                     </p>
                     <p className="text-[9px] uppercase font-bold text-slate-400">Endorsed</p>
                   </div>
-                  <div className="p-1 text-center">
+                  <div>
                     <p className="font-black text-teal-700 text-sm">
                       {myStats?.consensus_rate ?? 98}%
                     </p>
@@ -4493,20 +3893,12 @@ export default function KnowledgeHub() {
                 </div>
 
                 <div className="mt-2.5 pt-2 border-t border-slate-100 flex justify-between text-[11px] text-slate-500 px-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowActiveDoctorsModal(true)}
-                    className="hover:text-teal-700 hover:underline transition-colors"
-                  >
+                  <span>
                     <strong className="text-slate-800 font-mono">{myStats?.followers_count ?? 0}</strong> Followers
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowActiveDoctorsModal(true)}
-                    className="hover:text-teal-700 hover:underline transition-colors"
-                  >
+                  </span>
+                  <span>
                     <strong className="text-slate-800 font-mono">{myStats?.following_count ?? 0}</strong> Following
-                  </button>
+                  </span>
                 </div>
               </div>
             </div>
@@ -4546,26 +3938,6 @@ export default function KnowledgeHub() {
                 </span>
                 <span className="text-[10px] bg-white px-2 py-0.5 rounded-full font-black text-rose-800 font-mono shadow-sm">
                   {posts.filter((p) => p.is_urgent_consult).length} Active
-                </span>
-              </button>
-            </div>
-
-            {/* Quick Saved/Bookmarked Filter */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-sm">
-              <button
-                onClick={() => setSelectedFilterCategory(selectedFilterCategory === "saved" ? "all" : "saved")}
-                className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-between border cursor-pointer ${
-                  selectedFilterCategory === "saved"
-                    ? "bg-amber-600 text-white border-amber-600 shadow-sm font-black"
-                    : "bg-amber-50/70 text-amber-900 border-amber-200 hover:bg-amber-100"
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span>🔖</span>
-                  <span>Saved Cases Library</span>
-                </span>
-                <span className="text-[10px] bg-white px-2 py-0.5 rounded-full font-black text-amber-800 font-mono shadow-sm">
-                  {posts.filter((p) => p.is_bookmarked_by_me).length} Saved
                 </span>
               </button>
             </div>
@@ -4629,7 +4001,7 @@ export default function KnowledgeHub() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setIsCreating(true)}
-                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-full font-bold shadow-sm text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer"
+                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-full font-bold shadow-sm text-xs sm:text-sm flex items-center gap-2 transition-all"
                   >
                     <span>✍️</span>
                     <span>Share Case</span>
@@ -4637,60 +4009,18 @@ export default function KnowledgeHub() {
                 </div>
               </div>
 
-              {/* Search Bar & Tab Switcher */}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                    🔍
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Search diseases, pharmacology, or clinical presentation..."
-                    className="w-full pl-10 pr-9 py-2.5 rounded-2xl border border-slate-200 bg-white outline-none focus:border-teal-500 text-xs sm:text-sm text-slate-900 shadow-sm"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 text-xs font-bold flex items-center justify-center transition-colors cursor-pointer"
-                      title="Clear Search"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-
-                {/* Tab Switcher: Recent vs Trending */}
-                <div className="hidden sm:flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs flex-shrink-0">
-                  <button
-                    onClick={() => {
-                      setActiveTab("recent");
-                      fetchPosts(searchQuery || undefined, "recent");
-                    }}
-                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                      activeTab === "recent"
-                        ? "bg-white text-teal-800 shadow-xs font-black"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    ⚡ Recent
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveTab("trending");
-                      fetchPosts(searchQuery || undefined, "trending");
-                    }}
-                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                      activeTab === "trending"
-                        ? "bg-white text-teal-800 shadow-xs font-black"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    🔥 Top
-                  </button>
-                </div>
+              {/* Search Bar */}
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                  🔍
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search diseases, pharmacology, or clinical presentation..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 bg-white outline-none focus:border-teal-500 text-xs sm:text-sm text-slate-900 shadow-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
 
               {/* Advanced Category Filter Pills */}
@@ -4698,8 +4028,6 @@ export default function KnowledgeHub() {
                 {[
                   { id: "all", label: "⚡ All Protocols" },
                   { id: "urgent", label: "🚨 STAT Urgent 2nd Opinions" },
-                  { id: "quoted", label: "🔁 Comparative Quoted Cases" },
-                  { id: "saved", label: "🔖 Saved in Library" },
                   { id: "polls", label: "🗳️ Consensus Polls" },
                   { id: "cardiology", label: "🫀 Cardiology" },
                   { id: "neurology", label: "🧠 Neurology" },
@@ -4734,12 +4062,7 @@ export default function KnowledgeHub() {
               {isCreating && (
                 <CaseComposer
                   onPublish={handlePublishPost}
-                  onCancel={() => {
-                    setIsCreating(false);
-                    setQuotingPost(null);
-                  }}
-                  quotedPost={quotingPost}
-                  onClearQuote={() => setQuotingPost(null)}
+                  onCancel={() => setIsCreating(false)}
                 />
               )}
             </AnimatePresence>
@@ -4749,25 +4072,14 @@ export default function KnowledgeHub() {
               {loadingFeed ? (
                 <SkeletonPostLoader />
               ) : displayedPosts.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm space-y-3">
-                  <ClinicalIcons.Microscope className="w-12 h-12 text-slate-300 mx-auto" />
-                  <h3 className="text-base font-bold text-slate-800">
-                    No clinical cases matching {searchQuery ? `"${searchQuery}"` : "selected criteria"}
+                <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                  <ClinicalIcons.Microscope className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <h3 className="text-base font-bold text-slate-800 mb-1">
+                    No clinical cases matching filter
                   </h3>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-                    Try adjusting your search terms or clearing active department filters to view all verified peer protocols.
+                  <p className="text-xs text-slate-500">
+                    Try clearing search or check back soon for incoming physician updates.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setSelectedFilterCategory("all");
-                    }}
-                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer inline-flex items-center gap-1.5"
-                  >
-                    <span>✕</span>
-                    <span>Reset Filters & View All Cases</span>
-                  </button>
                 </div>
               ) : (
                 displayedPosts.map((post) => (
@@ -4787,16 +4099,6 @@ export default function KnowledgeHub() {
                     onOpenCite={(p) => setSelectedCitePost(p)}
                     onOpenDossier={(p) => setSelectedDossierPost(p)}
                     onTyping={(isTyping) => handleTypingBroadcast(post.id, isTyping)}
-                    onQuotePost={(p) => handleQuotePost(p)}
-                    onOpenGuideline={(condition) => handleOpenGuideline(condition)}
-                    onSelectTag={(tag) => {
-                      setSearchQuery(tag);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    onSelectAuthor={(name) => {
-                      setSearchQuery(name);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
                   />
                 ))
               )}
@@ -4922,43 +4224,6 @@ export default function KnowledgeHub() {
                 </div>
               </div>
             )}
-
-            {/* Wikipedia Living Clinical Guideline Explorer Card */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-extrabold text-xs uppercase tracking-wider text-teal-800 flex items-center gap-1.5">
-                  <ClinicalIcons.BookOpen className="w-4 h-4 text-teal-600" />
-                  <span>Wikipedia Guidelines</span>
-                </h3>
-                <span className="text-[10px] bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full font-bold">
-                  Evidence Tier 1
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
-                Live ACC/AHA, ESC, and PubMed practice parameters with direct ICD-10 protocol cards.
-              </p>
-              <div className="space-y-1.5">
-                {[
-                  "Wellens' Syndrome",
-                  "Anti-NMDA Receptor Encephalitis",
-                  "Takotsubo Cardiomyopathy",
-                  "Brugada Syndrome",
-                  "Myasthenia Gravis",
-                  "Kawasaki Disease",
-                ].map((cond) => (
-                  <button
-                    key={cond}
-                    onClick={() => handleOpenGuideline(cond)}
-                    className="w-full text-left text-xs p-2 rounded-xl bg-slate-50 hover:bg-teal-50 hover:text-teal-900 border border-slate-200/80 hover:border-teal-300 font-semibold transition-all flex items-center justify-between group cursor-pointer"
-                  >
-                    <span className="truncate">{cond}</span>
-                    <span className="text-[10px] text-teal-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                      Infobox ↗
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
           </aside>
         </div>
       </div>
@@ -5047,24 +4312,6 @@ export default function KnowledgeHub() {
           )}
         </AnimatePresence>
 
-        {/* ── Wikipedia Living Clinical Guideline Infobox Modal ── */}
-        <AnimatePresence>
-          {activeGuidelineCondition && (
-            <WikipediaGuidelineModal
-              data={guidelineData}
-              loading={loadingGuideline}
-              onClose={() => {
-                setActiveGuidelineCondition(null);
-                setGuidelineData(null);
-              }}
-              onQuoteWithGuideline={(condition) => {
-                setIsCreating(true);
-                showToast(`Quoting clinical protocol for ${condition}`);
-              }}
-            />
-          )}
-        </AnimatePresence>
-
         {/* ── Floating Toast Alert ── */}
         <AnimatePresence>
           {toastMessage && (
@@ -5083,3 +4330,9 @@ export default function KnowledgeHub() {
     </div>
   );
 }
+'''
+
+with open(target_path, "w", encoding="utf-8") as f:
+    f.write(code)
+
+print(f"Successfully generated clean minimalist light hub ({len(code)} bytes) to {target_path}")

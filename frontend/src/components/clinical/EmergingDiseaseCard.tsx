@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { getStoredToken } from "@/lib/api";
+import { Clock, Share2, Globe, Lightbulb } from "lucide-react";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/api\/v1\/?$/, "");
 
@@ -173,18 +174,21 @@ export function EmergingDiseaseCard({ diseaseName, context = "" }: Props) {
             {/* Epidemiology */}
             <Section title="Epidemiology">
               {profile.incubation_min != null && (
-                <p style={{ margin: "0 0 4px", fontSize: "0.8rem" }}>
-                  🕐 Incubation: {profile.incubation_min}–{profile.incubation_max} days
+                <p style={{ margin: "0 0 4px", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Clock size={13} style={{ flexShrink: 0 }} />
+                  <span>Incubation: {profile.incubation_min}–{profile.incubation_max} days</span>
                 </p>
               )}
               {profile._transmission && (
-                <p style={{ margin: "0 0 4px", fontSize: "0.8rem" }}>
-                  🔗 Transmission: {profile._transmission}
+                <p style={{ margin: "0 0 4px", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Share2 size={13} style={{ flexShrink: 0 }} />
+                  <span>Transmission: {profile._transmission}</span>
                 </p>
               )}
               {profile.geographic_zones && profile.geographic_zones.length > 0 && (
-                <p style={{ margin: 0, fontSize: "0.8rem" }}>
-                  🌍 Affected: {profile.geographic_zones.join(", ")}
+                <p style={{ margin: 0, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Globe size={13} style={{ flexShrink: 0 }} />
+                  <span>Affected: {profile.geographic_zones.join(", ")}</span>
                 </p>
               )}
             </Section>
@@ -195,9 +199,10 @@ export function EmergingDiseaseCard({ diseaseName, context = "" }: Props) {
             <div style={{
               background: "rgba(255,149,0,0.08)", border: "1px solid rgba(255,149,0,0.25)",
               borderRadius: 8, padding: "8px 12px", fontSize: "0.78rem",
-              color: "var(--color-text-secondary)",
+              color: "var(--color-text-secondary)", display: "flex", alignItems: "flex-start", gap: "6px"
             }}>
-              💡 {profile._notes}
+              <Lightbulb size={14} style={{ flexShrink: 0, marginTop: "2px", color: "#f59e0b" }} />
+              <span>{profile._notes}</span>
             </div>
           )}
 

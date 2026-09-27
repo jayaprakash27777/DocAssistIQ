@@ -26,6 +26,15 @@ class DoctorPost(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     treatment_plan: Mapped[str] = mapped_column(Text, nullable=False)
     drugs_used: Mapped[list] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=False, server_default="[]")
     specialty_tags: Mapped[list] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=False, server_default="[]")
+    poll_question: Mapped[str | None] = mapped_column(Text, nullable=True)
+    poll_options: Mapped[list] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=False, server_default="[]")
+    is_urgent: Mapped[bool] = mapped_column(default=False, server_default="false")
+    quoted_post_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctor_posts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
 
     # Relationships
     attachments: Mapped[list["PostAttachment"]] = relationship("PostAttachment", back_populates="post", cascade="all, delete-orphan")
@@ -49,7 +58,7 @@ class PostAttachment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     post: Mapped["DoctorPost"] = relationship("DoctorPost", back_populates="attachments")
 
 class PostLike(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Likes on a doctor post by other verified doctors."""
+    """Likes/reactions on a doctor post by other verified doctors."""
     __tablename__ = "post_likes"
     __table_args__ = (UniqueConstraint("post_id", "doctor_id", name="uq_post_like_doctor"),)
 
@@ -65,8 +74,46 @@ class PostLike(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         index=True
     )
+    reaction_type: Mapped[str | None] = mapped_column(String(50), default="validate", server_default="validate")
 
     post: Mapped["DoctorPost"] = relationship("DoctorPost", back_populates="likes")
+
+class PostPollVote(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Real consensus votes cast by verified doctors on clinical dilemma polls."""
+    __tablename__ = "post_poll_votes"
+    __table_args__ = (UniqueConstraint("post_id", "doctor_id", name="uq_post_poll_vote_doctor"),)
+
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctor_posts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    doctor_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctors.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    option_index: Mapped[int] = mapped_column(nullable=False)
+
+class PostEndorsement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Real endorsements / citations given by verified doctors to clinical cases."""
+    __tablename__ = "post_endorsements"
+    __table_args__ = (UniqueConstraint("post_id", "doctor_id", name="uq_post_endorsement_doctor"),)
+
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctor_posts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    doctor_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctors.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
 
 class PostComment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Comments on a doctor post by other verified doctors."""
@@ -107,3 +154,22 @@ class PostBookmark(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     post: Mapped["DoctorPost"] = relationship("DoctorPost", back_populates="bookmarks")
+
+class DoctorFollow(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Real follow relationships between verified doctors."""
+    __tablename__ = "doctor_follows"
+    __table_args__ = (UniqueConstraint("follower_id", "following_id", name="uq_doctor_follow"),)
+
+    follower_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctors.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    following_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctors.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+

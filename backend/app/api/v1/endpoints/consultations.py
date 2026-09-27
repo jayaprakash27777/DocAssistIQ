@@ -568,6 +568,9 @@ class RealtimePredictionCandidateItem(BaseModel):
     severity: str = "moderate"
     triage: str = "ROUTINE"
     is_hallmark_match: bool = False
+    is_outbreak_match: bool = False
+    outbreak_badge: Optional[str] = None
+    outbreak_details: Optional[Dict[str, Any]] = None
     pathognomonic_features: List[str] = []
     immediate_tests: List[str] = []
     recommended_investigations: List[str] = []
@@ -591,6 +594,9 @@ class RealtimePredictionResponse(BaseModel):
     consultation_id: Optional[str] = None
     top_candidates: List[RealtimePredictionCandidateItem] = []
     emergency_alert: Optional[RealtimeEmergencyAlert] = None
+    outbreak_detected: bool = False
+    outbreak_matches: List[Dict[str, Any]] = []
+    outbreak_summary: Optional[str] = None
     syndromic_clusters: List[str] = []
     open_domain_matched: bool = False
     is_unstructured_note: bool = False

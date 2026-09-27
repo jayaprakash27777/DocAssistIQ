@@ -125,9 +125,9 @@ class OllamaService:
     Never raises — always returns a usable value.
     """
 
-    def __init__(self, base_url: str = "http://localhost:11434"):
-        self.base_url      = base_url
+    def __init__(self, base_url: str | None = None):
         import os
+        self.base_url      = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         self.default_model = os.getenv("DEFAULT_LLM_MODEL", "ii-medical:8b")
         self.fast_model    = os.getenv("FAST_LLM_MODEL", "llama3.2:latest")
 

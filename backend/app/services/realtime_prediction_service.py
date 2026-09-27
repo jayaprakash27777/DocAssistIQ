@@ -565,6 +565,92 @@ class RealtimePredictionService:
                 disease_map[odm_key] = new_cand
                 disease_map[odm_base] = new_cand
 
+        # 5c. India State-Wide & Global Live Outbreak Matcher & Injection (<2ms)
+        outbreak_matches = []
+        try:
+            from app.services.india_outbreak_surveillance import match_outbreaks_for_symptoms
+            outbreak_matches = match_outbreaks_for_symptoms(
+                patient_symptoms=raw_symptoms,
+                clinical_narrative=symptoms_text,
+                travel_history=countries,
+            )
+            for ob in outbreak_matches:
+                ob_dname = ob["disease_name"]
+                ob_key = ob_dname.lower().strip()
+                ob_base = ob_key.split(" (")[0].strip()
+
+                # If candidate is already in the list, elevate score and mark with outbreak badge
+                matched_cand = disease_map.get(ob_key) or disease_map.get(ob_base)
+                geo_boost = 0.35 if ob.get("geographic_match") else 0.0
+                crit_boost = 0.30 if ob.get("alert_level") == "CRITICAL" else 0.0
+                if matched_cand:
+                    matched_cand["score"] = max(matched_cand["score"] + 0.35 + geo_boost + crit_boost, 1.35 if (ob.get("geographic_match") and ob.get("alert_level") == "CRITICAL") else 0.88)
+                    matched_cand["is_outbreak_match"] = True
+                    matched_cand["outbreak_badge"] = f"⚠️ LIVE OUTBREAK ALERT: {ob['state_or_country']} ({ob['pathogen']})"
+                    matched_cand["outbreak_details"] = ob
+                    matched_cand["severity"] = "critical" if ob["alert_level"] == "CRITICAL" else "high"
+                    matched_cand["triage"] = "EMERGENT" if ob["alert_level"] == "CRITICAL" else "URGENT"
+                    if ob["confirmatory_test"] not in matched_cand.get("immediate_tests", []):
+                        matched_cand.setdefault("immediate_tests", []).insert(0, f"URGENT: {ob['confirmatory_test']}")
+                else:
+                    # Inject new outbreak candidate directly into differential
+                    ob_cand_score = ob["confidence_score"] + (0.25 if ob.get("geographic_match") else 0.0) + (0.15 if ob.get("alert_level") == "CRITICAL" else 0.0)
+                    new_ob_cand = {
+                        "disease": ob_dname,
+                        "disease_name": ob_dname,
+                        "score": round(ob_cand_score, 2),
+                        "display_score": f"{int(ob['confidence_score'] * 100)}%",
+                        "supporting_findings": ob["matched_symptoms"] + ob["matched_triggers"],
+                        "missing_cardinal_symptoms": [],
+                        "contradicting_information": [],
+                        "uncertainty": "Outbreak Surveillance Alert",
+                        "icd10": "A98.8",
+                        "icd11": "1D48",
+                        "category": f"Epidemic Surveillance — {ob['state_or_country']}",
+                        "severity": "critical" if ob["alert_level"] == "CRITICAL" else "high",
+                        "triage": "EMERGENT" if ob["alert_level"] == "CRITICAL" else "URGENT",
+                        "is_hallmark_match": True,
+                        "is_outbreak_match": True,
+                        "outbreak_badge": f"⚠️ LIVE OUTBREAK ALERT: {ob['state_or_country']} ({ob['pathogen']})",
+                        "outbreak_details": ob,
+                        "pathognomonic_features": ob["matched_triggers"] or ob["matched_symptoms"][:2],
+                        "immediate_tests": [
+                            f"URGENT: {ob['confirmatory_test']}",
+                            f"ISOLATION: {ob['isolation_protocol']}",
+                            "Complete Blood Count (CBC) with Differential",
+                            "Liver & Renal Function Tests"
+                        ],
+                        "recommended_investigations": [
+                            ob['confirmatory_test'],
+                            "Coagulation Profile (PT/INR, aPTT)",
+                            "Chest X-Ray / Neuroimaging if neurological deficit",
+                            "Paired Acute & Convalescent Serology"
+                        ],
+                        "recommended_medications": ob.get("immediate_actions", []),
+                        "first_line_treatment": ob['isolation_protocol'],
+                        "treatment_summary": f"Notification: {ob['reporting_agency']}. Protocol: {ob['isolation_protocol']}",
+                        "pearl": ob['clinical_pearl'],
+                        "is_open_domain": False,
+                    }
+                    all_candidates.append(new_ob_cand)
+                    disease_map[ob_key] = new_ob_cand
+                    disease_map[ob_base] = new_ob_cand
+                    seen_diseases.add(ob_key)
+                    seen_diseases.add(ob_base)
+
+            # Escalate emergency alert if top outbreak is CRITICAL
+            if outbreak_matches and outbreak_matches[0]["alert_level"] == "CRITICAL":
+                top_ob = outbreak_matches[0]
+                if not emergency_alert:
+                    emergency_alert = {
+                        "is_emergency": True,
+                        "condition": f"EPIDEMIC ALERT: {top_ob['disease_name']} ({top_ob['state_or_country']})",
+                        "warning": f"🚨 LIVE OUTBREAK MATCH: {top_ob['pathogen']} in {top_ob['state_or_country']}. {top_ob['isolation_protocol']}.",
+                        "immediate_action": f"{top_ob['reporting_agency']} Protocol: {top_ob['confirmatory_test']}",
+                    }
+        except Exception as e:
+            log.warning("outbreak_matcher_failed", error=str(e))
+
         # Sort all candidates descending by score
         all_candidates.sort(key=lambda x: x["score"], reverse=True)
 
@@ -682,6 +768,13 @@ class RealtimePredictionService:
             "consultation_id": consultation_id,
             "top_candidates": final_candidates,
             "emergency_alert": emergency_alert,
+            "outbreak_detected": bool(outbreak_matches),
+            "outbreak_matches": outbreak_matches,
+            "outbreak_summary": (
+                f"Active epidemic surveillance match: {outbreak_matches[0]['disease_name']} "
+                f"({outbreak_matches[0]['state_or_country']}) — {outbreak_matches[0]['alert_level']} Alert"
+                if outbreak_matches else None
+            ),
             "syndromic_clusters": list(set([c for sc in scored_candidates for c in sc.clusters_matched]))[:4],
             "open_domain_matched": any(c.get("is_open_domain", False) for c in final_candidates),
             "is_unstructured_note": is_unstructured,

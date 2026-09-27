@@ -24,10 +24,11 @@ import {
   Brain, Send, Loader2, Sparkles, AlertTriangle, BookOpen,
   Copy, Check, ChevronDown, ChevronUp, Zap, Search,
   ShieldCheck, Activity, Stethoscope, Pill, FlaskConical,
-  RefreshCw, Info, CheckCircle2, Clock
+  RefreshCw, Info, CheckCircle2, Clock, Globe, ShieldAlert, MapPin
 } from "lucide-react";
 import { ragQuery, getDiseaseIntelligence, type RAGResponse, type DiseaseIntelligenceResponse } from "@/lib/api";
 import { useToast } from "@/components/shell/ToastProvider";
+import StateOutbreakRadar from "@/components/clinical/StateOutbreakRadar";
 
 // ── Constants ─────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ const LOADING_PHASES = [
 
 // ── Types ─────────────────────────────────────────────────────────
 
-type QueryMode = "rag" | "disease";
+type QueryMode = "rag" | "disease" | "outbreaks";
 
 interface Message {
   id: string;
@@ -405,9 +406,9 @@ function AssistantMessage({ msg }: { msg: Message }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: "spring", stiffness: 300, damping: 28 }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 320, damping: 28 }}
       className="flex gap-3"
     >
       {/* AI Avatar */}
@@ -685,24 +686,27 @@ export default function AIPage() {
             className="flex items-center p-1 rounded-xl gap-1"
             style={{ background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.08)" }}
           >
-            {(["rag", "disease"] as QueryMode[]).map(m => (
+            {(["rag", "disease", "outbreaks"] as QueryMode[]).map(m => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
                 style={{
                   background: mode === m ? "#fff" : "transparent",
                   color: mode === m ? "#4f46e5" : "#64748b",
                   boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
                 }}
               >
-                {m === "rag" ? "💬 Q&A Mode" : "🔬 Disease Mode"}
+                {m === "rag" ? "💬 Q&A Mode" : m === "disease" ? "🔬 Disease Mode" : "🗺️ State Outbreak Radar"}
+                {m === "outbreaks" && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-xs" />
+                )}
               </button>
             ))}
           </div>
 
           {/* Clear chat */}
-          {messages.length > 0 && (
+          {messages.length > 0 && mode !== "outbreaks" && (
             <button
               onClick={() => setMessages([])}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
@@ -714,19 +718,27 @@ export default function AIPage() {
         </div>
       </div>
 
-      {/* ── Chat area ──────────────────────────────────────── */}
+      {/* ── Chat / Outbreak Content area ────────────────────── */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
-
-        {/* Empty state */}
-        {messages.length === 0 && !loading && (
+        {mode === "outbreaks" ? (
+          <StateOutbreakRadar
+            onSelectOutbreakForDiagnosis={(queryText) => {
+              setMode("rag");
+              handleSubmit(queryText);
+            }}
+          />
+        ) : (
+          <>
+            {/* Empty state */}
+            {messages.length === 0 && !loading && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4"
           >
             <motion.div
-              animate={{ scale: [1, 1.04, 1] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
               className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6"
               style={{
                 background: "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
@@ -748,11 +760,11 @@ export default function AIPage() {
               {QUICK_ASKS.map(({ icon: Icon, label, query: q }, i) => (
                 <motion.button
                   key={i}
-                  initial={{ opacity: 0, y: 12 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
+                  transition={{ delay: i * 0.04 }}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ opacity: 0.9 }}
                   onClick={() => handleSubmit(q)}
                   disabled={loading}
                   className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-left text-sm font-semibold transition-all min-h-[52px]"
@@ -783,8 +795,8 @@ export default function AIPage() {
               return (
                 <motion.div
                   key={msg.id}
-                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
                   className="flex justify-end"
                 >
                   <div
@@ -881,79 +893,83 @@ export default function AIPage() {
         )}
 
         <div ref={bottomRef} />
+          </>
+        )}
       </div>
 
       {/* ── Input bar ──────────────────────────────────────── */}
-      <div
-        className="px-4 py-4 shrink-0"
-        style={{
-          background: "rgba(248,250,252,0.95)",
-          backdropFilter: "blur(20px)",
-          borderTop: "1px solid rgba(0,0,0,0.07)",
-        }}
-      >
-        {/* Safety disclaimer */}
-        <p className="text-center text-[10px] text-slate-400 mb-3 font-medium uppercase tracking-wide">
-          ⚕️ AI suggestions require clinician review — not a substitute for professional judgement
-        </p>
-
+      {mode !== "outbreaks" && (
         <div
-          className="flex items-end gap-3 rounded-2xl p-3"
+          className="px-4 py-4 shrink-0"
           style={{
-            background: "#fff",
-            border: "1.5px solid rgba(79,70,229,0.2)",
-            boxShadow: "0 0 0 4px rgba(79,70,229,0.05), 0 4px 16px rgba(0,0,0,0.06)",
+            background: "rgba(248,250,252,0.95)",
+            backdropFilter: "blur(20px)",
+            borderTop: "1px solid rgba(0,0,0,0.07)",
           }}
         >
-          <textarea
-            ref={inputRef}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={handleKey}
-            disabled={loading}
-            rows={1}
-            placeholder={
-              mode === "rag"
-                ? "Ask a clinical question… (e.g. What are the causes of elevated troponin?)"
-                : "Enter a disease name… (e.g. Tuberculosis, Dengue fever, STEMI)"
-            }
-            className="flex-1 resize-none outline-none text-sm text-slate-800 placeholder-slate-400 bg-transparent leading-relaxed"
-            style={{ maxHeight: "120px", minHeight: "24px" }}
-            onInput={e => {
-              const el = e.currentTarget;
-              el.style.height = "auto";
-              el.style.height = Math.min(el.scrollHeight, 120) + "px";
-            }}
-          />
-          <motion.button
-            whileTap={{ scale: 0.92 }}
-            whileHover={{ scale: 1.05 }}
-            onClick={() => handleSubmit(query)}
-            disabled={!query.trim() || loading}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all shrink-0"
+          {/* Safety disclaimer */}
+          <p className="text-center text-[10px] text-slate-400 mb-3 font-medium uppercase tracking-wide">
+            ⚕️ AI suggestions require clinician review — not a substitute for professional judgement
+          </p>
+
+          <div
+            className="flex items-end gap-3 rounded-2xl p-3"
             style={{
-              background: !query.trim() || loading
-                ? "linear-gradient(135deg, #94a3b8, #64748b)"
-                : "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-              boxShadow: !query.trim() || loading ? "none" : "0 4px 12px rgba(79,70,229,0.3)",
+              background: "#fff",
+              border: "1.5px solid rgba(79,70,229,0.2)",
+              boxShadow: "0 0 0 4px rgba(79,70,229,0.05), 0 4px 16px rgba(0,0,0,0.06)",
             }}
           >
-            {loading
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <><Zap className="w-4 h-4" /> Ask AI</>
-            }
-          </motion.button>
-        </div>
+            <textarea
+              ref={inputRef}
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={handleKey}
+              disabled={loading}
+              rows={1}
+              placeholder={
+                mode === "rag"
+                  ? "Ask a clinical question… (e.g. What are the causes of elevated troponin?)"
+                  : "Enter a disease name… (e.g. Tuberculosis, Dengue fever, STEMI)"
+              }
+              className="flex-1 resize-none outline-none text-sm text-slate-800 placeholder-slate-400 bg-transparent leading-relaxed"
+              style={{ maxHeight: "120px", minHeight: "24px" }}
+              onInput={e => {
+                const el = e.currentTarget;
+                el.style.height = "auto";
+                el.style.height = Math.min(el.scrollHeight, 120) + "px";
+              }}
+            />
+            <motion.button
+              whileTap={{ opacity: 0.9 }}
+              whileHover={{ y: -1 }}
+              onClick={() => handleSubmit(query)}
+              disabled={!query.trim() || loading}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all shrink-0"
+              style={{
+                background: !query.trim() || loading
+                  ? "linear-gradient(135deg, #94a3b8, #64748b)"
+                  : "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                boxShadow: !query.trim() || loading ? "none" : "0 4px 12px rgba(79,70,229,0.3)",
+              }}
+            >
+              {loading
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <><Zap className="w-4 h-4" /> Ask AI</>
+              }
+            </motion.button>
+          </div>
 
-        <div className="flex items-center justify-between mt-2 px-1">
-          <span className="text-[10px] text-slate-400">
-            Press <kbd className="bg-slate-100 border border-slate-200 px-1 rounded text-[10px]">Enter</kbd> to send, <kbd className="bg-slate-100 border border-slate-200 px-1 rounded text-[10px]">Shift+Enter</kbd> for new line
-          </span>
-          <span className="text-[10px] text-slate-400">
-            {mode === "rag" ? "💬 RAG Mode — Clinical Q&A" : "🔬 Disease Mode — Full profile"}
-          </span>
+          <div className="flex items-center justify-between mt-2 px-1">
+            <span className="text-[10px] text-slate-400">
+              Press <kbd className="bg-slate-100 border border-slate-200 px-1 rounded text-[10px]">Enter</kbd> to send, <kbd className="bg-slate-100 border border-slate-200 px-1 rounded text-[10px]">Shift+Enter</kbd> for new line
+            </span>
+            <span className="text-[10px] text-slate-400">
+              {mode === "rag" ? "💬 RAG Mode — Clinical Q&A" : "🔬 Disease Mode — Full profile"}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

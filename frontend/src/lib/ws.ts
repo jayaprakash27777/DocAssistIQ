@@ -289,7 +289,7 @@ let sharedClient: RealtimeClient | null = null;
 
 export function getSharedRealtimeClient(token?: string | null): RealtimeClient {
   const safeToken = (token && token !== "undefined" && token !== "null") ? token.trim() : "";
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ?? "http://localhost:8000";
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ?? "http://127.0.0.1:8002";
   const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/v1/stream";
 
   if (!sharedClient) {

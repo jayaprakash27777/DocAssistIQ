@@ -26,6 +26,7 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+      - ./infra/postgres/01_docassistiq_seed.sql:/docker-entrypoint-initdb.d/01_docassistiq_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docassistiq} -d ${POSTGRES_DB:-docassistiq}"]
       interval: 10s
@@ -103,6 +104,26 @@ services:
       - docassistiq
 
   # ----------------------------------------------------------
+  # Ollama LLM Engine (Self-contained models)
+  # ----------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: docassistiq_ollama
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ./models/ollama/models:/root/.ollama/models
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - docassistiq
+
+  # ----------------------------------------------------------
   # FastAPI Backend
   # ----------------------------------------------------------
   backend:
@@ -121,6 +142,7 @@ services:
       OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
       OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
       OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-docassistiq}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       BACKEND_CORS_ORIGINS: http://localhost:3000,http://frontend:3000
     volumes:
       - ./backend:/app
@@ -162,6 +184,7 @@ services:
       OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
       OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
       OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-docassistiq}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
     volumes:
       - ./backend:/app
     depends_on:

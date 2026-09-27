@@ -8,7 +8,7 @@ import { getInvestigationsForDisease, InvestigationResponse } from "@/lib/api";
 import FeedbackButtons from "./FeedbackButtons";
 import { motion, AnimatePresence } from "framer-motion";
 import ClinicalLoader from "./ClinicalLoader";
-import { AlertTriangle, AlertCircle, FileText, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, AlertCircle, FileText, CheckCircle2, BookOpen } from "lucide-react";
 
 const PRIORITY_STYLES: Record<string, { bg: string; text: string; border: string; dot: string }> = {
   "HIGH PRIORITY": { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-200",    dot: "bg-red-500" },
@@ -75,13 +75,17 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
                     <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">{item.rationale}</p>
                   )}
                   {item.evidence && (
-                    <p className="text-[10px] text-slate-400 mt-1 font-medium italic">📚 {item.evidence}</p>
+                    <p className="text-[10px] text-slate-400 mt-1 font-medium italic flex items-center gap-1">
+                      <BookOpen className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>{item.evidence}</span>
+                    </p>
                   )}
                   {item.safety_flags?.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {item.safety_flags.map((flag: string, fi: number) => (
-                        <span key={fi} className="text-[9px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                          ⚠️ {flag}
+                        <span key={fi} className="inline-flex items-center gap-1 text-[9px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                          <AlertTriangle className="w-2.5 h-2.5 text-red-600 shrink-0" />
+                          <span>{flag}</span>
                         </span>
                       ))}
                     </div>

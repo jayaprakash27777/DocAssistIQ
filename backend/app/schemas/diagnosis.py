@@ -19,6 +19,9 @@ class DifferentialDiagnosisItem(BaseModel):
     recommended_investigations: List[str] = Field(default_factory=list, description="Recommended laboratory and imaging investigations")
     recommended_medications: List[str] = Field(default_factory=list, description="Guideline-directed medications and pharmacotherapy")
     first_line_treatment: Optional[str] = Field(default=None, description="Immediate first-line management or empiric therapy")
+    is_outbreak_match: bool = Field(default=False, description="True if matched active state or global epidemic surveillance")
+    outbreak_badge: Optional[str] = Field(default=None, description="Outbreak alert banner text")
+    outbreak_details: Optional[dict] = Field(default=None, description="Detailed outbreak alert payload")
 
 class DifferentialDiagnosisResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -29,3 +32,7 @@ class DifferentialDiagnosisResponse(BaseModel):
     missing_critical_info: List[str] = Field(default_factory=list, description="List of missing clinical parameters preventing analysis")
     provider_metadata: dict = Field(..., description="Metadata about the model/algorithm used")
     top_candidates: List[DifferentialDiagnosisItem] = Field(default_factory=list)
+    outbreak_detected: bool = Field(default=False, description="True if symptoms match an active state or global outbreak")
+    outbreak_matches: List[dict] = Field(default_factory=list, description="Matched state or global outbreak alerts")
+    outbreak_summary: Optional[str] = Field(default=None, description="Clinical summary of active outbreak matches")
+

@@ -119,7 +119,7 @@ export default function PolypharmacySimulator({
                 />
                 <button 
                   type="submit" 
-                  className="bg-gradient-to-r from-teal-600 to-indigo-600 hover:brightness-110 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95"
+                  className="bg-gradient-to-r from-teal-600 to-indigo-600 hover:brightness-110 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md active:opacity-90"
                   style={{ boxShadow: "0 4px 12px rgba(13,148,136,0.3), inset 0 1px 0 rgba(255,255,255,0.25)" }}
                 >
                   Add
@@ -133,7 +133,7 @@ export default function PolypharmacySimulator({
                       key={med}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
+                      exit={{ opacity: 0, x: -8 }}
                       className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-sm"
                     >
                       <span className="font-semibold text-slate-800 text-sm">{med}</span>
@@ -156,7 +156,7 @@ export default function PolypharmacySimulator({
             <button 
               onClick={handleSimulate}
               disabled={loading || proposedMeds.length === 0}
-              className="w-full bg-gradient-to-r from-teal-600 via-indigo-600 to-teal-700 text-white p-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:brightness-110 disabled:opacity-50 transition-all shadow-lg active:scale-98"
+              className="w-full bg-gradient-to-r from-teal-600 via-indigo-600 to-teal-700 text-white p-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:brightness-110 disabled:opacity-50 transition-all shadow-lg active:opacity-90"
               style={{ boxShadow: "0 6px 20px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.3)" }}
             >
               {loading ? (

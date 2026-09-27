@@ -83,6 +83,11 @@ ml/models/
 uploads/
 storage/
 
-# --- Model Cache ---
+# --- Model Cache & LLM Models ---
 backend/model_cache/
 model_cache/
+models/
+*.tar
+backend/*.db
+*.db
+

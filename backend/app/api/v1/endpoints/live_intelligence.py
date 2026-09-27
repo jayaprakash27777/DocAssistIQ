@@ -1,4 +1,4 @@
-﻿"""DocAssistIQ — Live Disease Intelligence API Endpoints."""
+"""DocAssistIQ — Live Disease Intelligence API Endpoints."""
 
 import asyncio
 from fastapi import APIRouter, HTTPException
@@ -112,3 +112,27 @@ async def get_kb_stats():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/state-outbreaks", summary="Live outbreak surveillance feed for all Indian states and global regions")
+async def get_state_outbreaks(
+    state: Optional[str] = None,
+    query: Optional[str] = None,
+    alert_level: Optional[str] = None,
+):
+    """
+    Returns live epidemic and disease outbreak surveillance feeds:
+    - Every Indian state and union territory (IDSP / NCDC / ICMR)
+    - Global outbreak notices (WHO DON, CDC Travel Health, ProMED-mail)
+    - Active pathogens, cardinal symptoms, case counts, and containment actions
+    """
+    try:
+        from app.services.india_outbreak_surveillance import get_all_state_outbreaks
+        return get_all_state_outbreaks(
+            state_filter=state,
+            query_filter=query,
+            alert_level_filter=alert_level,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

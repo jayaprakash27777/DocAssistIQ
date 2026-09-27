@@ -460,6 +460,59 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
                 )
             )
 
+        # Check active India & global epidemic outbreak surveillance
+        outbreak_matches: List[dict] = []
+        outbreak_summary: Optional[str] = None
+        try:
+            from app.services.india_outbreak_surveillance import match_outbreaks_for_symptoms
+            outbreak_matches = match_outbreaks_for_symptoms(
+                symptoms=patient_symptoms,
+                geographic_context=" ".join(countries_visited or []),
+            )
+            if outbreak_matches:
+                top_ob = outbreak_matches[0]
+                outbreak_summary = (
+                    f"Active epidemic surveillance match: {top_ob['disease_name']} "
+                    f"({top_ob['state_or_country']}) — {top_ob['alert_level']} Alert"
+                )
+                ob_d_lower = top_ob["disease_name"].lower()
+                matched_cand = None
+                for c in top_candidates:
+                    if ob_d_lower in c.disease.lower() or c.disease.lower() in ob_d_lower:
+                        matched_cand = c
+                        break
+
+                if matched_cand:
+                    matched_cand.is_outbreak_match = True
+                    matched_cand.outbreak_badge = f"⚠️ LIVE OUTBREAK ALERT: {top_ob['state_or_country']} ({top_ob['pathogen']})"
+                    matched_cand.outbreak_details = top_ob
+                    matched_cand.score = max(matched_cand.score, 0.91)
+                    if top_ob.get("confirmatory_test") and top_ob["confirmatory_test"] not in matched_cand.immediate_tests:
+                        matched_cand.immediate_tests.insert(0, top_ob["confirmatory_test"])
+                else:
+                    actions = _enrich_candidate_actions(top_ob["disease_name"])
+                    ob_item = DifferentialDiagnosisItem(
+                        disease=top_ob["disease_name"],
+                        score=0.92 if top_ob["alert_level"] == "CRITICAL" else 0.86,
+                        supporting_findings=top_ob.get("cardinal_symptoms", [])[:4],
+                        missing_expected_findings=[],
+                        contradicting_information=[],
+                        uncertainty="Low (Epidemic Surveillance Match)",
+                        explanation_reference=f"[Active Outbreak Match] Confirmed outbreak in {top_ob['state_or_country']} reported by {top_ob['reporting_agency']}. {top_ob['isolation_protocol']}.",
+                        geographic_match=True,
+                        incubation_fit="FITS",
+                        immediate_tests=[top_ob["confirmatory_test"]] + actions["immediate_tests"],
+                        recommended_investigations=actions["recommended_investigations"],
+                        recommended_medications=actions["recommended_medications"],
+                        first_line_treatment=f"{top_ob['isolation_protocol']} | {actions.get('first_line_treatment') or 'Guideline therapy'}",
+                        is_outbreak_match=True,
+                        outbreak_badge=f"⚠️ LIVE OUTBREAK ALERT: {top_ob['state_or_country']} ({top_ob['pathogen']})",
+                        outbreak_details=top_ob,
+                    )
+                    top_candidates.insert(0, ob_item)
+        except Exception as ob_err:
+            log.warning("outbreak_surveillance_matching_failed", error=str(ob_err))
+
         top_candidates.sort(key=lambda x: x.score, reverse=True)
         top_candidates = top_candidates[:5]
 
@@ -486,6 +539,9 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
                 "deterministic_scoring": True,
             },
             top_candidates=top_candidates[:5],
+            outbreak_detected=bool(outbreak_matches),
+            outbreak_matches=outbreak_matches,
+            outbreak_summary=outbreak_summary,
         )
 
 

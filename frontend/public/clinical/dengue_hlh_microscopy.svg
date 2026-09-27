@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <!-- Background -->
+  <rect width="800" height="450" fill="#090d16"/>
+
+  <!-- Microscope Field of View (Circular Glass Aperture) -->
+  <circle cx="400" cy="225" r="195" fill="#fdf2f8" stroke="#334155" stroke-width="8"/>
+  <circle cx="400" cy="225" r="190" fill="#fce7f3"/>
+
+  <!-- Normal RBCs in background -->
+  <g fill="#f43f5e" opacity="0.6">
+    <ellipse cx="260" cy="180" rx="14" ry="12"/>
+    <ellipse cx="290" cy="140" rx="13" ry="13"/>
+    <ellipse cx="330" cy="110" rx="15" ry="12"/>
+    <ellipse cx="480" cy="115" rx="14" ry="13"/>
+    <ellipse cx="530" cy="160" rx="13" ry="12"/>
+    <ellipse cx="520" cy="300" rx="14" ry="13"/>
+    <ellipse cx="460" cy="350" rx="13" ry="14"/>
+    <ellipse cx="320" cy="340" rx="14" ry="12"/>
+    <ellipse cx="270" cy="280" rx="13" ry="13"/>
+  </g>
+
+  <!-- Large Activated Macrophage (Histiocyte) with ingested Erythrocytes (Hemophagocytosis) -->
+  <path d="M 330,160 C 440,130 500,180 480,260 C 460,330 360,320 320,270 C 290,230 310,180 330,160 Z"
+        fill="#e0e7ff" stroke="#6366f1" stroke-width="3" opacity="0.95"/>
+  <!-- Macrophage Nucleus -->
+  <ellipse cx="360" cy="205" rx="30" ry="25" fill="#4338ca"/>
+
+  <!-- Engulfed Erythroblasts & RBCs inside the Macrophage Cytoplasm -->
+  <ellipse cx="420" cy="210" rx="15" ry="13" fill="#e11d48"/>
+  <ellipse cx="405" cy="255" rx="14" ry="14" fill="#be123c"/>
+  <ellipse cx="445" cy="260" rx="13" ry="12" fill="#9f1239"/>
+  <!-- Engulfed nuclear debris/platelets -->
+  <circle cx="380" cy="260" r="5" fill="#312e81"/>
+  <circle cx="450" cy="225" r="4" fill="#312e81"/>
+
+  <!-- Arrow Indicator -->
+  <path d="M 570,240 L 490,250" stroke="#4338ca" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <rect x="580" y="220" width="190" height="42" rx="6" fill="#1e1b4b" stroke="#6366f1"/>
+  <text x="590" y="238" fill="#a5b4fc" font-family="sans-serif" font-size="11" font-weight="bold">Hemophagocytosis</text>
+  <text x="590" y="252" fill="#e0e7ff" font-family="sans-serif" font-size="10">Histiocyte engulfing RBCs</text>
+
+  <!-- Lab Indicators -->
+  <rect x="25" y="25" width="200" height="90" rx="8" fill="#111827" stroke="#374151"/>
+  <text x="35" y="48" fill="#f87171" font-family="sans-serif" font-size="11" font-weight="bold">Ferritin: >42,000 ng/mL</text>
+  <text x="35" y="68" fill="#fbbf24" font-family="sans-serif" font-size="11" font-weight="bold">Platelets: 14,000 /mcL</text>
+  <text x="35" y="88" fill="#e2e8f0" font-family="sans-serif" font-size="10">HLH-2004 Criteria: 6/8 Met</text>
+
+  <text x="400" y="435" fill="#94a3b8" font-family="sans-serif" font-size="11" text-anchor="middle">
+    Bone Marrow Aspirate • Wright-Giemsa Stain (100x Oil Immersion) • Dengue-associated MAS
+  </text>
+</svg>

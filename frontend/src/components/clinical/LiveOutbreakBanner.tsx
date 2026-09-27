@@ -13,6 +13,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getStoredToken } from "@/lib/api";
+import { Globe, RefreshCw, Radio, Sparkles, MapPin } from "lucide-react";
+import StateOutbreakRadar from "./StateOutbreakRadar";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/api\/v1\/?$/, "");
 const TOKEN = () =>
@@ -85,8 +87,8 @@ const FEED_SOURCES = ["WHO Disease Outbreak News", "CDC Travel Health", "ProMED-
 
 function LiveTicker({ diseases }: { diseases: DynamicDisease[] }) {
   const items = diseases.length > 0
-    ? diseases.map(d => `🔴 EMERGING: ${d.name} · ${d.severity?.toUpperCase()} severity`)
-    : ["✅ All global outbreak feeds nominal · WHO · CDC · ProMED · ECDC monitored"];
+    ? diseases.map(d => `EMERGING ALERT: ${d.name} · ${d.severity?.toUpperCase()} severity`)
+    : ["All global outbreak feeds nominal · WHO · CDC · ProMED · ECDC monitored"];
 
   const [idx, setIdx] = useState(0);
   useEffect(() => {
@@ -173,7 +175,7 @@ export function LiveOutbreakBanner() {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"diseases" | "status">("diseases");
+  const [activeTab, setActiveTab] = useState<"state_outbreaks" | "diseases" | "status">("state_outbreaks");
 
   const fetchStatus = useCallback(async () => {
     const data = await apiFetch<ScannerStatus>("/api/v1/intelligence/outbreak-scanner/status");
@@ -211,21 +213,14 @@ export function LiveOutbreakBanner() {
         {/* Live pulse indicator with dual-ring beacon */}
         <div className="relative flex-shrink-0 w-3 h-3 flex items-center justify-center">
           {isActive && (
-            <>
-              <span
-                className={`absolute -inset-1 rounded-full animate-ping opacity-40 ${
-                  hasDynamic ? "bg-orange-400" : "bg-emerald-400"
-                }`}
-              />
-              <span
-                className={`absolute inset-0 rounded-full animate-pulse opacity-70 ${
-                  hasDynamic ? "bg-orange-500" : "bg-emerald-500"
-                }`}
-              />
-            </>
+            <span
+              className={`absolute -inset-0.5 rounded-full opacity-30 ${
+                hasDynamic ? "bg-orange-400" : "bg-emerald-400"
+              }`}
+            />
           )}
           <span
-            className={`relative w-2.5 h-2.5 rounded-full ring-2 ring-white shadow-sm ${
+            className={`relative w-2 h-2 rounded-full ring-2 ring-white shadow-xs ${
               isActive
                 ? hasDynamic ? "bg-orange-600" : "bg-emerald-600"
                 : "bg-slate-400"
@@ -244,7 +239,7 @@ export function LiveOutbreakBanner() {
         {/* Stats chips */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {newCount > 0 && (
-            <span className="text-[10px] font-black text-red-700 bg-red-100/90 border border-red-300 px-2 py-0.5 rounded-full animate-pulse shadow-xs">
+            <span className="text-[10px] font-extrabold text-rose-700 bg-rose-50 border border-rose-300 px-2 py-0.5 rounded-full shadow-xs">
               +{newCount} NEW
             </span>
           )}
@@ -277,7 +272,7 @@ export function LiveOutbreakBanner() {
               {/* Panel header */}
               <div className="px-5 py-3 bg-gradient-to-r from-slate-900 to-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-lg">🌐</span>
+                  <Globe className="w-5 h-5 text-blue-400 shrink-0" />
                   <div>
                     <h3 className="text-white font-black text-sm tracking-tight leading-none">
                       Live Disease Intelligence
@@ -303,23 +298,32 @@ export function LiveOutbreakBanner() {
 
               {/* Tabs */}
               <div className="flex border-b border-slate-100">
-                {(["diseases", "status"] as const).map(tab => (
+                {(["state_outbreaks", "diseases", "status"] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors ${
                       activeTab === tab
-                        ? "bg-white text-slate-800 border-b-2 border-blue-500"
+                        ? "bg-white text-slate-800 border-b-2 border-indigo-600"
                         : "bg-slate-50 text-slate-400 hover:text-slate-600"
                     }`}
                   >
-                    {tab === "diseases" ? `🦠 Emerging Diseases (${alertCount})` : "📡 Scanner Status"}
+                    {tab === "state_outbreaks"
+                      ? "🇮🇳 State & Global Radar"
+                      : tab === "diseases"
+                      ? `Emerging (${alertCount})`
+                      : "Scanner Status"}
                   </button>
                 ))}
               </div>
 
               {/* Tab content */}
-              <div className="p-4 max-h-72 overflow-y-auto">
+              <div className="p-4 max-h-[520px] overflow-y-auto">
+                {activeTab === "state_outbreaks" && (
+                  <div className="pb-2">
+                    <StateOutbreakRadar />
+                  </div>
+                )}
                 {activeTab === "diseases" && (
                   <div className="space-y-2">
                     {hasDynamic ? (
@@ -383,7 +387,7 @@ export function LiveOutbreakBanner() {
                     {/* Poll schedule */}
                     <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
                       <p className="text-[11px] text-blue-700 font-medium leading-relaxed">
-                        <span className="font-black">📡 Auto-learning:</span> Scanner checks WHO/CDC/ProMED/ECDC every 15 minutes.
+                        <span className="font-black">Auto-learning:</span> Scanner checks WHO/CDC/ProMED/ECDC every 15 minutes.
                         Novel diseases are auto-profiled via LLM + PubMed + Wikipedia within seconds.
                         All profiles are automatically included in diagnostic scoring with confidence weighting.
                       </p>
@@ -395,9 +399,9 @@ export function LiveOutbreakBanner() {
                         Panel last updated: {formatRelative(lastFetched)}
                         <button
                           onClick={fetchStatus}
-                          className="ml-2 text-blue-500 hover:text-blue-700 font-bold"
+                          className="inline-flex items-center gap-1 ml-2 text-blue-500 hover:text-blue-700 font-bold"
                         >
-                          ↻ Refresh
+                          <RefreshCw className="w-3 h-3" /> Refresh
                         </button>
                       </p>
                     )}

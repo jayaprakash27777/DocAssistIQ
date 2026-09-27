@@ -15,7 +15,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, AlertTriangle, FlaskConical, Pill, Globe, Users,
-  Info, BookOpen, ChevronRight, ExternalLink, Shield, Zap
+  Info, BookOpen, ChevronRight, ExternalLink, Shield, Zap, Calendar, AlertOctagon
 } from "lucide-react";
 import { getStoredToken } from "@/lib/api";
 
@@ -491,13 +491,16 @@ export default function DiseaseIntelligencePanel({
                 {data.epidemiology && (
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      ["🌍 Global Incidence", data.epidemiology.global_incidence],
-                      ["💀 Mortality Rate", data.epidemiology.mortality_rate],
-                      ["🦠 Outbreak Status", data.epidemiology.outbreak_status],
-                      ["📅 Seasonal Pattern", data.epidemiology.seasonal_pattern],
-                    ].map(([label, val]) => val && (
-                      <div key={String(label)} className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                        <p className="text-xs text-slate-500 font-semibold mb-1">{String(label)}</p>
+                      { label: "Global Incidence", val: data.epidemiology.global_incidence, icon: Globe },
+                      { label: "Mortality Rate", val: data.epidemiology.mortality_rate, icon: Activity },
+                      { label: "Outbreak Status", val: data.epidemiology.outbreak_status, icon: AlertOctagon },
+                      { label: "Seasonal Pattern", val: data.epidemiology.seasonal_pattern, icon: Calendar },
+                    ].map(({ label, val, icon: Icon }) => val && (
+                      <div key={label} className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                        <p className="text-xs text-slate-500 font-semibold mb-1 flex items-center gap-1.5">
+                          <Icon className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                          <span>{label}</span>
+                        </p>
                         <p className="text-sm font-medium text-slate-800">{String(val)}</p>
                       </div>
                     ))}

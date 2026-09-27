@@ -9,55 +9,82 @@ import { motion, AnimatePresence } from "framer-motion";
 import FeedbackButtons from "./FeedbackButtons";
 import { saveOfflineNoteDraft, getOfflineNoteDraft, clearOfflineNoteDraft, registerNetworkReconnectionSync } from "@/lib/offlineSync";
 
+import {
+  Copy,
+  ChevronsUpDown,
+  Download,
+  Share2,
+  Sparkles,
+  FileSpreadsheet,
+  Check,
+  MessageSquare,
+  Clock,
+  Search,
+  Folder,
+  Activity,
+  Pill,
+  AlertTriangle,
+  Users,
+  Globe,
+  HeartPulse,
+  Stethoscope,
+  FlaskConical,
+  Target,
+  CheckCircle2,
+  ClipboardList,
+  Calendar,
+  ShieldAlert,
+} from "lucide-react";
+
 // ─── Complete SOAP+ Structure (matches backend note_generator.py) ─────────────
 const SOAP_GROUPS = [
   {
     groupId: "subjective",
     groupLabel: "Subjective",
     color: "blue",
-    icon: "🗣",
+    icon: MessageSquare,
     sections: [
-      { id: "chief_complaint",     label: "Chief Complaint",              icon: "💬", required: true },
-      { id: "hpi",                 label: "History of Present Illness",    icon: "📋", required: true },
-      { id: "review_of_systems",   label: "Review of Systems",             icon: "🔍", required: false },
-      { id: "past_medical_history",label: "Past Medical History",          icon: "📂", required: false },
-      { id: "surgical_history",    label: "Surgical History",              icon: "🔬", required: false },
-      { id: "medications",         label: "Current Medications",           icon: "💊", required: false },
-      { id: "allergies",           label: "Allergies",                     icon: "⚠️", required: false },
-      { id: "family_history",      label: "Family History",                icon: "👨‍👩‍👧", required: false },
-      { id: "social_history",      label: "Social & Travel History",       icon: "🌍", required: false },
+      { id: "chief_complaint",     label: "Chief Complaint",              icon: MessageSquare, required: true },
+      { id: "hpi",                 label: "History of Present Illness",    icon: Clock, required: true },
+      { id: "review_of_systems",   label: "Review of Systems",             icon: Search, required: false },
+      { id: "past_medical_history",label: "Past Medical History",          icon: Folder, required: false },
+      { id: "surgical_history",    label: "Surgical History",              icon: Activity, required: false },
+      { id: "medications",         label: "Current Medications",           icon: Pill, required: false },
+      { id: "allergies",           label: "Allergies",                     icon: AlertTriangle, required: false },
+      { id: "family_history",      label: "Family History",                icon: Users, required: false },
+      { id: "social_history",      label: "Social & Travel History",       icon: Globe, required: false },
     ],
   },
   {
     groupId: "objective",
     groupLabel: "Objective",
     color: "emerald",
-    icon: "🩺",
+    icon: Stethoscope,
     sections: [
-      { id: "vitals",              label: "Vital Signs",                   icon: "❤️", required: true },
-      { id: "physical_examination",label: "Physical Examination",          icon: "🏥", required: true },
-      { id: "investigations",      label: "Investigations & Results",      icon: "🧪", required: false, dropZone: true },
+      { id: "vitals",              label: "Vital Signs",                   icon: HeartPulse, required: true },
+      { id: "physical_examination",label: "Physical Examination",          icon: Stethoscope, required: true },
+      { id: "investigations",      label: "Investigations & Results",      icon: FlaskConical, required: false, dropZone: true },
     ],
   },
   {
     groupId: "assessment_plan",
     groupLabel: "Assessment & Plan",
     color: "purple",
-    icon: "📝",
+    icon: ClipboardList,
     sections: [
-      { id: "differential_diagnosis", label: "Differential Diagnosis",    icon: "🔭", required: false },
-      { id: "assessment",          label: "Assessment",                    icon: "✅", required: true, clinicianFill: true },
-      { id: "plan",                label: "Management Plan",               icon: "🎯", required: true, clinicianFill: true, dropZone: true },
+      { id: "differential_diagnosis", label: "Differential Diagnosis",    icon: Target, required: false },
+      { id: "assessment",          label: "Assessment",                    icon: CheckCircle2, required: true, clinicianFill: true },
+      { id: "plan",                label: "Management Plan",               icon: ClipboardList, required: true, clinicianFill: true, dropZone: true },
     ],
   },
   {
     groupId: "followup",
     groupLabel: "Follow-Up & Safety",
     color: "amber",
-    icon: "🔔",
+    icon: ShieldAlert,
     sections: [
-      { id: "follow_up_plan",      label: "Follow-Up Plan",               icon: "📅", required: false },
-      { id: "safety_net",          label: "Safety Net Advice",             icon: "🚨", required: false },
+      { id: "follow_up_plan",      label: "Follow-Up Plan",               icon: Calendar, required: false },
+      { id: "safety_net",          label: "Safety Net Advice",             icon: ShieldAlert, required: false },
     ],
   },
 ];
@@ -88,8 +115,8 @@ function parseVitals(text: any): Record<string, string> {
 }
 
 const VITAL_ICONS: Record<string, string> = {
-  BP: "🩸", HR: "❤️", RR: "🫁", Temp: "🌡️", SpO2: "💨",
-  Weight: "⚖️", Height: "📏", BMI: "📊", GCS: "🧠",
+  BP: "BP", HR: "HR", RR: "RR", Temp: "T", SpO2: "O2",
+  Weight: "Wt", Height: "Ht", BMI: "BMI", GCS: "GCS",
 };
 
 const VITAL_UNITS: Record<string, string> = {
@@ -165,8 +192,8 @@ function VitalsGrid({ text, onChange }: { text: any; onChange: (v: string) => vo
             }`}
           >
             <div className="flex items-center justify-between px-2.5 pt-2 pb-1">
-              <div className="flex items-center gap-1">
-                <span className="text-xs">{VITAL_ICONS[f] || "📋"}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-black text-slate-500 bg-slate-100 rounded px-1">{VITAL_ICONS[f] || f}</span>
                 <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{f}</span>
               </div>
               <div className="flex items-center gap-1">
@@ -208,7 +235,7 @@ function SectionField({
   isDropZone,
   clinicianFill,
 }: {
-  section: { id: string; label: string; icon: string; required?: boolean; clinicianFill?: boolean };
+  section: { id: string; label: string; icon: any; required?: boolean; clinicianFill?: boolean };
   value: string;
   onChange: (v: string) => void;
   isDragOver: boolean;
@@ -494,7 +521,9 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
       <div className="shrink-0 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-6 py-4.5 border-b border-white/10 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3.5">
-            <div className="w-9 h-9 bg-white/10 rounded-2xl flex items-center justify-center text-lg border border-white/15 shadow-inner">🏥</div>
+            <div className="w-9 h-9 bg-white/10 rounded-2xl flex items-center justify-center border border-white/15 shadow-inner">
+              <FileSpreadsheet className="w-5 h-5 text-teal-400" />
+            </div>
             <div>
               <h2 className="text-white font-black text-base tracking-tight leading-none">CLINICAL NOTE</h2>
               <p className="text-slate-400 text-[10px] font-bold mt-1 uppercase tracking-widest">
@@ -544,32 +573,38 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
               >
                 {copiedFull ? (
                   <>
-                    <span className="text-emerald-400 font-extrabold">✓</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
                     <span className="text-emerald-300">Copied!</span>
                   </>
                 ) : (
-                  <>📋 Copy Note</>
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Note</span>
+                  </>
                 )}
               </button>
               <button
                 type="button"
                 onClick={toggleAllGroups}
                 title="Expand or collapse all SOAP categories"
-                className="text-xs font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 px-2.5 py-1.5 rounded-xl border border-white/15 transition-all shadow-sm hover:scale-105 active:scale-95"
+                className="text-xs font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 px-2.5 py-1.5 rounded-xl border border-white/15 transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center gap-1.5"
               >
-                ↕️ Toggle
+                <ChevronsUpDown className="w-3.5 h-3.5" />
+                <span>Toggle</span>
               </button>
               <button
                 onClick={() => handleExport("pdf")}
-                className="text-xs font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl border border-white/15 transition-all shadow-sm hover:scale-105 active:scale-95"
+                className="text-xs font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl border border-white/15 transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center gap-1.5"
               >
-                📄 Export
+                <Download className="w-3.5 h-3.5" />
+                <span>Export</span>
               </button>
               <button
                 onClick={() => handleExport("fhir")}
-                className="text-xs font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl border border-white/15 transition-all shadow-sm hover:scale-105 active:scale-95"
+                className="text-xs font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl border border-white/15 transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center gap-1.5"
               >
-                🔗 FHIR
+                <Share2 className="w-3.5 h-3.5" />
+                <span>FHIR</span>
               </button>
             </div>
           </div>
@@ -587,7 +622,7 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
 
       {/* ── Drag instruction banner ── */}
       <div className="shrink-0 bg-gradient-to-r from-blue-50/90 via-indigo-50/40 to-transparent border-b border-indigo-100/60 px-6 py-2.5 flex items-center gap-2.5">
-        <span className="text-blue-600 text-sm">💡</span>
+        <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
         <p className="text-[11px] text-blue-900 font-semibold tracking-wide">
           Drag AI-suggested investigations or diagnoses directly into any section below. Drop zones highlighted in blue.
         </p>
@@ -619,7 +654,7 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
                   className={`w-full flex items-center justify-between px-5 py-3.5 bg-gradient-to-r ${colors.header} border-b ${colors.border} hover:brightness-95 transition-all`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-lg">{group.icon}</span>
+                    <group.icon className="w-5 h-5 text-current shrink-0" />
                     <div className="text-left">
                       <h3 className={`font-black text-sm ${colors.text} uppercase tracking-widest`}>
                         {group.groupLabel}
@@ -668,7 +703,7 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
                               {/* Section header row */}
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-base">{section.icon}</span>
+                                  <section.icon className="w-4 h-4 text-slate-500 shrink-0" />
                                   <label className="font-bold text-sm text-slate-800 tracking-tight">
                                     {section.label}
                                   </label>
@@ -682,8 +717,9 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
                                     </span>
                                   )}
                                   {isAiDraft && !isAccepted && (
-                                    <span className="text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full animate-pulse shadow-2xs">
-                                      ✨ AI Draft
+                                    <span className="text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full animate-pulse shadow-2xs flex items-center gap-1">
+                                      <Sparkles className="w-2.5 h-2.5 text-blue-600" />
+                                      AI Draft
                                     </span>
                                   )}
                                   {(section as any).clinicianFill && (
@@ -714,9 +750,12 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
                                       className="text-[10px] font-bold text-slate-600 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs transition-all flex items-center gap-1"
                                     >
                                       {copiedSectionId === section.id ? (
-                                        <span className="text-emerald-600 font-extrabold">✓ Copied</span>
+                                        <span className="text-emerald-600 font-extrabold flex items-center gap-1"><Check className="w-3 h-3" /> Copied</span>
                                       ) : (
-                                        <>📋 Copy</>
+                                        <>
+                                          <Copy className="w-3 h-3" />
+                                          <span>Copy</span>
+                                        </>
                                       )}
                                     </button>
                                   )}

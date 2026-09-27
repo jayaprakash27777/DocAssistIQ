@@ -19,26 +19,32 @@ import { parseApiError, type FrontendError } from "./errors";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ??
-  "http://localhost:8000";
+  "http://127.0.0.1:8002";
 
 // ── Types ──────────────────────────────────────────────────
 
 /** Shape of a single dependency in /ready response. */
 export interface DependencyStatus {
-  status: "healthy" | "unhealthy";
+  status: "healthy" | "unhealthy" | "timeout" | "degraded";
   error?: string;
+  mode?: string;
+  model?: string;
+  note?: string;
 }
 
 /** Shape of the /ready response body. */
 export interface ReadinessResponse {
   status: "healthy" | "degraded";
   request_id: string;
+  ai_mode?: string;
   dependencies: {
     database: DependencyStatus;
     redis: DependencyStatus;
     storage: DependencyStatus;
+    llm?: DependencyStatus;
   };
 }
+
 
 /** Shape of the /health response body. */
 export interface HealthResponse {
@@ -403,6 +409,13 @@ export async function authLogout(): Promise<ApiResult<undefined>> {
 export async function authGetMe(): Promise<ApiResult<MeResponse>> {
   return authedFetch<MeResponse>(`${BASE_URL}/api/v1/auth/me`);
 }
+
+export async function authVerifyAccount(): Promise<ApiResult<MeResponse>> {
+  return authedFetch<MeResponse>(`${BASE_URL}/api/v1/auth/verify-account`, {
+    method: "POST",
+  });
+}
+
 
 // ── Consultation types ──────────────────────────────────────
 
@@ -1516,6 +1529,9 @@ export interface DifferentialDiagnosisItem {
   recommended_investigations?: string[];
   recommended_medications?: string[];
   first_line_treatment?: string | null;
+  is_outbreak_match?: boolean;
+  outbreak_badge?: string;
+  outbreak_details?: any;
 }
 
 export interface DifferentialDiagnosisResponse {
@@ -1525,6 +1541,9 @@ export interface DifferentialDiagnosisResponse {
   missing_critical_info: string[];
   provider_metadata: Record<string, any>;
   top_candidates: DifferentialDiagnosisItem[];
+  outbreak_detected?: boolean;
+  outbreak_matches?: any[];
+  outbreak_summary?: string | null;
 }
 
 export async function getDifferentialDiagnosis(
@@ -1554,6 +1573,9 @@ export interface RealtimePredictionCandidate {
   severity: "low" | "moderate" | "high" | "critical";
   triage: "EMERGENT" | "URGENT" | "ROUTINE";
   is_hallmark_match: boolean;
+  is_outbreak_match?: boolean;
+  outbreak_badge?: string;
+  outbreak_details?: any;
   pathognomonic_features: string[];
   immediate_tests: string[];
   recommended_investigations?: string[];
@@ -1644,6 +1666,9 @@ export interface RealtimePredictionResponse {
   consultation_id?: string | null;
   top_candidates: RealtimePredictionCandidate[];
   emergency_alert?: RealtimeEmergencyAlert | null;
+  outbreak_detected?: boolean;
+  outbreak_matches?: any[];
+  outbreak_summary?: string | null;
   syndromic_clusters: string[];
   open_domain_matched: boolean;
   message?: string;
@@ -1694,6 +1719,56 @@ export async function getConsultationRealtimePrediction(
   return authedFetch<RealtimePredictionResponse>(
     `${BASE_URL}/api/v1/consultations/${consultationId}/predict-realtime${qs}`,
     { timeoutMs: 5000 }
+  );
+}
+
+// ── State-Wide & Global Outbreak Surveillance Types ─────────────────
+
+export interface OutbreakAlertItem {
+  id: string;
+  region_type: "india_state" | "global";
+  state_or_country: string;
+  districts: string[];
+  pathogen: string;
+  disease_name: string;
+  alert_level: "CRITICAL" | "HIGH" | "MONITORING";
+  status: string;
+  cardinal_symptoms: string[];
+  hallmark_triggers: string[];
+  vector_reservoir: string;
+  reporting_agency: string;
+  confirmatory_test: string;
+  isolation_protocol: string;
+  immediate_actions: string[];
+  last_updated: string;
+  reported_cases?: string;
+  fatality_rate?: string;
+  clinical_pearl: string;
+}
+
+export interface StateOutbreakResponse {
+  status: string;
+  timestamp: string;
+  total_active_alerts: number;
+  india_states_covered: number;
+  india_state_alerts: OutbreakAlertItem[];
+  global_alerts: OutbreakAlertItem[];
+  surveillance_sources: string[];
+}
+
+export async function getStateOutbreaks(params?: {
+  state?: string;
+  query?: string;
+  alert_level?: string;
+}): Promise<ApiResult<StateOutbreakResponse>> {
+  const q = new URLSearchParams();
+  if (params?.state) q.set("state", params.state);
+  if (params?.query) q.set("query", params.query);
+  if (params?.alert_level) q.set("alert_level", params.alert_level);
+  const qs = q.toString() ? `?${q.toString()}` : "";
+  return authedFetch<StateOutbreakResponse>(
+    `${BASE_URL}/api/v1/intelligence/state-outbreaks${qs}`,
+    { timeoutMs: 15000 }
   );
 }
 

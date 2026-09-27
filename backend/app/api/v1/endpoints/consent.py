@@ -35,10 +35,8 @@ async def create_consent_record(
     )
     if not consultation:
         raise HTTPException(status_code=403, detail=f"Unauthorized: Consultation {payload.consultation_id} not found")
-    if consultation.doctor_id != doctor.id:
-        tenant_id = db.info.get("tenant_id")
-        if not tenant_id or consultation.tenant_id != tenant_id:
-            raise HTTPException(status_code=403, detail=f"Unauthorized: mismatch cons_doc={consultation.doctor_id} vs doc={doctor.id}")
+    if consultation.doctor_id != doctor.id and consultation.tenant_id != doctor.tenant_id:
+        raise HTTPException(status_code=403, detail=f"Unauthorized: Doctor does not have access to consultation {payload.consultation_id}")
         
     consent = ConsentRecord(
         consultation_id=payload.consultation_id,
@@ -69,10 +67,8 @@ async def revoke_consent(
     )
     if not consultation:
         raise HTTPException(status_code=403, detail="Unauthorized for this consultation")
-    if consultation.doctor_id != doctor.id:
-        tenant_id = db.info.get("tenant_id")
-        if not tenant_id or consultation.tenant_id != tenant_id:
-            raise HTTPException(status_code=403, detail="Unauthorized for this consultation")
+    if consultation.doctor_id != doctor.id and consultation.tenant_id != doctor.tenant_id:
+        raise HTTPException(status_code=403, detail="Unauthorized for this consultation")
         
     # Get last consent to copy over details for the revocation record
     last_consent = await db.scalar(
@@ -121,10 +117,8 @@ async def get_active_consent(
     )
     if not consultation:
         raise HTTPException(status_code=403, detail="Unauthorized for this consultation")
-    if consultation.doctor_id != doctor.id:
-        tenant_id = db.info.get("tenant_id")
-        if not tenant_id or consultation.tenant_id != tenant_id:
-            raise HTTPException(status_code=403, detail="Unauthorized for this consultation")
+    if consultation.doctor_id != doctor.id and consultation.tenant_id != doctor.tenant_id:
+        raise HTTPException(status_code=403, detail="Unauthorized for this consultation")
         
     last_consent = await db.scalar(
         select(ConsentRecord)

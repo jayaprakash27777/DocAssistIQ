@@ -31,7 +31,23 @@ import {
   Copy,
   Check,
   RotateCcw,
-  Trash2
+  Trash2,
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  Sliders,
+  Stethoscope,
+  Layers,
+  Plus,
+  Radio,
+  FileCheck,
+  Search,
+  ExternalLink,
+  HeartPulse,
+  Thermometer,
+  AlertOctagon,
+  AlertTriangle
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { noteKeys, consultationKeys } from "@/hooks/useConsultations";
@@ -50,6 +66,7 @@ import {
   reviewClinicalFinding,
   getClinicalRepresentation,
   type ClinicalRepresentationResponse,
+  PLACEHOLDER_LABEL,
 } from "@/lib/api";
 import ClinicalNoteEditor from "@/components/clinical/ClinicalNoteEditor";
 import DifferentialDiagnosis from "@/components/clinical/DifferentialDiagnosis";
@@ -79,7 +96,7 @@ const CLINICAL_TEMPLATES = [
   {
     id: "soap",
     label: "SOAP Note",
-    icon: "📝",
+    iconType: "file",
     badge: "Full Encounter",
     text: `SUBJECTIVE:
 • Chief Complaint: 
@@ -103,7 +120,7 @@ PLAN:
   {
     id: "chest_pain",
     label: "Chest Pain (OPQRST)",
-    icon: "❤️",
+    iconType: "heart",
     badge: "Cardiology",
     text: `CHEST PAIN WORKUP (OPQRST):
 • Onset: Sudden / gradual onset [  ] hours ago during [activity].
@@ -118,7 +135,7 @@ PLAN:
   {
     id: "infection",
     label: "Infection / Sepsis",
-    icon: "🌡️",
+    iconType: "temp",
     badge: "Infectious",
     text: `INFECTION / SEPSIS SCREEN:
 • Fever / Rigors: Max temperature documented [  ]°C, chills, sweats.
@@ -131,8 +148,8 @@ PLAN:
   },
   {
     id: "exam_normal",
-    label: "Exam (Normal)",
-    icon: "🩺",
+    label: "Exam (Normal Systems)",
+    iconType: "scope",
     badge: "Physical Exam",
     text: `PHYSICAL EXAMINATION:
 • Constitutional: Alert, oriented x 4, well-nourished, in no acute distress.
@@ -144,10 +161,19 @@ PLAN:
   {
     id: "vitals",
     label: "Vitals Block",
-    icon: "📊",
+    iconType: "activity",
     badge: "Vitals",
     text: `VITALS: BP: 120/80 mmHg | HR: 72 bpm | RR: 16 /min | SpO2: 98% room air | Temp: 36.8°C | GCS: 15/15`,
   },
+];
+
+// Rapid 1-Click Clinical Section Insert Snippets
+const SCRATCHPAD_SECTIONS = [
+  { id: "cc", label: "Chief Complaint", snippet: "CHIEF COMPLAINT:\n• " },
+  { id: "hpi", label: "HPI (History)", snippet: "HISTORY OF PRESENT ILLNESS (HPI):\n• " },
+  { id: "pmhx", label: "PMHx & Meds", snippet: "PAST MEDICAL HISTORY & MEDICATIONS:\n• Medical History: \n• Active Medications: \n• Allergies: NKDA" },
+  { id: "vitals", label: "Physical Exam", snippet: "PHYSICAL EXAMINATION & VITALS:\n• Vitals: BP:    HR:    RR:    SpO2:    % Temp:    °C\n• General Appearance: Alert, no acute distress\n• Systemic Exam: " },
+  { id: "assessment", label: "Assessment & Plan", snippet: "ASSESSMENT & PLAN:\n1. Primary Problem:\n   - Plan: \n2. Secondary Problem:\n   - Plan: " },
 ];
 
 export default function ConsultationDetailPage() {
@@ -164,6 +190,8 @@ export default function ConsultationDetailPage() {
   const [inputText, setInputText] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [copiedScratchpad, setCopiedScratchpad] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
+  const [isScratchpadDdxOpen, setIsScratchpadDdxOpen] = useState(false);
 
   // Scratchpad Metrics
   const scratchpadStats = useMemo(() => {
@@ -182,6 +210,14 @@ export default function ConsultationDetailPage() {
     toast.success("Clinical template inserted");
   };
 
+  const handleInsertSection = (snippet: string) => {
+    setInputText((prev) => {
+      if (!prev.trim()) return snippet;
+      return `${prev.trim()}\n\n${snippet}`;
+    });
+    toast.success("Clinical section added to notes");
+  };
+
   const handleInsertTimestamp = () => {
     const timeStr = `[${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}] - `;
     setInputText((prev) => `${prev ? prev + "\n" : ""}${timeStr}`);
@@ -193,6 +229,14 @@ export default function ConsultationDetailPage() {
     setCopiedScratchpad(true);
     toast.success("Doctor notes copied to clipboard");
     setTimeout(() => setCopiedScratchpad(false), 2000);
+  };
+
+  const handleCopyId = () => {
+    if (!consultation?.id) return;
+    navigator.clipboard.writeText(consultation.id);
+    setCopiedId(true);
+    toast.success("Consultation ID copied to clipboard");
+    setTimeout(() => setCopiedId(false), 2000);
   };
 
   const handleClearScratchpad = () => {
@@ -493,54 +537,239 @@ export default function ConsultationDetailPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-72px)] bg-[var(--surface-base)] overflow-hidden relative">
       
-      {/* Simulation / Placeholder Clinical Banner */}
+      {/* Clinical Governance & System Integrity Bar */}
       <div 
         role="alert" 
         aria-label="Simulation Notice — Not a clinical result" 
-        className="px-6 py-2 bg-amber-50/80 border-b border-amber-200/80 text-xs text-amber-800 flex items-center justify-between shrink-0"
+        className="px-6 py-1 bg-slate-900 border-b border-slate-800 text-xs text-slate-300 flex items-center justify-between shrink-0"
       >
-        <span className="font-bold text-[11px] uppercase tracking-wider">
-          Simulation Environment — Not a clinical result
-        </span>
-        <span className="text-[11px] text-amber-700 hidden sm:inline font-medium">
-          Demonstration mode only. Verified clinician oversight required.
+        <div className="flex items-center gap-2">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" />
+          <span className="font-mono text-[10px] uppercase tracking-wider text-slate-200 font-bold">
+            {PLACEHOLDER_LABEL}
+          </span>
+          <span className="text-[10px] text-slate-400">• Clinician Review &amp; Verification Required</span>
+        </div>
+        <span className="text-[10px] text-slate-400 hidden sm:inline font-mono">
+          ISO 13485 / Local Edge Compute Mode
         </span>
       </div>
       
-      {/* Sticky Premium Header */}
-      <header className="px-6 py-4 bg-[var(--glass-bg)] backdrop-blur-xl border-b border-[var(--glass-border)] shrink-0 z-20 flex justify-between items-center shadow-sm sticky top-0">
-        <div>
-          <h2 className="text-xl font-bold font-heading text-[var(--text-primary)] flex items-center gap-3">
-            Consultation Workspace
-            <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-widest font-bold ${
-              currentStatus === 'finalized' ? 'bg-[var(--color-success-50)] text-[var(--color-success-700)] border border-[var(--color-success-200)]' : 
-              currentStatus === 'recording' ? 'bg-[var(--color-danger-50)] text-[var(--color-danger-700)] border border-[var(--color-danger-200)] animate-pulse' : 
-              'bg-[var(--color-primary-50)] text-[var(--color-primary-700)] border border-[var(--color-primary-200)]'
-            }`}>
-              {currentStatus.replace('_', ' ')}
-            </span>
-          </h2>
-          <div className="text-xs text-[var(--text-tertiary)] mt-1 font-mono">
-            ID: {consultation.id}
+      {/* Sticky Premium Clinical Command Header */}
+      <header className="px-4 sm:px-6 py-3.5 bg-white/95 backdrop-blur-xl border-b border-slate-200/90 shrink-0 z-30 flex flex-wrap items-center justify-between gap-4 shadow-2xs sticky top-0">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/consultations"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200"
+            title="Back to consultations"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Link>
+
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-lg font-black font-heading text-slate-900 tracking-tight flex items-center gap-2">
+                Consultation Workspace
+              </h2>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-extrabold flex items-center gap-1.5 shadow-2xs ${
+                currentStatus === 'finalized' ? 'bg-emerald-50 text-emerald-800 border border-emerald-300' : 
+                currentStatus === 'recording' ? 'bg-rose-50 text-rose-800 border border-rose-300 ring-2 ring-rose-200/50' : 
+                currentStatus === 'processing' ? 'bg-purple-50 text-purple-800 border border-purple-300' :
+                currentStatus === 'draft' ? 'bg-indigo-50 text-indigo-800 border border-indigo-300' :
+                currentStatus === 'under_review' ? 'bg-amber-50 text-amber-800 border border-amber-300' :
+                'bg-slate-100 text-slate-700 border border-slate-300'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${
+                  currentStatus === 'recording' ? 'bg-rose-600 animate-ping' :
+                  currentStatus === 'finalized' ? 'bg-emerald-600' :
+                  currentStatus === 'processing' ? 'bg-purple-600 animate-pulse' :
+                  'bg-indigo-600'
+                }`} />
+                {currentStatus.replace('_', ' ')}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 mt-0.5">
+              <button
+                type="button"
+                onClick={handleCopyId}
+                className="group flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 font-mono transition-colors"
+                title="Click to copy consultation ID"
+              >
+                <span>ID: {consultation.id}</span>
+                {copiedId ? (
+                  <Check className="w-3 h-3 text-emerald-600" />
+                ) : (
+                  <Copy className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        {/* Executive Workflow Action Console */}
+        <div className="flex items-center gap-3">
+          {currentStatus === "created" && (
+            <button 
+              type="button"
+              onClick={() => {
+                if (!consent) setShowConsentForm(true);
+                else handleTransition("recording");
+              }}
+              disabled={actionLoading}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all bg-gradient-to-r from-teal-600 via-indigo-600 to-indigo-700 hover:from-teal-500 hover:to-indigo-600 shadow-md shadow-indigo-500/20 active:scale-95 flex items-center gap-2"
+            >
+              <Mic className="w-4 h-4 text-teal-200 animate-pulse" />
+              <span>Start Recording</span>
+            </button>
+          )}
+
+          {currentStatus === "recording" && (
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-mono text-xs font-bold flex items-center gap-2 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
+                <span>REC {formatElapsed(audio.elapsedMs)}</span>
+              </div>
+              <Button 
+                variant="primary" 
+                onClick={() => handleTransition("processing")}
+                disabled={actionLoading}
+                className="h-8 px-3.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs"
+              >
+                Submit for Analysis
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => handleTransition("created")}
+                disabled={actionLoading}
+                className="h-8 px-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl"
+              >
+                <Square className="w-3.5 h-3.5 mr-1" /> Stop
+              </Button>
+            </div>
+          )}
+
+          {currentStatus === "processing" && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-200 text-xs font-bold text-purple-700">
+              <div className="w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+              <span>Processing Audio &amp; Synthesizing...</span>
+            </div>
+          )}
+
+          {currentStatus === "draft" && (
+            <Button 
+              variant="primary" 
+              onClick={() => handleTransition("under_review")} 
+              disabled={actionLoading} 
+              className="h-8 px-4 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs flex items-center gap-1.5"
+            >
+              <span>Begin Note Review</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          )}
+
+          {currentStatus === "under_review" && (
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="primary" 
+                onClick={() => handleTransition("analysis_ready")} 
+                disabled={actionLoading} 
+                className="h-8 px-3.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs"
+              >
+                Mark Analysis Ready
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => handleTransition("draft")} 
+                disabled={actionLoading} 
+                className="h-8 px-2.5 text-xs font-medium rounded-xl"
+              >
+                Draft
+              </Button>
+            </div>
+          )}
+
+          {currentStatus === "analysis_ready" && (
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="primary" 
+                onClick={() => handleTransition("finalized")} 
+                disabled={actionLoading} 
+                className="h-8 px-3.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs flex items-center gap-1.5"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>Sign Off &amp; Finalize</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => handleTransition("under_review")} 
+                disabled={actionLoading} 
+                className="h-8 px-2.5 text-xs font-medium rounded-xl"
+              >
+                Re-review
+              </Button>
+            </div>
+          )}
+
+          {currentStatus === "finalized" && (
+            <Button 
+              variant="ghost" 
+              onClick={() => handleTransition("amended")} 
+              disabled={actionLoading} 
+              className="h-8 px-3 text-xs font-bold rounded-xl border border-slate-200 hover:bg-slate-50"
+            >
+              Amend Finalized Record
+            </Button>
+          )}
+
+          {currentStatus === "amended" && (
+            <Button 
+              variant="primary" 
+              onClick={() => handleTransition("finalized")} 
+              disabled={actionLoading} 
+              className="h-8 px-3.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs flex items-center gap-1.5"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span>Sign Off Amendment</span>
+            </Button>
+          )}
+
+          <div className="h-5 w-px bg-slate-200 mx-1 hidden sm:block" />
+
+          {/* Quick Intake Form Link */}
+          <Link
+            href={`/consultations/${id}/intake`}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 shadow-2xs transition-all active:scale-95"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+            <span>Intake Form</span>
+          </Link>
+
+          {/* Consent Status Badge */}
           {consent ? (
-            <div className="flex items-center gap-2 bg-[var(--color-success-50)] text-[var(--color-success-700)] px-3 py-1.5 rounded-full border border-[var(--color-success-200)] shadow-sm">
-              <CheckCircle className="w-4 h-4" />
-              <span className="text-xs font-bold uppercase tracking-wide">Consent Granted</span>
+            <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-xs font-bold uppercase tracking-wide hidden md:inline">Consent Granted</span>
               {["created", "recording"].includes(currentStatus) && (
-                <button onClick={handleRevokeConsent} disabled={actionLoading} className="ml-2 text-[10px] underline hover:text-[var(--color-danger-600)] transition-colors">
+                <button 
+                  type="button"
+                  onClick={handleRevokeConsent} 
+                  disabled={actionLoading} 
+                  className="ml-1 text-[10px] underline hover:text-rose-600 text-slate-500 font-bold transition-colors"
+                >
                   Revoke
                 </button>
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 bg-[var(--color-danger-50)] text-[var(--color-danger-700)] px-3 py-1.5 rounded-full border border-[var(--color-danger-200)] shadow-sm">
-              <AlertCircle className="w-4 h-4" />
+            <button
+              type="button"
+              onClick={() => setShowConsentForm(true)}
+              className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 px-3 py-1.5 rounded-xl border border-rose-200 shadow-2xs transition-all"
+            >
+              <AlertCircle className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
               <span className="text-xs font-bold uppercase tracking-wide">Missing Consent</span>
-            </div>
+            </button>
           )}
         </div>
       </header>
@@ -549,8 +778,8 @@ export default function ConsultationDetailPage() {
       {representation?.safety_decision && representation.safety_decision.decision !== "ALLOW" && (
         <div className="bg-red-50 border-b-4 border-red-600 p-4 shrink-0 shadow-sm animate-pulse-slow z-50 sticky top-0">
           <div className="flex items-start max-w-7xl mx-auto">
-            <div className="flex-shrink-0">
-              <span className="text-red-600 text-2xl" aria-hidden="true">🚨</span>
+            <div className="flex-shrink-0 mt-0.5">
+              <AlertOctagon className="w-6 h-6 text-red-600" aria-hidden="true" />
             </div>
             <div className="ml-3 w-full">
               <h3 className="text-sm font-bold text-red-800 uppercase tracking-wider mb-1 flex items-center gap-2">
@@ -562,7 +791,13 @@ export default function ConsultationDetailPage() {
               <div className="mt-2 text-sm text-red-700 space-y-2">
                 {representation.safety_decision.flags.map((flag, idx) => (
                   <div key={idx} className="bg-white/60 p-2 rounded border border-red-200 shadow-sm flex items-start gap-2">
-                    <span className="mt-0.5">{flag.severity === 'CRITICAL' ? '🛑' : '⚠️'}</span>
+                    <span className="mt-0.5">
+                      {flag.severity === 'CRITICAL' ? (
+                        <AlertOctagon className="w-4 h-4 text-red-600 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      )}
+                    </span>
                     <div>
                       <p className="font-semibold text-red-900 text-xs mb-0.5">{flag.category.replace('_', ' ')}</p>
                       <p className="text-red-800 text-xs font-medium">{flag.message}</p>
@@ -576,12 +811,12 @@ export default function ConsultationDetailPage() {
       )}
 
       {/* Main Content Area */}
-      <div className={`flex flex-1 overflow-hidden relative ${!isSplitPane ? 'max-w-4xl mx-auto w-full' : ''}`}>
+      <div className="flex flex-1 overflow-hidden relative w-full">
         
         {/* Left Pane (Timeline / Transcript) */}
-        <div className="flex-1 flex flex-col h-full bg-white relative">
+        <div className="flex-1 flex flex-col h-full bg-slate-50/50 relative overflow-hidden">
           {/* Consent Form */}
-          <div className="px-6 pt-6 shrink-0">
+          <div className="px-4 sm:px-6 lg:px-8 pt-4 shrink-0">
             <AnimatePresence>
               {showConsentForm && !consent && (
                 <motion.div 
@@ -634,7 +869,7 @@ export default function ConsultationDetailPage() {
                     </div>
                     <div className="flex items-center gap-3 border-t border-[var(--border-default)] pt-5">
                       <Button type="submit" variant="primary" disabled={actionLoading} isLoading={actionLoading}>
-                        Grant & Record Consent
+                        Grant &amp; Record Consent
                       </Button>
                       <Button type="button" variant="ghost" onClick={() => setShowConsentForm(false)} disabled={actionLoading}>
                         Cancel
@@ -646,167 +881,321 @@ export default function ConsultationDetailPage() {
             </AnimatePresence>
           </div>
 
-          <Tabs.Root defaultValue="ai-assistant" className="flex flex-col h-full">
-            <div className="px-6 border-b border-[var(--border-default)] shrink-0">
-              <Tabs.List className="flex gap-6">
+          <Tabs.Root defaultValue="ai-assistant" className="flex flex-1 flex-col h-full overflow-hidden">
+            <div className="px-4 sm:px-6 lg:px-8 py-2.5 border-b border-slate-200/80 bg-white/90 backdrop-blur-md shrink-0 flex flex-wrap items-center justify-between gap-3">
+              <Tabs.List className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80">
                 <Tabs.Trigger 
                   value="ai-assistant" 
-                  className="pb-3 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] data-[state=active]:text-[var(--color-primary-600)] data-[state=active]:border-b-2 data-[state=active]:border-[var(--color-primary-600)] transition-colors hover:text-[var(--text-primary)] outline-none"
+                  className="px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-500 hover:text-slate-800 outline-none"
                 >
-                  AI Assistant
+                  <Activity className="w-3.5 h-3.5 text-teal-600" />
+                  <span>Live AI Cockpit</span>
+                  {currentStatus === "recording" && (
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                  )}
                 </Tabs.Trigger>
                 <Tabs.Trigger 
                   value="intelligence" 
-                  className="pb-3 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] data-[state=active]:text-[var(--color-primary-600)] data-[state=active]:border-b-2 data-[state=active]:border-[var(--color-primary-600)] transition-colors hover:text-[var(--text-primary)] outline-none flex items-center gap-1.5"
+                  className="px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-500 hover:text-slate-800 outline-none"
                 >
-                  <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 animate-pulse" />
-                  Clinical Intelligence &amp; DDx
+                  <Zap className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Clinical Intelligence &amp; DDx</span>
                 </Tabs.Trigger>
                 <Tabs.Trigger 
                   value="transcript" 
-                  className="pb-3 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] data-[state=active]:text-[var(--color-primary-600)] data-[state=active]:border-b-2 data-[state=active]:border-[var(--color-primary-600)] transition-colors hover:text-[var(--text-primary)] outline-none"
+                  className="px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-500 hover:text-slate-800 outline-none"
                 >
-                  Transcript & Review
+                  <Radio className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Transcript &amp; Audit</span>
                 </Tabs.Trigger>
                 <Tabs.Trigger 
                   value="scratchpad" 
-                  className="pb-3 text-sm font-bold uppercase tracking-wider text-[var(--text-tertiary)] data-[state=active]:text-[var(--color-primary-600)] data-[state=active]:border-b-2 data-[state=active]:border-[var(--color-primary-600)] transition-colors hover:text-[var(--text-primary)] outline-none flex items-center gap-1.5"
+                  className="px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-500 hover:text-slate-800 outline-none"
                 >
-                  <FileText className="w-3.5 h-3.5" />
-                  Doctor Notes &amp; Scratchpad
+                  <FileText className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Doctor Notes &amp; Scratchpad</span>
+                  {inputText.trim() && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                  )}
                 </Tabs.Trigger>
               </Tabs.List>
+
+              <div className="hidden lg:flex items-center gap-2.5 text-xs text-slate-400 font-mono">
+                <span className="bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 font-semibold">
+                  ENC #{consultation.id.slice(0, 8)}
+                </span>
+                <span>•</span>
+                <span className="uppercase text-[10px] tracking-wider font-extrabold text-slate-500">
+                  Phase: {currentStatus}
+                </span>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 pb-32">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-32">
               
               <Tabs.Content value="ai-assistant" className="space-y-6 outline-none">
-                {consultation.input_text && (
-                  <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 shadow-sm">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                      Clinical Scenario
-                    </span>
-                    <p className="text-sm text-slate-700 leading-relaxed font-medium">
-                      {consultation.input_text}
-                    </p>
-                  </div>
-                )}
+                {!isSplitPane ? (
+                  /* Spacious 2-Column Clinical Cockpit for wide displays */
+                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                    {/* Left Column: Recording, Transcript, Extracted Findings, Chat */}
+                    <div className="xl:col-span-5 space-y-6">
+                      {consultation.input_text && (
+                        <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                            Clinical Scenario
+                          </span>
+                          <p className="text-sm text-slate-700 leading-relaxed font-medium">
+                            {consultation.input_text}
+                          </p>
+                        </div>
+                      )}
 
-                <div className="mb-6">
-                  <LiveTranscriptionPanel
-                    consultationId={Array.isArray(params.id) ? params.id[0] : params.id as string}
+                      <LiveTranscriptionPanel
+                        consultationId={consultation.id}
+                        isConsultationRecording={currentStatus === "recording"}
+                        onStartConsultationRecording={() => {
+                          if (!consent) setShowConsentForm(true);
+                          else handleTransition("recording");
+                        }}
+                        onStopConsultationRecording={() => handleTransition("processing")}
+                        onTranscriptReady={(text, segments) => {
+                          // Handle transcript ready — pass to note generation
+                        }}
+                      />
 
-                    onTranscriptReady={(text, segments) => {
-                      // Handle transcript ready — pass to note generation
-                    }}
-                  />
-                </div>
-
-                {/* ── Inline AI Chat Box ─────────────────────────────── */}
-                <InlineAIChat consultationId={consultation.id} />
-
-                {consultation?.findings && consultation.findings.length > 0 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-6 p-5 bg-white border border-[var(--color-primary-200)] shadow-sm rounded-2xl relative overflow-hidden"
-                  >
-                    <div className="absolute top-0 left-0 w-1 h-full bg-[var(--color-primary-500)]" />
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-sm font-bold tracking-wide text-[var(--color-primary-800)] uppercase flex items-center gap-2 m-0">
-                        <Activity className="w-4 h-4" />
-                        Extracted Clinical Findings
-                      </h3>
-                      <span className="text-[0.65rem] font-bold px-2.5 py-1 bg-[var(--color-primary-50)] text-[var(--color-primary-700)] rounded-full uppercase tracking-widest border border-[var(--color-primary-200)] flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary-500)] animate-pulse" />
-                        AI Suggested
-                      </span>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2.5">
-                      {consultation.findings.map((finding: any) => (
+                      {consultation?.findings && consultation.findings.length > 0 && (
                         <motion.div 
-                          key={finding.id} 
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          whileHover={{ scale: 1.02 }}
-                          className={`p-3 rounded-xl border flex flex-col gap-1.5 min-w-[160px] shadow-sm transition-colors ${
-                            finding.negated 
-                              ? "bg-[var(--color-danger-50)] border-[var(--color-danger-200)]" 
-                              : finding.status === "confirmed" 
-                                ? "bg-[var(--color-success-50)] border-[var(--color-success-200)]"
-                                : "bg-white border-[var(--border-default)] hover:border-[var(--color-primary-300)]"
-                          }`}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="p-5 bg-white border border-indigo-200 shadow-2xs rounded-2xl relative overflow-hidden"
                         >
-                          <div className="flex justify-between items-start gap-2">
-                            <span className={`text-sm font-bold capitalize ${finding.negated ? "text-[var(--color-danger-700)] line-through opacity-80" : "text-[var(--text-primary)]"}`}>
-                              {finding.value}
+                          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-600" />
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-sm font-bold tracking-wide text-indigo-900 uppercase flex items-center gap-2 m-0 font-heading">
+                              <Activity className="w-4 h-4 text-indigo-600" />
+                              Extracted Clinical Findings
+                            </h3>
+                            <span className="text-[0.65rem] font-bold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full uppercase tracking-widest border border-indigo-200 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
+                              AI Suggested
                             </span>
-                            {finding.confidence_score && (
-                              <span className="text-[0.65rem] font-mono text-[var(--text-tertiary)] bg-[var(--surface-sunken)] px-1.5 rounded">
-                                {(finding.confidence_score * 100).toFixed(0)}%
-                              </span>
-                            )}
                           </div>
                           
-                          {finding.canonical_concept && finding.canonical_concept !== finding.value.toLowerCase() && (
-                            <div className="text-[0.7rem] text-[var(--text-secondary)] italic flex items-center gap-1">
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>
-                              {finding.canonical_concept}
-                              {finding.mapping_source && <span className="opacity-60">({finding.mapping_source})</span>}
-                            </div>
-                          )}
-                          
-                          <div className="flex flex-wrap gap-1.5 mt-1">
-                            <span className="text-[0.65rem] px-1.5 py-0.5 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded text-[var(--text-secondary)] font-medium">
-                              {finding.concept || finding.finding_type}
-                            </span>
-                            {finding.temporality && finding.temporality !== "current" && (
-                              <span className="text-[0.65rem] px-1.5 py-0.5 bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] rounded text-[var(--color-warning-700)] font-medium">
-                                {finding.temporality}
-                              </span>
-                            )}
-                            {finding.negated && (
-                              <span className="text-[0.65rem] px-1.5 py-0.5 bg-[var(--color-danger-100)] text-[var(--color-danger-700)] rounded font-bold">
-                                NEGATED
-                              </span>
-                            )}
-                            {finding.status === "confirmed" && (
-                              <span className="text-[0.65rem] px-1.5 py-0.5 bg-[var(--color-success-100)] text-[var(--color-success-700)] rounded font-bold flex items-center gap-1">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                CONFIRMED
-                              </span>
-                            )}
-                            {finding.status === "rejected" && (
-                              <span className="text-[0.65rem] px-1.5 py-0.5 bg-[var(--color-danger-100)] text-[var(--color-danger-700)] rounded font-bold flex items-center gap-1">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                REJECTED
-                              </span>
-                            )}
+                          <div className="flex flex-wrap gap-2.5">
+                            {consultation.findings.map((finding: any) => (
+                              <motion.div 
+                                key={finding.id} 
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                whileHover={{ scale: 1.02 }}
+                                className={`p-3 rounded-xl border flex flex-col gap-1.5 min-w-[160px] shadow-2xs transition-colors ${
+                                  finding.negated 
+                                    ? "bg-rose-50/70 border-rose-200" 
+                                    : finding.status === "confirmed" 
+                                      ? "bg-emerald-50/80 border-emerald-200" 
+                                      : "bg-white border-slate-200 hover:border-indigo-300"
+                                }`}
+                              >
+                                <div className="flex justify-between items-start gap-2">
+                                  <span className={`text-sm font-bold capitalize ${finding.negated ? "text-rose-700 line-through opacity-80" : "text-slate-800"}`}>
+                                    {finding.value}
+                                  </span>
+                                  {finding.confidence_score && (
+                                    <span className="text-[0.65rem] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                      {(finding.confidence_score * 100).toFixed(0)}%
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {finding.canonical_concept && finding.canonical_concept !== finding.value.toLowerCase() && (
+                                  <div className="text-[0.7rem] text-slate-500 italic flex items-center gap-1">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>
+                                    {finding.canonical_concept}
+                                    {finding.mapping_source && <span className="opacity-60">({finding.mapping_source})</span>}
+                                  </div>
+                                )}
+                                
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  <span className="text-[0.65rem] px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-600 font-medium">
+                                    {finding.concept || finding.finding_type}
+                                  </span>
+                                  {finding.temporality && finding.temporality !== "current" && (
+                                    <span className="text-[0.65rem] px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded text-amber-700 font-medium">
+                                      {finding.temporality}
+                                    </span>
+                                  )}
+                                  {finding.negated && (
+                                    <span className="text-[0.65rem] px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded font-bold">
+                                      NEGATED
+                                    </span>
+                                  )}
+                                  {finding.status === "confirmed" && (
+                                    <span className="text-[0.65rem] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-bold flex items-center gap-1">
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                      CONFIRMED
+                                    </span>
+                                  )}
+                                  {finding.status === "rejected" && (
+                                    <span className="text-[0.65rem] px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded font-bold flex items-center gap-1">
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                      REJECTED
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {finding.status === "pending" && (
+                                  <div className="flex gap-1.5 mt-2 pt-2 border-t border-slate-100">
+                                    <button type="button" className="flex-1 py-1 px-2 text-[0.65rem] font-bold rounded bg-slate-100 hover:bg-rose-50 hover:text-rose-600 transition-colors border border-slate-200" onClick={() => handleReviewFinding(finding.id, "reject")}>Reject</button>
+                                    <button type="button" className="flex-1 py-1 px-2 text-[0.65rem] font-bold rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors border border-indigo-200" onClick={() => handleReviewFinding(finding.id, "confirm")}>Confirm</button>
+                                  </div>
+                                )}
+                              </motion.div>
+                            ))}
                           </div>
-                          
-                          {finding.status === "pending" && (
-                            <div className="flex gap-1.5 mt-2 pt-2 border-t border-[var(--border-default)]">
-                              <button type="button" className="flex-1 py-1 px-2 text-[0.65rem] font-bold rounded bg-[var(--surface-sunken)] hover:bg-[var(--color-danger-50)] hover:text-[var(--color-danger-600)] transition-colors border border-[var(--border-default)]" onClick={() => handleReviewFinding(finding.id, "reject")}>Reject</button>
-                              <button type="button" className="flex-1 py-1 px-2 text-[0.65rem] font-bold rounded bg-[var(--color-primary-50)] text-[var(--color-primary-700)] hover:bg-[var(--color-primary-100)] transition-colors border border-[var(--color-primary-200)]" onClick={() => handleReviewFinding(finding.id, "confirm")}>Confirm</button>
-                            </div>
-                          )}
                         </motion.div>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
+                      )}
 
-                {consultation && (
-                  <DifferentialDiagnosis 
-                    consultationId={consultation.id} 
-                    trigger={consultation.findings?.length || consultation.status}
-                    initialQuery={consultation.input_text || inputText}
-                  />
-                )}
-                
-                {consultation && (
-                  <div style={{ marginBottom: "1rem" }}>
+                      <InlineAIChat consultationId={consultation.id} />
+                    </div>
+
+                    {/* Right Column: Full-Width AI Differential Diagnosis & Similar Cases */}
+                    <div className="xl:col-span-7 space-y-6">
+                      <DifferentialDiagnosis 
+                        consultationId={consultation.id} 
+                        trigger={consultation.findings?.length || consultation.status}
+                        initialQuery={consultation.input_text || inputText}
+                      />
+
+                      <SimilarCasesPanel consultationId={consultation.id} />
+                    </div>
+                  </div>
+                ) : (
+                  /* Split-Pane Single-Column Layout when Clinical Note Editor is active */
+                  <div className="space-y-6">
+                    {consultation.input_text && (
+                      <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                          Clinical Scenario
+                        </span>
+                        <p className="text-sm text-slate-700 leading-relaxed font-medium">
+                          {consultation.input_text}
+                        </p>
+                      </div>
+                    )}
+
+                    <LiveTranscriptionPanel
+                      consultationId={consultation.id}
+                      isConsultationRecording={currentStatus === "recording"}
+                      onStartConsultationRecording={() => {
+                        if (!consent) setShowConsentForm(true);
+                        else handleTransition("recording");
+                      }}
+                      onStopConsultationRecording={() => handleTransition("processing")}
+                      onTranscriptReady={(text, segments) => {
+                        // Handle transcript ready — pass to note generation
+                      }}
+                    />
+
+                    <InlineAIChat consultationId={consultation.id} />
+
+                    {consultation?.findings && consultation.findings.length > 0 && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-5 bg-white border border-indigo-200 shadow-2xs rounded-2xl relative overflow-hidden"
+                      >
+                        <div className="absolute top-0 left-0 w-1 h-full bg-indigo-600" />
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-sm font-bold tracking-wide text-indigo-900 uppercase flex items-center gap-2 m-0 font-heading">
+                            <Activity className="w-4 h-4 text-indigo-600" />
+                            Extracted Clinical Findings
+                          </h3>
+                          <span className="text-[0.65rem] font-bold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full uppercase tracking-widest border border-indigo-200 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
+                            AI Suggested
+                          </span>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2.5">
+                          {consultation.findings.map((finding: any) => (
+                            <motion.div 
+                              key={finding.id} 
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              whileHover={{ scale: 1.02 }}
+                              className={`p-3 rounded-xl border flex flex-col gap-1.5 min-w-[160px] shadow-2xs transition-colors ${
+                                finding.negated 
+                                  ? "bg-rose-50/70 border-rose-200" 
+                                  : finding.status === "confirmed" 
+                                    ? "bg-emerald-50/80 border-emerald-200" 
+                                    : "bg-white border-slate-200 hover:border-indigo-300"
+                              }`}
+                            >
+                              <div className="flex justify-between items-start gap-2">
+                                <span className={`text-sm font-bold capitalize ${finding.negated ? "text-rose-700 line-through opacity-80" : "text-slate-800"}`}>
+                                  {finding.value}
+                                </span>
+                                {finding.confidence_score && (
+                                  <span className="text-[0.65rem] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                    {(finding.confidence_score * 100).toFixed(0)}%
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {finding.canonical_concept && finding.canonical_concept !== finding.value.toLowerCase() && (
+                                <div className="text-[0.7rem] text-slate-500 italic flex items-center gap-1">
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>
+                                  {finding.canonical_concept}
+                                  {finding.mapping_source && <span className="opacity-60">({finding.mapping_source})</span>}
+                                </div>
+                              )}
+                              
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                <span className="text-[0.65rem] px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-600 font-medium">
+                                  {finding.concept || finding.finding_type}
+                                </span>
+                                {finding.temporality && finding.temporality !== "current" && (
+                                  <span className="text-[0.65rem] px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded text-amber-700 font-medium">
+                                    {finding.temporality}
+                                  </span>
+                                )}
+                                {finding.negated && (
+                                  <span className="text-[0.65rem] px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded font-bold">
+                                    NEGATED
+                                  </span>
+                                )}
+                                {finding.status === "confirmed" && (
+                                  <span className="text-[0.65rem] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-bold flex items-center gap-1">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    CONFIRMED
+                                  </span>
+                                )}
+                                {finding.status === "rejected" && (
+                                  <span className="text-[0.65rem] px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded font-bold flex items-center gap-1">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                    REJECTED
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {finding.status === "pending" && (
+                                <div className="flex gap-1.5 mt-2 pt-2 border-t border-slate-100">
+                                  <button type="button" className="flex-1 py-1 px-2 text-[0.65rem] font-bold rounded bg-slate-100 hover:bg-rose-50 hover:text-rose-600 transition-colors border border-slate-200" onClick={() => handleReviewFinding(finding.id, "reject")}>Reject</button>
+                                  <button type="button" className="flex-1 py-1 px-2 text-[0.65rem] font-bold rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors border border-indigo-200" onClick={() => handleReviewFinding(finding.id, "confirm")}>Confirm</button>
+                                </div>
+                              )}
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+
+                    <DifferentialDiagnosis 
+                      consultationId={consultation.id} 
+                      trigger={consultation.findings?.length || consultation.status}
+                      initialQuery={consultation.input_text || inputText}
+                    />
+                    
                     <SimilarCasesPanel consultationId={consultation.id} />
                   </div>
                 )}
@@ -881,14 +1270,14 @@ export default function ConsultationDetailPage() {
                   </div>
                 </div>
 
-                {/* Clinical Template Quick-Chips Bar */}
-                <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs">
-                  <div className="flex items-center justify-between mb-2.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5 font-heading">
+                {/* Clinical Template & Quick Section Insert Bar */}
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5 font-heading">
                       <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                      1-Click Clinical Templates:
+                      1-Click Comprehensive Clinical Templates:
                     </span>
-                    <span className="text-[10px] text-slate-400 font-medium">Click chip to insert at end of notes</span>
+                    <span className="text-[10px] text-slate-400 font-medium">Inserts full clinical benchmark template</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {CLINICAL_TEMPLATES.map((tmpl) => (
@@ -897,19 +1286,47 @@ export default function ConsultationDetailPage() {
                         type="button"
                         onClick={() => handleInsertTemplate(tmpl.text)}
                         disabled={actionLoading || currentStatus === "finalized"}
-                        className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-slate-200/90 hover:border-teal-300 text-xs font-medium text-slate-700 hover:text-teal-900 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
+                        className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-teal-50 border border-slate-200/80 hover:border-teal-300 text-xs font-medium text-slate-700 hover:text-teal-900 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
                       >
-                        <span className="text-sm">{tmpl.icon}</span>
+                        {tmpl.iconType === "heart" ? (
+                          <HeartPulse className="w-3.5 h-3.5 text-rose-500 group-hover:scale-110 transition-transform" />
+                        ) : tmpl.iconType === "temp" ? (
+                          <Thermometer className="w-3.5 h-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+                        ) : tmpl.iconType === "scope" ? (
+                          <Stethoscope className="w-3.5 h-3.5 text-teal-600 group-hover:scale-110 transition-transform" />
+                        ) : tmpl.iconType === "activity" ? (
+                          <Activity className="w-3.5 h-3.5 text-blue-500 group-hover:scale-110 transition-transform" />
+                        ) : (
+                          <FileText className="w-3.5 h-3.5 text-indigo-500 group-hover:scale-110 transition-transform" />
+                        )}
                         <span className="font-bold">{tmpl.label}</span>
-                        <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-slate-100 group-hover:bg-teal-100/70 text-slate-500 group-hover:text-teal-700 transition-colors">
+                        <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-white group-hover:bg-teal-100/70 text-slate-500 group-hover:text-teal-700 border border-slate-200/60 group-hover:border-teal-200 transition-colors">
                           {tmpl.badge}
                         </span>
                       </button>
                     ))}
                   </div>
+
+                  {/* Rapid 1-Click Clinical Section Inserters */}
+                  <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
+                      <Plus className="w-3 h-3 text-slate-400" /> Add Section:
+                    </span>
+                    {SCRATCHPAD_SECTIONS.map((sec) => (
+                      <button
+                        key={sec.id}
+                        type="button"
+                        onClick={() => handleInsertSection(sec.snippet)}
+                        disabled={actionLoading || currentStatus === "finalized"}
+                        className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 text-slate-600 hover:text-indigo-700 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        {sec.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Editor Canvas Card */}
+                {/* Expansive Editor Canvas Card */}
                 <div className="rounded-3xl border border-slate-200/90 bg-white shadow-sm overflow-hidden flex flex-col focus-within:ring-4 focus-within:ring-teal-500/10 focus-within:border-teal-500 transition-all">
                   {/* Editor Utility Toolbar */}
                   <div className="bg-slate-50/90 border-b border-slate-200/90 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
@@ -979,9 +1396,9 @@ export default function ConsultationDetailPage() {
                     </div>
                   </div>
 
-                  {/* Textarea */}
+                  {/* Textarea - Expansive High-Readability Workspace */}
                   <textarea
-                    className="w-full min-h-[340px] p-5 text-slate-800 bg-transparent placeholder-slate-400 font-mono text-sm leading-relaxed resize-y outline-none"
+                    className="w-full min-h-[460px] lg:min-h-[520px] p-6 text-slate-800 bg-transparent placeholder-slate-400 font-mono text-sm leading-relaxed resize-y outline-none"
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={(e) => {
@@ -999,57 +1416,85 @@ export default function ConsultationDetailPage() {
                     }
                     placeholder={
                       currentStatus === "recording" 
-                        ? "Recording in progress... (type manual scratchpad notes here)" 
-                        : "Type free-form notes during the consultation...\n\nShortcut: Press Ctrl+Enter to trigger AI Clinical Synthesis."
+                        ? "Recording in progress... (type manual observations, clinical impressions, or physical exam findings here)" 
+                        : "Type free-form notes during the consultation, or click any clinical template or section above...\n\nShortcut: Press Ctrl+Enter to trigger AI Clinical Synthesis into structured note."
                     }
                   />
 
                   {/* Textarea Footer / Status Bar */}
-                  <div className="bg-slate-50/80 border-t border-slate-100 px-5 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                  <div className="bg-slate-50/90 border-t border-slate-200/80 px-5 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2 text-slate-600 font-medium">
-                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[11px]">
-                        Live connected to Differential Diagnosis Engine &amp; Clinical Knowledge Graph
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-xs">
+                        Live synchronized with Differential Diagnosis Engine &amp; Clinical Knowledge Graph
                       </span>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <span className="text-[10px] text-slate-400 hidden sm:inline">
-                        Press <kbd className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono text-[9px] font-bold">Ctrl+Enter</kbd>
+                      <span className="text-[11px] text-slate-400 hidden sm:inline">
+                        Press <kbd className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono text-[10px] font-bold">Ctrl+Enter</kbd>
                       </span>
                       <Button 
                         variant="primary" 
                         onClick={() => handleTransition("draft")}
                         disabled={actionLoading || !inputText.trim() || currentStatus === "finalized"}
                         isLoading={actionLoading}
-                        className="h-9 px-5 text-xs font-bold shadow-md bg-gradient-to-r from-teal-600 to-indigo-600 text-white hover:brightness-110 active:scale-95 rounded-xl"
+                        className="h-10 px-6 text-xs font-bold shadow-md bg-gradient-to-r from-teal-600 via-indigo-600 to-indigo-700 text-white hover:brightness-110 active:scale-95 rounded-xl flex items-center gap-2"
                       >
-                        <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                        <Sparkles className="w-4 h-4 text-teal-200" />
                         Analyze Notes &amp; Formulate SOAP Note
                       </Button>
                     </div>
                   </div>
                 </div>
 
-                {/* Differential Diagnosis Engine Below Scratchpad */}
-                <div className="mt-4 border-t border-slate-200/80 pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-amber-500 fill-amber-500 animate-pulse" />
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                        Live Differential Diagnosis (Real-Time Scratchpad Evaluation)
-                      </h4>
-                    </div>
-                    <span className="text-[10px] bg-indigo-100 text-indigo-800 font-bold px-2.5 py-0.5 rounded-full border border-indigo-200">
-                      ⚡ Live Predictive Engine
-                    </span>
+                {/* Collapsible Real-Time Differential Diagnosis Evaluation Drawer */}
+                <div className="rounded-3xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsScratchpadDdxOpen(prev => !prev)}
+                      className="flex items-center gap-3 text-left group"
+                    >
+                      <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 group-hover:scale-105 transition-transform shadow-2xs">
+                        <Zap className="w-5 h-5 text-amber-500 fill-amber-500 animate-pulse" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 flex items-center gap-2 font-heading">
+                          Live Differential Diagnosis
+                          <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full font-bold">
+                            ⚡ Real-Time Scratchpad Evaluation
+                          </span>
+                        </h4>
+                        <p className="text-xs text-slate-500 font-medium">
+                          Continuous probability scoring &amp; literature benchmark synthesis from your notes.
+                        </p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsScratchpadDdxOpen(prev => !prev)}
+                      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 shadow-2xs transition-all active:scale-95 shrink-0"
+                    >
+                      <span>{isScratchpadDdxOpen ? "Collapse Diagnostic Engine" : "Expand Diagnostic Engine"}</span>
+                      {isScratchpadDdxOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
                   </div>
-                  {consultation && (
-                    <DifferentialDiagnosis 
-                      consultationId={consultation.id} 
-                      trigger={consultation.findings?.length || consultation.status}
-                      initialQuery={inputText || consultation.input_text}
-                    />
+
+                  {isScratchpadDdxOpen && consultation && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="pt-2"
+                    >
+                      <DifferentialDiagnosis 
+                        consultationId={consultation.id} 
+                        trigger={consultation.findings?.length || consultation.status}
+                        initialQuery={inputText || consultation.input_text}
+                      />
+                    </motion.div>
                   )}
                 </div>
               </Tabs.Content>
@@ -1060,7 +1505,7 @@ export default function ConsultationDetailPage() {
           <motion.div 
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-white/90 backdrop-blur-2xl border border-white/90 shadow-[0_16px_50px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.95)] rounded-full px-5 py-3 flex items-center gap-3 ring-1 ring-black/5"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white backdrop-blur-2xl border border-slate-700/80 shadow-[0_20px_60px_rgba(0,0,0,0.35)] rounded-full px-5 py-2.5 flex items-center gap-3 ring-1 ring-white/10"
           >
             {currentStatus === "created" && (
               <Button 
@@ -1086,25 +1531,25 @@ export default function ConsultationDetailPage() {
                 >
                   Submit for Analysis
                 </Button>
-                <Button 
-                  variant="ghost" 
+                <button 
+                  type="button"
                   onClick={() => handleTransition("created")}
                   disabled={actionLoading}
-                  className="rounded-full gap-2 text-[var(--color-danger-600)] hover:bg-[var(--color-danger-50)] bg-white/50"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full font-semibold text-xs text-rose-300 hover:text-white bg-rose-500/20 hover:bg-rose-600/40 border border-rose-500/30 transition-all active:scale-95 disabled:opacity-50"
                 >
-                  <Square className="w-4 h-4" /> Stop
-                </Button>
-                <div className="px-4 font-mono text-sm font-bold text-[var(--color-danger-600)] flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[var(--color-danger-500)] animate-pulse" />
+                  <Square className="w-3.5 h-3.5" /> Stop
+                </button>
+                <div className="px-3 font-mono text-xs font-bold text-rose-400 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                   {formatElapsed(audio.elapsedMs)}
                 </div>
               </>
             )}
 
             {currentStatus === "processing" && (
-              <div className="px-6 flex items-center gap-3 text-sm font-bold text-[var(--color-primary-600)]">
-                <span className="w-4 h-4 rounded-full border-2 border-[var(--color-primary-600)] border-t-transparent animate-spin" />
-                AI is processing audio & notes...
+              <div className="px-6 flex items-center gap-3 text-sm font-bold text-teal-400">
+                <span className="w-4 h-4 rounded-full border-2 border-teal-400 border-t-transparent animate-spin" />
+                AI is processing audio &amp; notes...
               </div>
             )}
 
@@ -1119,27 +1564,42 @@ export default function ConsultationDetailPage() {
                 <Button variant="primary" onClick={() => handleTransition("analysis_ready")} disabled={actionLoading} className="rounded-full shadow-lg px-6">
                   Mark Analysis Ready
                 </Button>
-                <Button variant="ghost" onClick={() => handleTransition("draft")} disabled={actionLoading} className="rounded-full bg-white/50">
+                <button 
+                  type="button"
+                  onClick={() => handleTransition("draft")} 
+                  disabled={actionLoading} 
+                  className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 rounded-full border border-slate-700/80 transition-colors"
+                >
                   Back to Draft
-                </Button>
+                </button>
               </>
             )}
 
             {currentStatus === "analysis_ready" && (
               <>
                 <Button variant="primary" onClick={() => handleTransition("finalized")} disabled={actionLoading} className="rounded-full shadow-lg px-6 gap-2">
-                  <CheckCircle className="w-4 h-4" /> Sign Off & Finalize
+                  <CheckCircle className="w-4 h-4" /> Sign Off &amp; Finalize
                 </Button>
-                <Button variant="ghost" onClick={() => handleTransition("under_review")} disabled={actionLoading} className="rounded-full bg-white/50">
+                <button 
+                  type="button"
+                  onClick={() => handleTransition("under_review")} 
+                  disabled={actionLoading} 
+                  className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 rounded-full border border-slate-700/80 transition-colors"
+                >
                   Re-review
-                </Button>
+                </button>
               </>
             )}
 
             {currentStatus === "finalized" && (
-              <Button variant="ghost" onClick={() => handleTransition("amended")} disabled={actionLoading} className="rounded-full bg-white/50 border border-[var(--border-default)]">
+              <button 
+                type="button"
+                onClick={() => handleTransition("amended")} 
+                disabled={actionLoading} 
+                className="px-5 py-2 text-xs font-semibold text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-600 rounded-full transition-colors"
+              >
                 Amend Finalized Record
-              </Button>
+              </button>
             )}
 
             {currentStatus === "amended" && (

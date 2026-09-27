@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from "react";
 import { getFindingExplanation, type ExplanationResponse } from "@/lib/api";
+import { Brain, AlertTriangle, Plus, Minus, X } from "lucide-react";
 
 export default function ExplanationPanel({ findingId, onClose }: { findingId: string, onClose: () => void }) {
   const [loading, setLoading] = useState(true);
@@ -29,12 +30,13 @@ export default function ExplanationPanel({ findingId, onClose }: { findingId: st
 
   return (
     <div className="flex flex-col h-full bg-white border-l shadow-sm relative">
-      <div className="p-4 border-b bg-indigo-50 flex items-center justify-between">
+      <div className="p-4 border-b bg-indigo-50/80 flex items-center justify-between">
         <h3 className="font-semibold text-indigo-900 flex items-center gap-2">
-          <span>🧠</span> Clinical Explanation (Why?)
+          <Brain className="w-4 h-4 text-indigo-600" />
+          <span>Clinical Explanation (Why?)</span>
         </h3>
-        <button onClick={onClose} className="text-indigo-500 hover:text-indigo-800 transition-colors">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        <button onClick={onClose} className="p-1 rounded-lg text-indigo-500 hover:text-indigo-800 hover:bg-indigo-100 transition-colors" title="Close explanation">
+          <X className="w-4 h-4" />
         </button>
       </div>
 
@@ -64,8 +66,9 @@ export default function ExplanationPanel({ findingId, onClose }: { findingId: st
             {/* Safety Flags */}
             {explanation.safety_flags.length > 0 && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                <h4 className="text-xs font-bold text-red-800 uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <span>🚨</span> Safety Flags
+                <h4 className="text-xs font-bold text-red-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                  <span>Safety Flags</span>
                 </h4>
                 <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
                   {explanation.safety_flags.map((flag, idx) => (
@@ -83,7 +86,8 @@ export default function ExplanationPanel({ findingId, onClose }: { findingId: st
                   <ul className="space-y-1">
                     {explanation.supporting_findings.map((finding, idx) => (
                       <li key={idx} className="text-sm text-green-700 flex items-start gap-2">
-                        <span className="text-green-500 mt-0.5">➕</span> {finding}
+                        <Plus className="w-3.5 h-3.5 text-green-600 mt-0.5 shrink-0" />
+                        <span>{finding}</span>
                       </li>
                     ))}
                   </ul>
@@ -98,7 +102,8 @@ export default function ExplanationPanel({ findingId, onClose }: { findingId: st
                   <ul className="space-y-1">
                     {explanation.contradicting_findings.map((finding, idx) => (
                       <li key={idx} className="text-sm text-amber-700 flex items-start gap-2">
-                        <span className="text-amber-500 mt-0.5">➖</span> {finding}
+                        <Minus className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                        <span>{finding}</span>
                       </li>
                     ))}
                   </ul>

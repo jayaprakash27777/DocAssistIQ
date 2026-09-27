@@ -7,6 +7,7 @@ import { useToast } from "@/components/shell/ToastProvider";
 import { Search, Stethoscope, PlusCircle, Clock, FileText, ArrowRight, UserCircle } from "lucide-react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { useConsultations, useSearchConsultations, useCreateConsultation } from "@/hooks/useConsultations";
+import { PLACEHOLDER_LABEL } from "@/lib/api";
 
 export default function ConsultationsListPage() {
   const { toast } = useToast();
@@ -57,12 +58,16 @@ export default function ConsultationsListPage() {
       <div 
         role="alert" 
         aria-label="Simulation Notice — Not a clinical result" 
-        className="mb-6 px-6 py-2.5 bg-amber-50/80 border border-amber-200/80 rounded-2xl text-xs text-amber-800 flex items-center justify-between shadow-sm"
+        className="mb-6 px-6 py-2.5 bg-slate-900 border border-slate-800 rounded-2xl text-xs text-slate-300 flex items-center justify-between shadow-sm"
       >
-        <span className="font-bold text-[11px] uppercase tracking-wider">
-          PLACEHOLDER DEVELOPMENT RESPONSE — NOT CLINICAL
-        </span>
-        <span className="text-[11px] text-amber-700 hidden sm:inline font-medium">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-amber-400" />
+          <span className="font-mono font-bold text-[11px] uppercase tracking-wider text-slate-200">
+            {PLACEHOLDER_LABEL}
+          </span>
+          <span className="text-[11px] text-slate-400 hidden sm:inline">• Clinician Review &amp; Verification Required</span>
+        </div>
+        <span className="text-[11px] text-slate-400 hidden sm:inline font-mono">
           Demonstration mode only. Verified clinician oversight required.
         </span>
       </div>

@@ -208,7 +208,8 @@ async def register_user(
         email=email,
         password_hash=hash_password(password),
         full_name=full_name,
-        role="doctor"
+        role="doctor",
+        is_verified=True,
     )
     user = await repo.create(user)
 

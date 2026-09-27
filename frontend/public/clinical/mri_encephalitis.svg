@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <!-- Medical Scanner Dark Background -->
+  <rect width="800" height="450" fill="#090d16"/>
+  
+  <!-- Grid overlay -->
+  <defs>
+    <radialGradient id="brainGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#334155" stop-opacity="0.8"/>
+      <stop offset="60%" stop-color="#1e293b" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="hyperintensity" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="40%" stop-color="#67e8f9" stop-opacity="0.9"/>
+      <stop offset="80%" stop-color="#06b6d4" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#0891b2" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Scanner Header Info -->
+  <text x="25" y="30" fill="#94a3b8" font-family="monospace" font-size="12">DocAssistIQ NEURO-IMAGING • 3.0T MRI</text>
+  <text x="25" y="48" fill="#64748b" font-family="monospace" font-size="11">Sequence: AXIAL T2-FLAIR | SLICE: 18/32</text>
+  <text x="25" y="66" fill="#64748b" font-family="monospace" font-size="11">TR: 9000ms | TE: 125ms | TI: 2500ms</text>
+
+  <!-- Orientation Coordinates -->
+  <text x="400" y="55" fill="#38bdf8" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">A (Anterior)</text>
+  <text x="400" y="420" fill="#38bdf8" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">P (Posterior)</text>
+  <text x="180" y="235" fill="#38bdf8" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">R</text>
+  <text x="620" y="235" fill="#38bdf8" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">L</text>
+
+  <!-- Skull Outline -->
+  <ellipse cx="400" cy="235" rx="180" ry="155" fill="none" stroke="#475569" stroke-width="4"/>
+  <ellipse cx="400" cy="235" rx="175" ry="150" fill="url(#brainGlow)"/>
+
+  <!-- Brain Hemispheres & Ventricles -->
+  <!-- Interhemispheric fissure -->
+  <line x1="400" y1="90" x2="400" y2="380" stroke="#0f172a" stroke-width="3"/>
+
+  <!-- Lateral Ventricles -->
+  <path d="M 388,180 C 375,195 375,230 388,250 C 382,230 382,200 388,180 Z" fill="#090d16" stroke="#1e293b"/>
+  <path d="M 412,180 C 425,195 425,230 412,250 C 418,230 418,200 412,180 Z" fill="#090d16" stroke="#1e293b"/>
+
+  <!-- Cortical Sulci gyri details -->
+  <path d="M 270,160 Q 310,180 340,165" stroke="#334155" stroke-width="2" fill="none"/>
+  <path d="M 250,220 Q 300,240 330,220" stroke="#334155" stroke-width="2" fill="none"/>
+  <path d="M 280,310 Q 320,290 350,320" stroke="#334155" stroke-width="2" fill="none"/>
+  
+  <path d="M 530,160 Q 490,180 460,165" stroke="#334155" stroke-width="2" fill="none"/>
+  <path d="M 550,220 Q 500,240 470,220" stroke="#334155" stroke-width="2" fill="none"/>
+  <path d="M 520,310 Q 480,290 450,320" stroke="#334155" stroke-width="2" fill="none"/>
+
+  <!-- Left Medial Temporal Lobe Hyperintensity (Anti-NMDA / Limbic Encephalitis) -->
+  <circle cx="465" cy="245" r="30" fill="url(#hyperintensity)"/>
+  <ellipse cx="460" cy="240" rx="22" ry="16" fill="#ffffff" opacity="0.85"/>
+
+  <!-- Right Medial Temporal Lobe (Subtle bilateral involvement) -->
+  <circle cx="335" cy="245" r="18" fill="url(#hyperintensity)" opacity="0.6"/>
+
+  <!-- Diagnostic Callout -->
+  <line x1="485" y1="245" x2="680" y2="150" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4"/>
+  <rect x="580" y="105" width="200" height="42" rx="8" fill="#0f172a" stroke="#0ea5e9"/>
+  <text x="590" y="125" fill="#38bdf8" font-family="sans-serif" font-size="11" font-weight="bold">Limbic FLAIR Signal</text>
+  <text x="590" y="140" fill="#e2e8f0" font-family="sans-serif" font-size="10">High specificity for Anti-GluN1</text>
+
+  <!-- Scale Bar -->
+  <line x1="680" y1="410" x2="760" y2="410" stroke="#cbd5e1" stroke-width="3"/>
+  <text x="720" y="425" fill="#94a3b8" font-family="sans-serif" font-size="10" text-anchor="middle">5 cm</text>
+</svg>

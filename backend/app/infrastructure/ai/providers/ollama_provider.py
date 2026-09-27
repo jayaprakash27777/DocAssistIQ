@@ -17,9 +17,11 @@ from app.infrastructure.ai.interfaces import (
 
 
 class OllamaGenerationProvider(GenerationProvider):
-    def __init__(self, model_name: str = "llama3.1:8b", base_url: str = "http://localhost:11434"):
+    def __init__(self, model_name: str = "llama3.1:8b", base_url: str | None = None):
+        import os
         self.model_name = model_name
-        self.base_url = base_url.rstrip("/")
+        effective_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.base_url = effective_url.rstrip("/")
 
     @property
     def metadata(self) -> AIProviderMetadata:
@@ -81,9 +83,11 @@ class OllamaGenerationProvider(GenerationProvider):
 
 
 class OllamaEmbeddingProvider(EmbeddingProvider):
-    def __init__(self, model_name: str = "nomic-embed-text", base_url: str = "http://localhost:11434", dimensions: int = 768):
+    def __init__(self, model_name: str = "nomic-embed-text", base_url: str | None = None, dimensions: int = 768):
+        import os
         self.model_name = model_name
-        self.base_url = base_url.rstrip("/")
+        effective_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.base_url = effective_url.rstrip("/")
         self.dimensions = dimensions
 
     @property
