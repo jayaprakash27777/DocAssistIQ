@@ -629,6 +629,28 @@ export default function ConsultationDetailPage() {
               <div className="px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-mono text-xs font-bold flex items-center gap-2 shadow-2xs">
                 <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
                 <span>REC {formatElapsed(audio.elapsedMs)}</span>
+                
+                {/* Real-time audio waveform / volume indicator */}
+                <div className="flex items-center gap-0.5 ml-1.5 h-3.5" title={`Mic volume: ${audio.audioLevel}%`}>
+                  <span 
+                    className="w-1 bg-emerald-500 rounded-full transition-all duration-75"
+                    style={{ height: `${Math.max(20, Math.min(100, audio.audioLevel * 1.2))}%` }} 
+                  />
+                  <span 
+                    className="w-1 bg-emerald-500 rounded-full transition-all duration-75"
+                    style={{ height: `${Math.max(15, Math.min(100, audio.audioLevel * 0.8))}%` }} 
+                  />
+                  <span 
+                    className="w-1 bg-emerald-500 rounded-full transition-all duration-75"
+                    style={{ height: `${Math.max(25, Math.min(100, audio.audioLevel * 1.4))}%` }} 
+                  />
+                </div>
+
+                {audio.isSilent && (
+                  <span className="text-[10px] text-amber-700 font-sans font-medium px-1.5 py-0.5 rounded bg-amber-100/90 border border-amber-300 animate-pulse">
+                    Mic silent
+                  </span>
+                )}
               </div>
               <Button 
                 variant="primary" 

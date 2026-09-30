@@ -239,6 +239,80 @@ export default function PolypharmacySimulator({
                   </div>
                 </div>
 
+                {/* Anticholinergic Cognitive Burden (ACB) Scale */}
+                {result.anticholinergic_burden && (
+                  <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-indigo-600" />
+                        <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider m-0">
+                          Anticholinergic Cognitive Burden (ACB)
+                        </h4>
+                      </div>
+                      <span className={`text-[10px] uppercase font-black tracking-wider px-2.5 py-0.5 rounded-full shadow-sm text-white ${
+                        result.anticholinergic_burden.total_score >= 3 ? 'bg-rose-600' :
+                        result.anticholinergic_burden.total_score >= 1 ? 'bg-amber-600' :
+                        'bg-emerald-600'
+                      }`}>
+                        ACB Score: {result.anticholinergic_burden.total_score}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 m-0 leading-relaxed font-medium">
+                      {result.anticholinergic_burden.risk_category}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1 m-0">
+                      {result.anticholinergic_burden.clinical_guidance}
+                    </p>
+                    {result.anticholinergic_burden.contributing_medications.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap mt-2.5 pt-2 border-t border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Contributors:</span>
+                        {result.anticholinergic_burden.contributing_medications.map((item, idx) => (
+                          <span key={idx} className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-md text-[11px] font-semibold text-slate-700">
+                            {item.medication} (+{item.score})
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Renal Clearance & Nephrotoxic Alerts */}
+                {result.renal_alerts && result.renal_alerts.length > 0 && (
+                  <div className="space-y-2.5">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-2 text-xs uppercase tracking-wider m-0">
+                      <ShieldAlert className="w-4 h-4 text-rose-500" />
+                      Renal Clearance & Nephrotoxic Alerts ({result.renal_alerts.length})
+                    </h4>
+                    {result.renal_alerts.map((alert, a_idx) => (
+                      <div key={a_idx} className="p-3.5 bg-rose-50/60 border border-rose-200 rounded-xl text-xs space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-rose-900 text-xs">{alert.title}</span>
+                          <span className="px-2 py-0.5 bg-rose-600 text-white rounded text-[9px] font-black uppercase tracking-wider">
+                            {alert.severity}
+                          </span>
+                        </div>
+                        <div className="flex gap-1.5 flex-wrap pt-1">
+                          {alert.medications_involved.map((m) => (
+                            <span key={m} className="px-2 py-0.5 bg-white border border-rose-200 rounded text-[10px] font-semibold text-rose-800">
+                              {m}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-slate-700 text-xs font-medium leading-relaxed pt-1 m-0">
+                          {alert.clinical_action}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Regulatory Watermark Banner */}
+                <div className="p-2.5 bg-amber-50/90 border border-amber-200 rounded-xl text-center shadow-xs">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-900">
+                    REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED
+                  </span>
+                </div>
+
                 {/* Interactions */}
                 {result.interactions.length > 0 ? (
                   <div className="space-y-3.5">

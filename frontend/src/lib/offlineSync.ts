@@ -32,7 +32,7 @@ function openDB(): Promise<IDBDatabase> {
 
 export interface OfflineNoteRecord {
   consultationId: string;
-  body: Record<string, any>;
+  body: Record<string, unknown>;
   version: number;
   updatedAt: string;
   synced: boolean;
@@ -43,7 +43,7 @@ export interface OfflineNoteRecord {
  */
 export async function saveOfflineNoteDraft(
   consultationId: string,
-  body: Record<string, any>,
+  body: Record<string, unknown>,
   version: number
 ): Promise<void> {
   try {
@@ -65,7 +65,7 @@ export async function saveOfflineNoteDraft(
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch (err) {
+  } catch (_err) {
     // Graceful fallback to localStorage if IndexedDB is blocked in private browsing
     try {
       if (typeof window !== "undefined") {

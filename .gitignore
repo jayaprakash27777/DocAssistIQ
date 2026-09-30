@@ -91,3 +91,11 @@ models/
 backend/*.db
 *.db
 
+# --- Debug Logs & Large Output Dumps ---
+*.log
+backend/*_out*.txt
+backend/error_out*.txt
+backend/pytest_out.txt
+backend/backend_log.txt
+backend/error_tail.txt
+

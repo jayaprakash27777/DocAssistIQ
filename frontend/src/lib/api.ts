@@ -624,6 +624,21 @@ export interface PolypharmacyResponse {
   interactions: PolypharmacyInteraction[];
   summary_assessment: string;
   is_safe: boolean;
+  anticholinergic_burden?: {
+    total_score: number;
+    risk_category: string;
+    contributing_medications: Array<{ medication: string; score: number; drug: string }>;
+    clinical_guidance: string;
+  };
+  renal_alerts?: Array<{
+    severity: string;
+    title: string;
+    medications_involved: string[];
+    egfr_reported?: number;
+    creatinine_reported?: number;
+    clinical_action: string;
+  }>;
+  safety_disclaimer?: string;
 }
 
 export async function simulatePolypharmacy(
@@ -2103,4 +2118,56 @@ export interface AIStatusResponse {
 export async function getAIStatus(): Promise<ApiResult<AIStatusResponse>> {
   return authedFetch<AIStatusResponse>(`${BASE_URL}/ai-status`, { timeoutMs: 5000 });
 }
+
+// ------------------------------------------------------------------
+// Clinical Diagnostic Criteria & Decision Support Scoring
+// ------------------------------------------------------------------
+
+export interface ClinicalCriteriaItemResult {
+  criteria_name: string;
+  score: number;
+  risk_tier: string;
+  recommendation: string;
+  meets_criteria: boolean;
+  fulfilled_items: string[];
+  missing_items?: string[];
+}
+
+export interface ClinicalCriteriaEvaluationResponse {
+  consultation_id?: string;
+  criteria_results: ClinicalCriteriaItemResult[];
+  safety_disclaimer: string;
+}
+
+export interface ClinicalCriteriaEvaluationRequest {
+  criteria_name?: string;
+  findings: string[];
+  labs?: Record<string, any>;
+}
+
+/** GET /api/v1/consultations/{id}/clinical-criteria — Retrieve matching criteria */
+export async function getConsultationClinicalCriteria(
+  consultationId: string
+): Promise<ApiResult<ClinicalCriteriaEvaluationResponse>> {
+  return authedFetch<ClinicalCriteriaEvaluationResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultationId}/clinical-criteria`,
+    { timeoutMs: 15000 }
+  );
+}
+
+/** POST /api/v1/consultations/{id}/clinical-criteria-evaluate — Evaluate custom or specific criteria */
+export async function evaluateConsultationClinicalCriteria(
+  consultationId: string,
+  payload: ClinicalCriteriaEvaluationRequest
+): Promise<ApiResult<ClinicalCriteriaEvaluationResponse>> {
+  return authedFetch<ClinicalCriteriaEvaluationResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultationId}/clinical-criteria-evaluate`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      timeoutMs: 15000,
+    }
+  );
+}
+
 

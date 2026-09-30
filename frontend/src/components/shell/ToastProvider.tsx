@@ -127,11 +127,13 @@ export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("useToast() must be used inside <ToastProvider>");
 
+  const { addToast } = ctx;
+
   return {
     toast: React.useMemo(() => ({
-      success: (message: string) => ctx.addToast("success", message),
-      error: (message: string) => ctx.addToast("error", message),
-      info: (message: string) => ctx.addToast("info", message),
-    }), [ctx.addToast]),
+      success: (message: string) => addToast("success", message),
+      error: (message: string) => addToast("error", message),
+      info: (message: string) => addToast("info", message),
+    }), [addToast]),
   };
 }

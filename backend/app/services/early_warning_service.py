@@ -237,6 +237,15 @@ class EarlyWarningService:
                 "Maintain hydration and monitor for any acute symptomatic changes"
             ])
 
+        if news2 >= 7 or prob >= 80 or mews >= 5:
+            risk_level = "CRITICAL"
+        elif is_high:
+            risk_level = "HIGH"
+        elif news2 >= 1 or prob >= 25:
+            risk_level = "MEDIUM"
+        else:
+            risk_level = "LOW"
+
         return EarlyWarningResponse(
             consultation_id=consultation_id,
             probability_percentage=prob,
@@ -247,7 +256,9 @@ class EarlyWarningService:
             mews_score=mews,
             qsofa_score=qsofa,
             news2_score=news2,
-            sirs_score=sirs
+            sirs_score=sirs,
+            risk_level=risk_level,
+            safety_disclaimer="REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED"
         )
 
     async def evaluate_deterioration_risk(self, db: AsyncSession, consultation_id: uuid.UUID, representation: ClinicalRepresentationResponse) -> EarlyWarningResponse:
@@ -302,6 +313,15 @@ Return ONLY valid JSON matching this schema:
             if is_deterministic_high and prob < 60:
                 prob = 65
 
+            if news2 >= 7 or prob >= 80 or mews >= 5:
+                risk_level = "CRITICAL"
+            elif is_high_risk:
+                risk_level = "HIGH"
+            elif news2 >= 1 or prob >= 25:
+                risk_level = "MEDIUM"
+            else:
+                risk_level = "LOW"
+
             return EarlyWarningResponse(
                 consultation_id=consultation_id,
                 probability_percentage=prob,
@@ -312,7 +332,9 @@ Return ONLY valid JSON matching this schema:
                 mews_score=mews,
                 qsofa_score=qsofa,
                 news2_score=news2,
-                sirs_score=sirs
+                sirs_score=sirs,
+                risk_level=risk_level,
+                safety_disclaimer="REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED"
             )
         except Exception as e:
             log.warning("early_warning_llm_fallback_engaged", error=str(e), consultation_id=str(consultation_id))

@@ -216,13 +216,18 @@ export function useWebSpeechASR(): [WebSpeechASRState, WebSpeechASRControls] {
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
-  const pausedAtRef = useRef<number>(0);
   const accumulatedMsRef = useRef<number>(0);
   const recentSpeakersRef = useRef<SpeakerRole[]>([]);
   const lastDoctorQuestionRef = useRef<boolean>(false);
   const forcedNextSpeakerRef = useRef<SpeakerRole | null>(null);
 
-  const [isSupported, setIsSupported] = useState(false);
+  const [isSupported] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const SpeechRec =
+      (window as typeof window & { SpeechRecognition?: ISpeechRecognitionConstructor; webkitSpeechRecognition?: ISpeechRecognitionConstructor }).SpeechRecognition ||
+      (window as typeof window & { webkitSpeechRecognition?: ISpeechRecognitionConstructor }).webkitSpeechRecognition;
+    return !!SpeechRec;
+  });
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
@@ -231,13 +236,6 @@ export function useWebSpeechASR(): [WebSpeechASRState, WebSpeechASRControls] {
   // CRITICAL FIX: default is "Unknown" not "Doctor"
   const [activeSpeaker, setActiveSpeaker] = useState<SpeakerRole>("Unknown");
   const [lastDoctorQuestion, setLastDoctorQuestion] = useState(false);
-
-  useEffect(() => {
-    const SpeechRec =
-      (window as typeof window & { SpeechRecognition?: ISpeechRecognitionConstructor; webkitSpeechRecognition?: ISpeechRecognitionConstructor }).SpeechRecognition ||
-      (window as typeof window & { webkitSpeechRecognition?: ISpeechRecognitionConstructor }).webkitSpeechRecognition;
-    setIsSupported(!!SpeechRec);
-  }, []);
 
   const buildRecognition = useCallback((): ISpeechRecognition | null => {
     const SpeechRec =

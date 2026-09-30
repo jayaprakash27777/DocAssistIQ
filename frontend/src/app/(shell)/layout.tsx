@@ -27,10 +27,12 @@ import { Header } from "@/components/shell/Header";
 import { DashboardSkeleton } from "@/components/shell/LoadingSkeleton";
 import { CommandPalette } from "@/components/shell/CommandPalette";
 import { LiveOutbreakBanner } from "@/components/clinical/LiveOutbreakBanner";
+import { useClinicianHotkeys } from "@/hooks/useClinicianHotkeys";
 
 // ── Inner layout (reads auth context) ────────────────────────
 
 function ShellInner({ children }: { children: React.ReactNode }) {
+  useClinicianHotkeys();
   const { state } = useAuth();
   const router = useRouter();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);

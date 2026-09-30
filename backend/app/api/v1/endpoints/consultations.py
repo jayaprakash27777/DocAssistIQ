@@ -949,5 +949,109 @@ async def simulate_polypharmacy(
 
     return await polypharmacy_simulator.simulate(
         proposed_meds=payload.proposed_medications,
-        current_meds=current_meds
+        current_meds=current_meds,
+        egfr=payload.egfr,
+        creatinine=payload.creatinine,
+        age=payload.age,
+    )
+
+
+from app.schemas.clinical_criteria import (
+    ClinicalCriteriaEvaluationRequest,
+    ClinicalCriteriaEvaluationResponse,
+    ClinicalCriteriaItemResult,
+)
+from app.services.clinical_criteria_evaluator import criteria_evaluator
+
+
+@router.get("/{consultation_id}/clinical-criteria", response_model=ClinicalCriteriaEvaluationResponse)
+async def get_consultation_clinical_criteria(
+    consultation_id: uuid.UUID,
+    user: User = Depends(require_permission("consultation", "read")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Evaluates all matching consensus clinical criteria for the consultation
+    (e.g., Wells PE, CHA2DS2-VASc, CURB-65, qSOFA, Centor, ACR/EULAR SLE, Duke Endocarditis).
+    """
+    from app.services.representation_service import build_clinical_representation
+    from app.services.lab_value_interpreter import lab_value_interpreter
+
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    rep = await build_clinical_representation(db, consultation_id)
+    findings = [f.value for f in rep.symptoms] + [c.value for c in rep.conditions]
+
+    labs: Dict[str, Any] = {}
+    note_stmt = select(ClinicalNote).where(ClinicalNote.consultation_id == consultation_id)
+    note = await db.scalar(note_stmt)
+    if note and note.body:
+        inv_text = ""
+        if isinstance(note.body, dict):
+            inv = note.body.get("investigations", {})
+            inv_text = inv.get("text", "") if isinstance(inv, dict) else str(inv)
+        if inv_text:
+            parsed_labs = lab_value_interpreter.interpret(inv_text)
+            labs = parsed_labs.get("extracted_labs", {})
+
+    top_candidates = [c.value for c in rep.conditions[:3]]
+    eval_results = criteria_evaluator.evaluate_all(
+        top_candidates=top_candidates,
+        positive_findings=findings,
+        extracted_labs=labs,
+    )
+
+    items = [ClinicalCriteriaItemResult(**r) for r in eval_results]
+    return ClinicalCriteriaEvaluationResponse(
+        consultation_id=str(consultation_id),
+        criteria_results=items,
+        safety_disclaimer="REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
+    )
+
+
+@router.post("/{consultation_id}/clinical-criteria-evaluate", response_model=ClinicalCriteriaEvaluationResponse)
+async def evaluate_clinical_criteria_custom(
+    consultation_id: uuid.UUID,
+    payload: ClinicalCriteriaEvaluationRequest,
+    user: User = Depends(require_permission("consultation", "read")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Evaluates specific named criteria or auto-detected criteria with doctor-supplied findings and labs.
+    """
+    from app.services.representation_service import build_clinical_representation
+
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    rep = await build_clinical_representation(db, consultation_id)
+    base_findings = [f.value for f in rep.symptoms] + [c.value for c in rep.conditions]
+    all_findings = list(set(base_findings + payload.findings))
+
+    items = []
+    if payload.criteria_name and payload.criteria_name.lower() != "all":
+        res = criteria_evaluator.evaluate_named(
+            name=payload.criteria_name,
+            findings=all_findings,
+            labs=payload.labs,
+        )
+        items.append(ClinicalCriteriaItemResult(**res))
+    else:
+        top_candidates = [c.value for c in rep.conditions[:3]]
+        eval_results = criteria_evaluator.evaluate_all(
+            top_candidates=top_candidates,
+            positive_findings=all_findings,
+            extracted_labs=payload.labs,
+        )
+        items = [ClinicalCriteriaItemResult(**r) for r in eval_results]
+
+    return ClinicalCriteriaEvaluationResponse(
+        consultation_id=str(consultation_id),
+        criteria_results=items,
+        safety_disclaimer="REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
     )

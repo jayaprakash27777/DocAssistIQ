@@ -117,13 +117,22 @@ class ClinicalCriteriaEvaluator:
         clinical_domains = [d for d in domain_scores.keys() if not d.startswith("Immuno") and d != "Complement" and d != "Antiphospholipid"]
         meets_criteria = ana_positive and total_score >= 10 and len(clinical_domains) >= 1
 
+        rec = (
+            "Definite SLE Classification Met. Order full autoimmune serology panel (anti-dsDNA, anti-Smith, C3, C4, urinalysis) and initiate stat rheumatology consult."
+            if meets_criteria
+            else ("Subthreshold criteria or entry criterion (ANA) not met. Monitor symptoms and re-evaluate longitudinal serology." if ana_positive else "Entry Criterion (ANA titer >= 1:80) Not Met; SLE classification not applicable.")
+        )
+
         return {
             "criteria_name": "ACR/EULAR 2019 SLE Classification Criteria",
+            "score": total_score,
+            "risk_tier": "Definite" if meets_criteria else ("Subthreshold" if ana_positive else "Not Met"),
+            "recommendation": rec,
+            "meets_criteria": meets_criteria,
             "entry_criterion_met": ana_positive,
             "entry_criterion_detail": "Antinuclear Antibodies (ANA) positive" if ana_positive else "ANA negative or unverified (Required entry criterion)",
             "total_score": total_score,
             "threshold": 10,
-            "meets_criteria": meets_criteria,
             "fulfilled_items": fulfilled_items,
             "clinical_interpretation": "Definite SLE Classification Met" if meets_criteria else ("Subthreshold / Not Met" if ana_positive else "Entry Criterion (ANA) Not Met")
         }
@@ -188,12 +197,20 @@ class ClinicalCriteriaEvaluator:
         is_possible = (major_count == 1 and minor_count >= 1) or (minor_count >= 3)
 
         status = "Definite Infective Endocarditis" if is_definite else ("Possible Infective Endocarditis" if is_possible else "Rejected / Insufficient Criteria")
+        rec = (
+            "Definite Infective Endocarditis: Stat IV bactericidal antimicrobials tailored to blood culture isolates; transesophageal echocardiography (TEE) recommended; cardiothoracic surgery consult."
+            if is_definite
+            else ("Possible IE: Serial blood cultures, TEE, and infectious disease consult indicated." if is_possible else "Low clinical suspicion for infective endocarditis.")
+        )
 
         return {
             "criteria_name": "Modified Duke Criteria for Infective Endocarditis",
+            "score": major_count * 2 + minor_count,
+            "risk_tier": "Definite" if is_definite else ("Possible" if is_possible else "Low"),
+            "recommendation": rec,
+            "meets_criteria": is_definite,
             "major_criteria_count": major_count,
             "minor_criteria_count": minor_count,
-            "meets_criteria": is_definite,
             "is_possible": is_possible,
             "status": status,
             "fulfilled_items": fulfilled_items
@@ -262,13 +279,23 @@ class ClinicalCriteriaEvaluator:
             )
         )
 
+        meets_myopathy = is_anti_synthetase or is_definite_dermatomyositis or is_definite_polymyositis
+        rec = (
+            f"Classification: {classification}. Initiate high-dose systemic corticosteroid therapy and rheumatology consult."
+            if meets_myopathy
+            else "Monitor serum CK, aldolase, and perform targeted EMG/biopsy evaluation."
+        )
+
         return {
             "criteria_name": "Bohan & Peter / ENMC Criteria for Inflammatory Myopathies",
+            "score": criteria_count,
+            "risk_tier": "Definite" if meets_myopathy else "Probable/Suspected",
+            "recommendation": rec,
+            "meets_criteria": meets_myopathy,
             "muscle_criteria_fulfilled": criteria_count,
             "pathognomonic_rash_present": has_derm_rash,
             "anti_synthetase_features_present": is_anti_synthetase,
             "classification": classification,
-            "meets_criteria": is_anti_synthetase or is_definite_dermatomyositis or is_definite_polymyositis,
             "fulfilled_items": fulfilled_items
         }
 
@@ -295,7 +322,7 @@ class ClinicalCriteriaEvaluator:
             score += 3.0
             fulfilled_items.append("Clinical signs/symptoms of DVT (+3.0)")
 
-        if any("pleuritic chest pain" in f or "sudden onset dyspnea" in f or "hypoxia" in f for f in findings):
+        if any(any(term in f for term in ["pleuritic chest pain", "sudden onset dyspnea", "hypoxia", "pe is #1", "pe #1", "pe most likely"]) for f in findings):
             score += 3.0
             fulfilled_items.append("PE is #1 or equally likely diagnosis (+3.0)")
 
@@ -320,7 +347,7 @@ class ClinicalCriteriaEvaluator:
             fulfilled_items.append("Active malignancy (+1.0)")
 
         pe_likely = score > 4.0
-        risk_tier = "High" if score > 6.0 else ("Moderate" if score >= 2.0 else "Low")
+        risk_tier = "High" if score >= 6.0 else ("Moderate" if score >= 2.0 else "Low")
         next_step = "Stat CT Pulmonary Angiography (CTPA) indicated" if pe_likely else "High-sensitivity D-dimer indicated"
 
         # PERC Rule evaluation (Pulmonary Embolism Rule-out Criteria)
@@ -336,10 +363,11 @@ class ClinicalCriteriaEvaluator:
         return {
             "criteria_name": "Wells Criteria for Pulmonary Embolism",
             "score": score,
-            "pe_likely": pe_likely,
             "risk_tier": risk_tier,
+            "recommendation": next_step if not (score < 2.0 and perc_negative) else "PE rule-out criteria met (PERC negative); no D-dimer needed",
+            "meets_criteria": pe_likely,
+            "pe_likely": pe_likely,
             "perc_rule_negative": perc_negative if score < 2.0 else None,
-            "next_step": next_step if not (score < 2.0 and perc_negative) else "PE rule-out criteria met (PERC negative); no D-dimer needed",
             "fulfilled_items": fulfilled_items
         }
 
@@ -419,7 +447,7 @@ class ClinicalCriteriaEvaluator:
         score = 0
         fulfilled_items: List[str] = []
 
-        if any(f in findings for f in ["confusion", "altered mental status", "delirium", "disoriented"]):
+        if any(any(term in f for term in ["confusion", "altered mental status", "delirium", "disoriented"]) for f in findings):
             score += 1
             fulfilled_items.append("Confusion (new disorientation in person/place/time) (+1)")
 
@@ -428,15 +456,15 @@ class ClinicalCriteriaEvaluator:
             score += 1
             fulfilled_items.append(f"Urea / BUN > 19 mg/dL (measured: {bun_val} mg/dL) (+1)")
 
-        if any(f in findings for f in ["tachypnea", "respiratory rate >= 30", "rr >= 30", "severe tachypnea"]):
+        if any(any(term in f for term in ["tachypnea", "respiratory rate >= 30", "rr >= 30", "severe tachypnea"]) for f in findings):
             score += 1
             fulfilled_items.append("Respiratory rate >= 30 breaths/min (+1)")
 
-        if any(f in findings for f in ["hypotension", "sbp < 90", "dbp <= 60", "shock"]):
+        if any(any(term in f for term in ["hypotension", "sbp < 90", "dbp <= 60", "shock"]) for f in findings):
             score += 1
             fulfilled_items.append("Blood pressure: SBP < 90 mmHg or DBP <= 60 mmHg (+1)")
 
-        if any(f in findings for f in ["age >= 65", "elderly", "age 65+", "age 70", "age 75", "age 80", "age 85"]):
+        if any(any(term in f for term in ["age >= 65", "elderly", "age 65+", "age 70", "age 75", "age 80", "age 85"]) for f in findings):
             score += 1
             fulfilled_items.append("Age >= 65 years (+1)")
 
@@ -471,34 +499,34 @@ class ClinicalCriteriaEvaluator:
         score = 0
         fulfilled_items: List[str] = []
 
-        if any(f in findings for f in ["congestive heart failure", "chf", "heart failure", "hfref", "hfpef", "cardiomyopathy"]):
+        if any(any(term in f for term in ["congestive heart failure", "chf", "heart failure", "hfref", "hfpef", "cardiomyopathy"]) for f in findings):
             score += 1
             fulfilled_items.append("Congestive Heart Failure / LVEF <= 40% (+1)")
 
-        if any(f in findings for f in ["hypertension", "htn", "high blood pressure"]):
+        if any(any(term in f for term in ["hypertension", "htn", "high blood pressure"]) for f in findings):
             score += 1
             fulfilled_items.append("Hypertension (+1)")
 
-        if any(f in findings for f in ["age >= 75", "age 75+", "age 80", "age 85", "age 90"]):
+        if any(any(term in f for term in ["age >= 75", "age 75+", "age 80", "age 85", "age 90"]) for f in findings):
             score += 2
             fulfilled_items.append("Age >= 75 years (+2)")
-        elif any(f in findings for f in ["age 65-74", "age >= 65", "age 65+"]):
+        elif any(any(term in f for term in ["age 65-74", "age >= 65", "age 65+"]) for f in findings):
             score += 1
             fulfilled_items.append("Age 65-74 years (+1)")
 
-        if any(f in findings for f in ["diabetes", "type 2 diabetes mellitus", "t2dm", "t1dm", "diabetes mellitus"]):
+        if any(any(term in f for term in ["diabetes", "type 2 diabetes mellitus", "t2dm", "t1dm", "diabetes mellitus"]) for f in findings):
             score += 1
             fulfilled_items.append("Diabetes Mellitus (+1)")
 
-        if any(f in findings for f in ["stroke", "cva", "transient ischemic attack", "tia", "thromboembolism"]):
+        if any(any(term in f for term in ["stroke", "cva", "transient ischemic attack", "tia", "thromboembolism"]) for f in findings):
             score += 2
             fulfilled_items.append("Prior Stroke, TIA, or Systemic Embolism (+2)")
 
-        if any(f in findings for f in ["myocardial infarction", "cad", "peripheral artery disease", "pad", "aortic plaque"]):
+        if any(any(term in f for term in ["myocardial infarction", "cad", "peripheral artery disease", "pad", "aortic plaque"]) for f in findings):
             score += 1
             fulfilled_items.append("Vascular Disease (prior MI, PAD, or aortic plaque) (+1)")
 
-        if any(f in findings for f in ["female", "woman", "sex: female"]):
+        if any(any(term in f for term in ["female", "woman", "sex: female"]) for f in findings):
             score += 1
             fulfilled_items.append("Sex Category Female (+1)")
 
@@ -533,15 +561,15 @@ class ClinicalCriteriaEvaluator:
         score = 0
         fulfilled_items: List[str] = []
 
-        if any(f in findings for f in ["altered mental status", "ams", "confusion", "delirium", "gcs < 15"]):
+        if any(any(term in f for term in ["altered mental status", "ams", "confusion", "delirium", "gcs < 15"]) for f in findings):
             score += 1
             fulfilled_items.append("Altered mental status (GCS < 15) (+1)")
 
-        if any(f in findings for f in ["tachypnea", "respiratory rate >= 22", "rr >= 22", "respiratory rate >= 30"]):
+        if any(any(term in f for term in ["tachypnea", "respiratory rate >= 22", "rr >= 22", "respiratory rate >= 30"]) for f in findings):
             score += 1
             fulfilled_items.append("Respiratory rate >= 22 breaths/min (+1)")
 
-        if any(f in findings for f in ["hypotension", "sbp <= 100", "sbp < 90", "shock"]):
+        if any(any(term in f for term in ["hypotension", "sbp <= 100", "sbp < 90", "shock"]) for f in findings):
             score += 1
             fulfilled_items.append("Systolic blood pressure <= 100 mmHg (+1)")
 
@@ -609,6 +637,34 @@ class ClinicalCriteriaEvaluator:
             results.append(self.evaluate_qsofa(findings_set, extracted_labs))
 
         return results
+
+    def evaluate_named(
+        self,
+        name: str,
+        findings: List[str],
+        labs: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Evaluates a single criteria set explicitly by name."""
+        findings_set = {f.lower() for f in findings}
+        n = name.lower().replace("-", "_").replace(" ", "_")
+        if "wells" in n or "pe" in n or "pulmonary_embolism" in n:
+            return self.evaluate_wells_pe(findings_set, labs)
+        elif "cha2ds2" in n or "afib" in n or "atrial" in n:
+            return self.evaluate_cha2ds2_vasc(findings_set, labs)
+        elif "curb" in n or "pneumonia" in n:
+            return self.evaluate_curb65(findings_set, labs)
+        elif "qsofa" in n or "sepsis" in n:
+            return self.evaluate_qsofa(findings_set, labs)
+        elif "centor" in n or "strep" in n or "pharyngitis" in n:
+            return self.evaluate_centor_mcisaac(findings_set, labs)
+        elif "sle" in n or "lupus" in n or "acr" in n or "eular" in n:
+            return self.evaluate_sle_acr_eular(findings_set, labs)
+        elif "duke" in n or "endocarditis" in n:
+            return self.evaluate_duke_endocarditis(findings_set, labs)
+        elif "myositis" in n or "myopathy" in n or "bohan" in n:
+            return self.evaluate_inflammatory_myopathy(findings_set, labs)
+        else:
+            return self.evaluate_qsofa(findings_set, labs)
 
 
 # Global singleton instance

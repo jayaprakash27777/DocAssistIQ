@@ -137,3 +137,30 @@ async def get_patient_timeline(
     events = await fetch_timeline(db, profile_id, page_size, (page - 1) * page_size, filters or [])
     return {"events": events}
 
+
+@router.post("/fhir-import", responses=API_RESPONSES)
+async def import_patient_fhir_bundle(
+    bundle: dict,
+    patient_ref: str | None = Query(None, description="Optional custom patient_ref"),
+    user: User = Depends(require_permission("patient", "create")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Import an HL7 FHIR R4 Bundle into the patient directory.
+    Extracts demographics, active conditions, medications, allergies, and vitals with LOINC/RxNorm codes.
+    """
+    from app.services.fhir_ingestion_service import fhir_ingestion_service
+    try:
+        _, summary = await fhir_ingestion_service.import_bundle(
+            db=db,
+            doctor=doctor,
+            bundle=bundle,
+            override_patient_ref=patient_ref
+        )
+        return summary
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"FHIR ingestion failed: {str(e)}")
+

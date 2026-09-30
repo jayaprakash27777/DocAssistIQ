@@ -251,6 +251,7 @@ class RealtimePredictionService:
         quantitative_labs: Dict[str, Any] = {}
         calculated_indices: Dict[str, Any] = {}
         background_history: List[str] = []
+        critical_panic_alerts: List[Dict[str, Any]] = []
         differentiating_recommendation: Optional[Dict[str, Any]] = None
         criteria_evaluations: List[Dict[str, Any]] = []
 
@@ -279,6 +280,7 @@ class RealtimePredictionService:
                 section_breakdown = parsed.get("section_breakdown", {})
                 quantitative_labs = parsed.get("quantitative_labs", {})
                 calculated_indices = parsed.get("calculated_indices", {})
+                critical_panic_alerts = parsed.get("critical_panic_alerts", [])
                 background_history = parsed.get("background_history", [])
 
                 # Auto-populate travel history and incubation days from parsed note
@@ -303,11 +305,11 @@ class RealtimePredictionService:
                 if days_since_return is None and parsed_inc is not None:
                     days_since_return = parsed_inc
 
-                # Quick quantitative lab check on short inputs
                 quick_labs = lab_value_interpreter.interpret(text_input)
                 if quick_labs.get("extracted_labs"):
                     quantitative_labs = quick_labs.get("extracted_labs", {})
                     calculated_indices = quick_labs.get("calculated_indices", {})
+                    critical_panic_alerts = quick_labs.get("critical_panic_alerts", [])
                     for flag in quick_labs.get("diagnostic_flags", []):
                         if flag.lower() not in [s.lower() for s in raw_symptoms]:
                             raw_symptoms.append(flag)
@@ -404,6 +406,16 @@ class RealtimePredictionService:
                     break
             except Exception:
                 pass
+
+        # 2b. Escalate Critical Laboratory Panic Values to Emergency Alert if no other emergency triggered
+        if not emergency_alert and critical_panic_alerts:
+            top_panic = critical_panic_alerts[0]
+            emergency_alert = {
+                "is_emergency": True,
+                "condition": f"CRITICAL LAB VALUE: {top_panic['biomarker']} ({top_panic['value']} {top_panic['unit']})",
+                "warning": f"🚨 STAT CLINICAL ALERT: {top_panic['biomarker']} of {top_panic['value']} {top_panic['unit']} requires immediate bedside intervention. {top_panic['physiological_threat']}",
+                "immediate_action": top_panic["immediate_bedside_protocol"],
+            }
 
         # 3. Deterministic Core Clinical Reasoning Engine Execution (<10ms)
         scored_candidates = clinical_reasoning_engine.score_all_diseases(
@@ -788,6 +800,7 @@ class RealtimePredictionService:
             "section_breakdown": section_breakdown,
             "quantitative_labs": quantitative_labs,
             "calculated_indices": calculated_indices,
+            "critical_panic_alerts": critical_panic_alerts,
             "background_history": background_history,
             "differentiating_recommendation": differentiating_recommendation,
             "criteria_evaluations": criteria_evaluations,

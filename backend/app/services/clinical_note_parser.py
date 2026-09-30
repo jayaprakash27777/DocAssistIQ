@@ -1002,6 +1002,7 @@ class ClinicalNoteParser:
                 "section_breakdown": {},
                 "quantitative_labs": {},
                 "calculated_indices": {},
+                "critical_panic_alerts": [],
                 "background_history": [],
                 "summary": "",
             }
@@ -1093,6 +1094,7 @@ class ClinicalNoteParser:
             "section_breakdown": section_map,
             "quantitative_labs": lab_data.get("extracted_labs", {}),
             "calculated_indices": lab_data.get("calculated_indices", {}),
+            "critical_panic_alerts": lab_data.get("critical_panic_alerts", []),
             "background_history": background_history,
             "summary": f"Extracted {len(positive_findings)} active acute findings, {len(background_history)} background history items, {len(negated_findings)} negated findings, {len(travel_history)} travel links.",
         }

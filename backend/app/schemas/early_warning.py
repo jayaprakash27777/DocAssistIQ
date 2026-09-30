@@ -13,3 +13,5 @@ class EarlyWarningResponse(BaseModel):
     qsofa_score: int = 0
     news2_score: int = 0
     sirs_score: int = 0
+    risk_level: str = "LOW"  # LOW, MEDIUM, HIGH, CRITICAL
+    safety_disclaimer: str = "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED"

@@ -136,6 +136,87 @@ DETERMINISTIC_DDI_RULES: List[Dict[str, Any]] = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Validated Anticholinergic Cognitive Burden (ACB) Scale (Beers Criteria)
+# ---------------------------------------------------------------------------
+ACB_DATABASE: Dict[str, int] = {
+    # Score 3 - Severe anticholinergic activity (Cognitive deficit risk)
+    "amitriptyline": 3, "atropine": 3, "benztropine": 3, "chlorpheniramine": 3,
+    "clemastine": 3, "clomipramine": 3, "clozapine": 3, "desipramine": 3,
+    "dicyclomine": 3, "doxepin": 3, "hydroxyzine": 3, "hyoscyamine": 3,
+    "imipramine": 3, "meclizine": 3, "nortriptyline": 3, "olanzapine": 3,
+    "oxybutynin": 3, "paroxetine": 3, "promethazine": 3, "scopolamine": 3,
+    "tolterodine": 3, "trihexyphenidyl": 3,
+    # Score 2 - Moderate anticholinergic activity
+    "belladonna": 2, "carbamazepine": 2, "cyclobenzaprine": 2, "loxapine": 2,
+    "meperidine": 2, "methotrimeprazine": 2, "molindone": 2, "oxcarbazepine": 2,
+    "pimozide": 2,
+    # Score 1 - Potential / Mild anticholinergic activity
+    "atenolol": 1, "bupropion": 1, "captopril": 1, "chlorthalidone": 1,
+    "cimetidine": 1, "clorazepate": 1, "codeine": 1, "colchicine": 1,
+    "diazepam": 1, "digoxin": 1, "dipyridamole": 1, "disopyramide": 1,
+    "fentanyl": 1, "furosemide": 1, "haloperidol": 1, "hydralazine": 1,
+    "hydrochlorothiazide": 1, "isosorbide": 1, "metoprolol": 1, "morphine": 1,
+    "nifedipine": 1, "prednisone": 1, "quinidine": 1, "ranitidine": 1,
+    "risperidone": 1, "theophylline": 1, "triamterene": 1, "warfarin": 1,
+}
+
+# ---------------------------------------------------------------------------
+# Real-Time Clinical Renal Clearance & Nephrotoxic Alert Matrix
+# ---------------------------------------------------------------------------
+RENAL_ALERT_RULES: List[Dict[str, Any]] = [
+    {
+        "drugs": {"metformin"},
+        "egfr_cutoff": 30,
+        "severity": "CRITICAL",
+        "title": "Metformin Lactic Acidosis Contraindication",
+        "action": "Metformin is strictly contraindicated with eGFR < 30 mL/min due to risk of fatal lactic acidosis. Discontinue immediately.",
+    },
+    {
+        "drugs": {"metformin"},
+        "egfr_range": (30, 45),
+        "severity": "WARNING",
+        "title": "Metformin Renal Dose Adjustment",
+        "action": "eGFR 30-44 mL/min: Reduce maximum metformin dose to 1000 mg/day (500 mg BID) with renal function monitoring every 3 months.",
+    },
+    {
+        "drugs": {"ibuprofen", "naproxen", "ketorolac", "meloxicam", "diclofenac", "celecoxib", "indomethacin"},
+        "egfr_cutoff": 30,
+        "severity": "CRITICAL",
+        "title": "NSAID Acute Kidney Injury Warning",
+        "action": "NSAIDs precipitate acute renal failure and refractory hyperkalemia via afferent arteriolar vasoconstriction in CKD. Avoid systemically; consider paracetamol or topical therapy.",
+    },
+    {
+        "drugs": {"spironolactone", "eplerenone"},
+        "egfr_cutoff": 30,
+        "severity": "CRITICAL",
+        "title": "Potassium-Sparing Diuretic Hyperkalemia Risk",
+        "action": "Contraindicated with eGFR < 30 mL/min due to severe risk of refractory life-threatening hyperkalemia.",
+    },
+    {
+        "drugs": {"enoxaparin"},
+        "egfr_cutoff": 30,
+        "severity": "WARNING",
+        "title": "Enoxaparin LMWH Bioaccumulation",
+        "action": "Severe renal impairment (CrCl/eGFR < 30 mL/min): Reduce therapeutic enoxaparin to 1 mg/kg once daily (from 1 mg/kg BID) and monitor anti-Xa levels.",
+    },
+    {
+        "drugs": {"allopurinol"},
+        "egfr_cutoff": 30,
+        "severity": "WARNING",
+        "title": "Allopurinol Hypersensitivity Risk",
+        "action": "Starting allopurinol dose must not exceed 50-100 mg daily in severe renal impairment (eGFR < 30) to reduce risk of life-threatening Allopurinol Hypersensitivity Syndrome (AHS).",
+    },
+    {
+        "drugs": {"gentamicin", "tobramycin", "amikacin", "vancomycin"},
+        "egfr_cutoff": 60,
+        "severity": "WARNING",
+        "title": "Nephrotoxic Antimicrobial Therapeutic Drug Monitoring",
+        "action": "Impaired renal clearance requires extended-interval dosing and mandatory pre-dose trough level monitoring to prevent cumulative nephrotoxicity and ototoxicity.",
+    },
+]
+
+
 class PolypharmacySimulator:
     """Enterprise Polypharmacy & Drug-Drug Interaction Simulation Service.
     
@@ -230,7 +311,77 @@ class PolypharmacySimulator:
             log.warning("rxnav_check_failed_in_polypharmacy", error=str(e))
             return []
 
-    async def simulate(self, proposed_meds: List[str], current_meds: List[str]) -> PolypharmacyResponse:
+    @staticmethod
+    def calculate_anticholinergic_burden(meds: List[str]) -> Dict[str, Any]:
+        """Calculates cumulative Anticholinergic Cognitive Burden (ACB) score."""
+        contributing_drugs = []
+        total_score = 0
+        for m in meds:
+            m_lower = m.lower().strip()
+            for drug_name, score in ACB_DATABASE.items():
+                if drug_name in m_lower or m_lower in drug_name:
+                    contributing_drugs.append({"medication": m, "score": score, "drug": drug_name})
+                    total_score += score
+                    break
+
+        risk_category = "Minimal/Zero Risk"
+        if total_score >= 3:
+            risk_category = "High Risk (Severe Anticholinergic Burden - Beers Criteria Alert: confusion, falls, cognitive decline)"
+        elif total_score >= 1:
+            risk_category = "Moderate Risk (Monitor for dry mouth, urinary retention, sedation)"
+
+        return {
+            "total_score": total_score,
+            "risk_category": risk_category,
+            "contributing_medications": contributing_drugs,
+            "clinical_guidance": "Scores >= 3 are associated with a 50% increase in cognitive impairment and delirium in older adults." if total_score >= 3 else "Regimen has acceptable anticholinergic load."
+        }
+
+    @staticmethod
+    def assess_renal_safety(meds: List[str], egfr: Optional[float] = None, creatinine: Optional[float] = None) -> List[Dict[str, Any]]:
+        """Evaluates renal dose adjustments and nephrotoxic contraindications."""
+        alerts: List[Dict[str, Any]] = []
+        effective_egfr = egfr
+        if effective_egfr is None and creatinine and creatinine >= 1.8:
+            effective_egfr = 25.0
+
+        if effective_egfr is None:
+            return alerts
+
+        for rule in RENAL_ALERT_RULES:
+            triggered = False
+            if "egfr_cutoff" in rule and effective_egfr < rule["egfr_cutoff"]:
+                triggered = True
+            elif "egfr_range" in rule and rule["egfr_range"][0] <= effective_egfr < rule["egfr_range"][1]:
+                triggered = True
+
+            if triggered:
+                matching = []
+                for m in meds:
+                    m_lower = m.lower().strip()
+                    for target_drug in rule["drugs"]:
+                        if target_drug in m_lower or m_lower in target_drug:
+                            matching.append(m)
+                            break
+                if matching:
+                    alerts.append({
+                        "severity": rule["severity"],
+                        "title": rule["title"],
+                        "medications_involved": list(set(matching)),
+                        "egfr_reported": egfr,
+                        "creatinine_reported": creatinine,
+                        "clinical_action": rule["action"]
+                    })
+        return alerts
+
+    async def simulate(
+        self,
+        proposed_meds: List[str],
+        current_meds: List[str],
+        egfr: Optional[float] = None,
+        creatinine: Optional[float] = None,
+        age: Optional[int] = None
+    ) -> PolypharmacyResponse:
         all_meds = [m.strip() for m in proposed_meds + current_meds if m and m.strip()]
         log.info("simulating_polypharmacy", proposed=proposed_meds, current=current_meds, total=len(all_meds))
 
@@ -321,21 +472,30 @@ Generate the interaction report as JSON.
                 seen_pairs.add(pair_key)
                 merged_interactions.append(item)
 
+        # 5. Anticholinergic Cognitive Burden & Renal Assessment
+        acb_data = self.calculate_anticholinergic_burden(all_meds)
+        renal_alerts = self.assess_renal_safety(all_meds, egfr=egfr, creatinine=creatinine)
+
         # Determine overall safety status
         has_critical = any(item.severity == "CRITICAL" for item in merged_interactions)
+        if renal_alerts and any(r["severity"] == "CRITICAL" for r in renal_alerts):
+            has_critical = True
+
         is_safe = not has_critical
 
         if not summary_assessment:
             if has_critical:
                 crit_count = sum(1 for i in merged_interactions if i.severity == "CRITICAL")
+                if renal_alerts and any(r["severity"] == "CRITICAL" for r in renal_alerts):
+                    crit_count += sum(1 for r in renal_alerts if r["severity"] == "CRITICAL")
                 summary_assessment = (
-                    f"CRITICAL SAFETY ALERT: Detected {crit_count} high-risk interaction(s) requiring immediate "
+                    f"CRITICAL SAFETY ALERT: Detected {crit_count} high-risk interaction(s) or contraindication(s) requiring immediate "
                     "pharmacotherapeutic revision prior to administration. Review boxed warnings and mechanisms."
                 )
-            elif merged_interactions:
-                warn_count = len(merged_interactions)
+            elif merged_interactions or (renal_alerts and len(renal_alerts) > 0):
+                warn_count = len(merged_interactions) + (len(renal_alerts) if renal_alerts else 0)
                 summary_assessment = (
-                    f"Caution advised: Identified {warn_count} moderate/minor drug interaction(s). "
+                    f"Caution advised: Identified {warn_count} moderate/minor drug interaction(s) or renal warning(s). "
                     "Dose titration, staggered administration, or close clinical monitoring recommended."
                 )
             else:
@@ -347,7 +507,10 @@ Generate the interaction report as JSON.
         return PolypharmacyResponse(
             interactions=merged_interactions,
             summary_assessment=summary_assessment,
-            is_safe=is_safe
+            is_safe=is_safe,
+            anticholinergic_burden=acb_data,
+            renal_alerts=renal_alerts if renal_alerts else None,
+            safety_disclaimer="REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED"
         )
 
 

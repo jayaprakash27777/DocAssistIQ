@@ -28,7 +28,7 @@ bcrypt.hashpw = _patched_hashpw
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -190,12 +190,13 @@ def create_app() -> FastAPI:
             ],
         }
 
-    # ── Public AI Ask (no auth required — works even before login) ────────
+    # ── Public AI Ask (rate-limited for DoS protection) ────────
     @application.post("/ai/ask", tags=["AI"], operation_id="post_ai_ask_root", include_in_schema=True)
     @application.post("/api/v1/ai/ask", tags=["AI"], operation_id="post_ai_ask_v1", include_in_schema=True)
-    async def ai_ask(body: dict) -> dict:
+    @limiter.limit("60/minute")
+    async def ai_ask(request: Request, body: dict) -> dict:
         """
-        Real-time clinical Q&A — no authentication required.
+        Real-time clinical Q&A — protected with rate limiting.
         Uses PubMed + MedlinePlus + Clinical KB for answers.
         """
         from app.services.realtime_medical_engine import realtime_medical_answer
@@ -209,13 +210,14 @@ def create_app() -> FastAPI:
         )
         return result
 
-    # ── Public AI NLP Extract (no auth required) ──────────────────────────
+    # ── Public AI NLP Extract (rate-limited for DoS protection) ──────────
     @application.post("/ai/extract", tags=["AI"], operation_id="post_ai_extract_root", include_in_schema=True)
     @application.post("/api/v1/ai/extract", tags=["AI"], operation_id="post_ai_extract_v1", include_in_schema=True)
-    async def ai_extract(body: dict) -> dict:
+    @limiter.limit("60/minute")
+    async def ai_extract(request: Request, body: dict) -> dict:
         """
         Extract clinical information (symptoms, duration, etc.) from free text.
-        No authentication required.
+        Protected with rate limiting.
         """
         from app.services.representation_service import _extract_from_text
         text = (body.get("text") or body.get("note") or "").strip()

@@ -584,11 +584,142 @@ class LabValueInterpreter:
                 elif mg_val > 2.6:
                     diagnostic_flags.append("hypermagnesemia")
 
+        critical_alerts = self.identify_critical_panic_values(extracted_labs, calculated_indices)
+
         return {
             "extracted_labs": extracted_labs,
             "calculated_indices": calculated_indices,
             "diagnostic_flags": list(set(diagnostic_flags)),
+            "critical_panic_alerts": critical_alerts,
         }
+
+    def identify_critical_panic_values(
+        self,
+        extracted_labs: Dict[str, Any],
+        calculated_indices: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Hospital-grade Critical Panic Value identifier.
+        Detects acute physiological threats with time-critical bedside stabilization mandates.
+        Strictly deterministic, zero hallucination.
+        """
+        calc = calculated_indices or {}
+        alerts: List[Dict[str, Any]] = []
+
+        # 1. Potassium
+        pot = extracted_labs.get("potassium", {}).get("value")
+        if pot is not None:
+            if pot >= 6.0:
+                alerts.append({
+                    "biomarker": "Serum Potassium",
+                    "value": pot,
+                    "unit": "mEq/L",
+                    "severity": "CRITICAL_PANIC_HIGH",
+                    "physiological_threat": "High risk of fatal cardiac dysrhythmia (VFib, asystole, sine-wave progression).",
+                    "immediate_bedside_protocol": "Stat 12-lead ECG. IV Calcium Gluconate 1g over 5-10 min (membrane stabilization). Regular Insulin 10 units IV + 50mL D50W. Nebulized Albuterol 10-20mg. Continuous telemetry.",
+                    "regulatory_watermark": "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
+                })
+            elif pot < 2.8:
+                alerts.append({
+                    "biomarker": "Serum Potassium",
+                    "value": pot,
+                    "unit": "mEq/L",
+                    "severity": "CRITICAL_PANIC_LOW",
+                    "physiological_threat": "Risk of malignant ventricular tachyarrhythmias (Torsades de Pointes), severe muscular weakness, respiratory arrest.",
+                    "immediate_bedside_protocol": "Continuous telemetry. IV Potassium Chloride infusion piggyback (max 10-20 mEq/hr, NEVER IV push). Stat Magnesium check and repletion.",
+                    "regulatory_watermark": "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
+                })
+
+        # 2. Platelets
+        plt = extracted_labs.get("platelets", {}).get("value")
+        if plt is not None and plt < 20000:
+            alerts.append({
+                "biomarker": "Platelet Count",
+                "value": plt,
+                "unit": "/uL",
+                "severity": "CRITICAL_PANIC_LOW",
+                "physiological_threat": "Severe danger of spontaneous life-threatening hemorrhage (intracranial, gastrointestinal).",
+                "immediate_bedside_protocol": "Strict bleeding precautions. Discontinue all anticoagulants/antiplatelets immediately. Stat Hematology consult; prepare for apheresis platelet transfusion.",
+                "regulatory_watermark": "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
+            })
+
+        # 3. Hemoglobin
+        hb = extracted_labs.get("hemoglobin", {}).get("value")
+        if hb is not None and hb < 7.0:
+            alerts.append({
+                "biomarker": "Hemoglobin",
+                "value": hb,
+                "unit": "g/dL",
+                "severity": "CRITICAL_PANIC_LOW",
+                "physiological_threat": "Severe acute tissue hypoxia, high-output failure, myocardial ischemia.",
+                "immediate_bedside_protocol": "Stat type and crossmatch 2 units packed red blood cells (PRBCs). Hemodynamic monitoring and emergency transfusion protocol evaluation.",
+                "regulatory_watermark": "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
+            })
+
+        # 4. Lactate
+        lac = extracted_labs.get("lactate", {}).get("value")
+        if lac is not None and lac >= 4.0:
+            alerts.append({
+                "biomarker": "Serum Lactate",
+                "value": lac,
+                "unit": "mmol/L",
+                "severity": "CRITICAL_PANIC_HIGH",
+                "physiological_threat": "Severe lactic acidosis indicating profound tissue hypoperfusion or septic shock.",
+                "immediate_bedside_protocol": "Initiate Sepsis-3 1-hour bundle: 30 mL/kg IV balanced crystalloid bolus, blood cultures prior to antimicrobials, stat broad-spectrum IV antibiotics, repeat serial lactate in 2-4 hours.",
+                "regulatory_watermark": "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
+            })
+
+        # 5. Blood Glucose
+        glu = extracted_labs.get("blood_glucose", {}).get("value")
+        if glu is not None:
+            if glu >= 500:
+                alerts.append({
+                    "biomarker": "Blood Glucose",
+                    "value": glu,
+                    "unit": "mg/dL",
+                    "severity": "CRITICAL_PANIC_HIGH",
+                    "physiological_threat": "Diabetic Ketoacidosis (DKA) or Hyperosmolar Hyperglycemic State (HHS), profound dehydration.",
+                    "immediate_bedside_protocol": "IV Isotonic Saline hydration (1-1.5 L/hr initial). Verify serum potassium before starting IV regular insulin infusion. Check ketones and venous/arterial blood gas.",
+                    "regulatory_watermark": "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
+                })
+            elif glu < 50:
+                alerts.append({
+                    "biomarker": "Blood Glucose",
+                    "value": glu,
+                    "unit": "mg/dL",
+                    "severity": "CRITICAL_PANIC_LOW",
+                    "physiological_threat": "Neuroglycopenic crisis, hypoglycemic coma, seizure, irreversible neurological injury.",
+                    "immediate_bedside_protocol": "Immediate IV access: 1 ampule (50 mL) 50% Dextrose (D50W) IV push stat (or 15-20g rapid oral glucose if fully conscious). Recheck capillary glucose in 15 minutes.",
+                    "regulatory_watermark": "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
+                })
+
+        # 6. Cardiac Troponin
+        trop = extracted_labs.get("cardiac_troponin", {}).get("value")
+        if trop is not None and trop > 0.04:
+            alerts.append({
+                "biomarker": "Cardiac Troponin",
+                "value": trop,
+                "unit": "ng/mL",
+                "severity": "CRITICAL_PANIC_HIGH",
+                "physiological_threat": "Acute myocardial injury / infarction.",
+                "immediate_bedside_protocol": "Stat 12-lead ECG within 10 minutes. Continuous cardiac telemetry. Aspirin 300mg chewable. Activate cardiology/cath-lab acute coronary syndrome protocol.",
+                "regulatory_watermark": "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
+            })
+
+        # 7. Corrected Calcium
+        ca = calc.get("corrected_calcium") or extracted_labs.get("calcium", {}).get("value")
+        if ca is not None and ca >= 12.0:
+            alerts.append({
+                "biomarker": "Serum Calcium (Corrected)",
+                "value": ca,
+                "unit": "mg/dL",
+                "severity": "CRITICAL_PANIC_HIGH",
+                "physiological_threat": "Hypercalcemic crisis, altered mental status, shortened QT interval, acute nephrogenic diabetes insipidus.",
+                "immediate_bedside_protocol": "Aggressive IV Normal Saline hydration (200-300 mL/hr). Avoid loop diuretics until volume restored. Consider Calcitonin and IV Bisphosphonate.",
+                "regulatory_watermark": "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
+            })
+
+        return alerts
 
 
 lab_value_interpreter = LabValueInterpreter()

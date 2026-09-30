@@ -565,17 +565,40 @@ class ExportService:
             pdf.multi_cell(0, 5, text=fallback_text.encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(5)
 
-        # Footer with Cryptographic Tamper-Evident Hash
-        pdf.ln(6)
-        pdf.set_draw_color(203, 213, 225)
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        # Regulatory Clinical Safety Banner (Rule 85 of Engineering Rules)
+        pdf.ln(4)
+        pdf.set_fill_color(254, 243, 199)  # Warning amber background
+        pdf.set_draw_color(245, 158, 11)
+        pdf.set_text_color(180, 83, 9)
+        pdf.set_font("Helvetica", style="B", size=8.5)
+        pdf.cell(0, 6, text="REFERENCE INFORMATION -- CLINICIAN REVIEW REQUIRED", align='C', border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(4)
+
+        # Clinician Verification & Signature Block
+        pdf.set_font("Helvetica", style="B", size=8)
+        pdf.set_text_color(71, 85, 105)
+        pdf.cell(90, 4, text="ATTENDING CLINICIAN SIGNATURE & STAMP:")
+        pdf.cell(90, 4, text="REGULATORY & MEDICAL COUNCIL VERIFICATION:", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(8)
+        pdf.set_font("Helvetica", size=7.5)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(90, 4, text="_________________________________________")
+        pdf.cell(90, 4, text="Medical Council Reg / License: ___________________", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(90, 4, text=f"Clinician ID: {consultation.doctor_id}")
+        status_txt = "FINALIZED & IMMUTABLE" if getattr(consultation, 'finalized_at', None) else "DRAFT / IN-REVIEW"
+        pdf.cell(90, 4, text=f"Record Status: {status_txt}", new_x="LMARGIN", new_y="NEXT")
         pdf.ln(3)
 
-        pdf.set_font("Helvetica", style="I", size=8)
+        # Footer with Cryptographic Tamper-Evident Hash
+        pdf.set_draw_color(203, 213, 225)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(2)
+
+        pdf.set_font("Helvetica", style="I", size=7.5)
         pdf.set_text_color(100, 116, 139)
         hash_val = getattr(consultation, 'immutable_hash', None) or 'PENDING_FINALIZATION'
-        pdf.cell(0, 4, text=f"Cryptographic Tamper-Evident Hash (SHA-256): {hash_val}", align='C', new_x="LMARGIN", new_y="NEXT")
-        pdf.cell(0, 4, text="DocAssistIQ Clinical AI Platform - Confidential Medical Record", align='C')
+        pdf.cell(0, 3.5, text=f"Cryptographic Tamper-Evident Hash (SHA-256): {hash_val}", align='C', new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 3.5, text="DocAssistIQ Clinical AI Platform - Strictly Confidential Medical Decision Support Record", align='C')
 
         # Output bytes
         return bytes(pdf.output())

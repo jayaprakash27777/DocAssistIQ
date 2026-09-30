@@ -201,6 +201,7 @@ async def ws_stream(
                 
             # Handle audio streaming
             if envelope.type == "audio_chunk":
+                ensure_asr_task()
                 b64_data = envelope.payload.get("data")
                 if b64_data:
                     try:

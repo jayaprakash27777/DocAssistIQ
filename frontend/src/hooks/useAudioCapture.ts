@@ -26,6 +26,8 @@ export function useAudioCapture() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [audioLevel, setAudioLevel] = useState<number>(0);
+  const [isSilent, setIsSilent] = useState<boolean>(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -33,21 +35,100 @@ export function useAudioCapture() {
   const startTimeRef = useRef<number>(0);
   const pauseTimeRef = useRef<number>(0); // Timestamp when paused
   const accumulatedMsRef = useRef<number>(0); // Total ms before current resume
-const stop = useCallback(() => {
+
+  // Web Audio API refs for real-time volume metering
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const silentSinceRef = useRef<number | null>(null);
+
+  const stopAudioMeter = useCallback(() => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
+    silentSinceRef.current = null;
+    setAudioLevel(0);
+    setIsSilent(false);
+  }, []);
+
+  const startAudioMeter = useCallback((mediaStream: MediaStream) => {
+    stopAudioMeter();
+    if (typeof window === "undefined") return;
+
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const audioCtx = new AudioCtx();
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.5;
+
+      const source = audioCtx.createMediaStreamSource(mediaStream);
+      source.connect(analyser);
+
+      audioContextRef.current = audioCtx;
+      analyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      const loop = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / dataArray.length;
+        // Non-linear sensitivity curve tailored to human vocal speech (0-100)
+        const normalized = Math.min(100, Math.round((avg / 120) * 100));
+        setAudioLevel(normalized);
+
+        // Dead-air detection: if level < 3 for over 3.5 seconds
+        if (normalized < 3) {
+          if (!silentSinceRef.current) {
+            silentSinceRef.current = Date.now();
+          } else if (Date.now() - silentSinceRef.current > 3500) {
+            setIsSilent(true);
+          }
+        } else {
+          silentSinceRef.current = null;
+          setIsSilent(false);
+        }
+
+        animFrameRef.current = requestAnimationFrame(loop);
+      };
+
+      animFrameRef.current = requestAnimationFrame(loop);
+    } catch (e) {
+      console.warn("Audio meter setup skipped or unsupported:", e);
+    }
+  }, [stopAudioMeter]);
+
+  const stop = useCallback(() => {
     if (mediaRecorderRef.current?.state !== "inactive") {
       setState("stopping");
       mediaRecorderRef.current?.stop();
     }
-  }, []);
+    stopAudioMeter();
+  }, [stopAudioMeter]);
 
   // Cleanup function to release the microphone
   const releaseMicrophone = useCallback(() => {
+    stopAudioMeter();
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
       setStream(null);
     }
-  }, []);
+  }, [stopAudioMeter]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -61,7 +142,6 @@ const stop = useCallback(() => {
   useEffect(() => {
     const handleDeviceChange = async () => {
       if (state === "recording" || state === "paused") {
-        // Simple device change check; a real app might attempt to re-acquire the exact stream
         const devices = await navigator.mediaDevices.enumerateDevices();
         const hasMic = devices.some((d) => d.kind === "audioinput");
         if (!hasMic) {
@@ -74,13 +154,14 @@ const stop = useCallback(() => {
       navigator.mediaDevices.addEventListener("devicechange", handleDeviceChange);
       return () => navigator.mediaDevices?.removeEventListener("devicechange", handleDeviceChange);
     }
-  }, [state]);
+  }, [state, stop]);
 
   const updateTimer = useCallback(() => {
     const now = Date.now();
     const elapsed = accumulatedMsRef.current + (now - startTimeRef.current);
     setElapsedMs(elapsed);
   }, []);
+
   const start = useCallback(async () => {
     try {
       setState("requesting_permission");
@@ -89,6 +170,9 @@ const stop = useCallback(() => {
       const streamObj = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = streamObj;
       setStream(streamObj);
+
+      // Start real-time Web Audio API frequency visualizer
+      startAudioMeter(streamObj);
 
       // Handle track ending externally (e.g. user revokes permission in browser)
       streamObj.getTracks().forEach(track => {
@@ -123,12 +207,16 @@ const stop = useCallback(() => {
         if (timerRef.current) clearInterval(timerRef.current);
         accumulatedMsRef.current += Date.now() - startTimeRef.current;
         pauseTimeRef.current = Date.now();
+        setAudioLevel(0);
       };
 
       recorder.onresume = () => {
         setState("recording");
         startTimeRef.current = Date.now();
         timerRef.current = setInterval(updateTimer, 1000);
+        if (streamRef.current) {
+          startAudioMeter(streamRef.current);
+        }
       };
 
       recorder.onerror = (e: Event) => {
@@ -140,7 +228,7 @@ const stop = useCallback(() => {
       const token = getStoredToken();
       const wsClient = token ? getSharedRealtimeClient(token) : null;
 
-      // We capture blobs in Phase 25 (Streaming ASR).
+      // Stream audio chunks via WebSocket
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0 && wsClient) {
           try {
@@ -167,7 +255,7 @@ const stop = useCallback(() => {
         setState("processing"); // App logic takes over
       };
 
-      // Start recording with a larger timeslice (2000ms) to reduce CPU load on backend decoding while maintaining real-time feel
+      // Start recording with timeslice (2000ms)
       recorder.start(2000); 
       
     } catch (err: any) {
@@ -181,7 +269,7 @@ const stop = useCallback(() => {
         setError("Failed to access microphone.");
       }
     }
-  }, [releaseMicrophone, updateTimer, stop]);
+  }, [releaseMicrophone, updateTimer, stop, startAudioMeter]);
 
   const pause = useCallback(() => {
     if (mediaRecorderRef.current?.state === "recording") {
@@ -195,19 +283,20 @@ const stop = useCallback(() => {
     }
   }, []);
 
-
-  
   const reset = useCallback(() => {
+    stopAudioMeter();
     setState("idle");
     setElapsedMs(0);
     setError(null);
     accumulatedMsRef.current = 0;
-  }, []);
+  }, [stopAudioMeter]);
 
   return {
     state,
     elapsedMs,
     error,
+    audioLevel,
+    isSilent,
     start,
     pause,
     resume,

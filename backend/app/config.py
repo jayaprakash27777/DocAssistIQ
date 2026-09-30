@@ -15,6 +15,7 @@ from pydantic import computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEV_SECRET_PLACEHOLDER = "dev-secret-key-change-in-production"  # noqa: S105
+_DEV_JWT_SECRET_PLACEHOLDER = "dev-jwt-secret-change-in-production"  # noqa: S105
 
 
 class Settings(BaseSettings):
@@ -101,6 +102,16 @@ class Settings(BaseSettings):
         ):
             msg = (
                 "BACKEND_SECRET_KEY must be set to a strong random value "
+                f"in environment '{self.app_env}'. "
+                "The development placeholder is not permitted in production."
+            )
+            raise ValueError(msg)
+        if (
+            self.app_env != "development"
+            and self.jwt_secret_key == _DEV_JWT_SECRET_PLACEHOLDER
+        ):
+            msg = (
+                "JWT_SECRET_KEY must be set to a strong random value "
                 f"in environment '{self.app_env}'. "
                 "The development placeholder is not permitted in production."
             )
