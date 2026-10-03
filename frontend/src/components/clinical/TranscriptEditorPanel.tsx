@@ -68,39 +68,37 @@ export default function TranscriptEditorPanel({
   };
 
   return (
-    <div className="glass-panel-4k gpu-accelerated flex flex-col h-[600px] rounded-3xl border border-slate-200/90 overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] bg-white/80 backdrop-blur-2xl">
+    <div className="flex flex-col h-[600px] rounded-3xl border border-slate-200/90 overflow-hidden shadow-xs bg-white">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-slate-200/80 flex flex-wrap justify-between items-center gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-md relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-teal-500/10 via-indigo-500/10 to-purple-500/10 pointer-events-none" />
-        
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 ring-1 ring-white/30">
-            <ShieldAlert size={20} />
+      <div className="px-5 py-3.5 border-b border-slate-200/90 flex flex-wrap justify-between items-center gap-4 bg-white text-slate-900 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 shadow-2xs">
+            <ShieldAlert size={18} />
           </div>
           <div>
-            <h3 className="m-0 text-base font-bold text-white tracking-tight flex items-center gap-2">
+            <h3 className="m-0 text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-2 font-heading">
               Clinical Transcript Editor
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                 Audit Ready
               </span>
             </h3>
-            <p className="m-0 text-xs text-slate-300">
-              Compliant workspace for clinical auditing & forensic review
+            <p className="m-0 text-[11px] text-slate-500 font-medium">
+              Compliant workspace for clinical auditing &amp; forensic review
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3 items-center relative z-10">
+        <div className="flex flex-wrap gap-2.5 items-center">
           {/* View Mode Toggle */}
-          <div className="flex bg-white/10 p-1 rounded-xl border border-white/15 backdrop-blur-md">
+          <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200">
             {(["raw", "processed", "final"] as ViewMode[]).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
                   viewMode === mode
-                    ? "bg-white text-slate-900 shadow-md scale-102"
-                    : "text-slate-300 hover:text-white"
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 {mode === "raw" ? "Raw ASR" : mode === "processed" ? "AI Processed" : "Final Output"}
@@ -116,13 +114,13 @@ export default function TranscriptEditorPanel({
               placeholder="Search transcript..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-8 py-1.5 rounded-xl border border-white/20 bg-white/10 text-white placeholder-slate-400 text-xs w-48 focus:outline-none focus:ring-2 focus:ring-teal-400/50 backdrop-blur-md transition-all shadow-inner"
+              className="pl-8 pr-8 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 text-xs w-48 focus:outline-none focus:ring-2 focus:ring-teal-500/30 transition-colors shadow-2xs"
             />
             {searchQuery && (
               <X 
                 size={14} 
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 text-slate-400 hover:text-white cursor-pointer transition-colors" 
+                className="absolute right-2.5 text-slate-400 hover:text-slate-700 cursor-pointer transition-colors" 
               />
             )}
           </div>

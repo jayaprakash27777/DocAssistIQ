@@ -15,9 +15,32 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, AlertTriangle, FlaskConical, Pill, Globe, Users,
-  Info, BookOpen, ChevronRight, ExternalLink, Shield, Zap, Calendar, AlertOctagon
+  Info, BookOpen, ChevronRight, ExternalLink, Shield, Zap, Calendar, AlertOctagon,
+  Network, Layers, CheckCircle2, Search
 } from "lucide-react";
 import { getStoredToken } from "@/lib/api";
+
+
+interface GraphNode {
+  id: string;
+  code: string;
+  name: string;
+  category?: string;
+  node_type: string;
+}
+
+interface GraphEdge {
+  source_id: string;
+  target_id: string;
+  relationship: string;
+  metadata?: Record<string, any>;
+}
+
+interface DiseaseKnowledgeGraphData {
+  disease_id: string;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/api\/v1\/?$/, "");
 
@@ -76,6 +99,7 @@ const TABS = [
   { id: "management",     label: "Management",       icon: Pill },
   { id: "epidemiology",   label: "Epidemiology",     icon: Globe },
   { id: "populations",    label: "Populations",      icon: Users },
+  { id: "graph",          label: "Knowledge Graph",  icon: Network },
 ];
 
 function Badge({ text, variant = "neutral" }: { text: string; variant?: "danger" | "warning" | "success" | "neutral" | "primary" }) {
@@ -143,6 +167,11 @@ export default function DiseaseIntelligencePanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const [graphData, setGraphData] = useState<DiseaseKnowledgeGraphData | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
+  const [graphError, setGraphError] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [graphFilter, setGraphFilter] = useState<string>("all");
 
   useEffect(() => {
     if (!disease) return;
@@ -194,6 +223,36 @@ export default function DiseaseIntelligencePanel({
     return () => { aborted = true; clearTimeout(timeoutId); controller.abort(); };
   }, [disease, consultationId]);
 
+
+  useEffect(() => {
+    if (!disease || activeTab !== "graph" || graphData) return;
+    let cancelled = false;
+    const fetchGraph = async () => {
+      setGraphLoading(true);
+      setGraphError(null);
+      try {
+        const token = getStoredToken() || (typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null) || "";
+        const reqHeaders: Record<string, string> = {};
+        if (token) reqHeaders.Authorization = `Bearer ${token}`;
+        const res = await fetch(`${API_BASE}/api/v1/knowledge/graph/by-disease/${encodeURIComponent(disease)}`, {
+          headers: reqHeaders,
+        });
+        if (cancelled) return;
+        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load graph`);
+        const json = await res.json();
+        setGraphData(json);
+        const root = json.nodes?.find((n: GraphNode) => n.node_type === "disease");
+        if (root) setSelectedNode(root);
+      } catch (err: unknown) {
+        if (!cancelled) setGraphError(err instanceof Error ? err.message : "Unable to load knowledge graph");
+      } finally {
+        if (!cancelled) setGraphLoading(false);
+      }
+    };
+    fetchGraph();
+    return () => { cancelled = true; };
+  }, [disease, activeTab, graphData]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-4">
@@ -221,35 +280,35 @@ export default function DiseaseIntelligencePanel({
   return (
     <div className="rounded-3xl border border-slate-200/80 bg-white shadow-[0_12px_44px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.95)] overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-7 py-6 border-b border-white/10 shadow-sm">
+      <div className="bg-white border-b border-slate-200/90 px-7 py-6 shadow-xs">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-white font-black text-2xl tracking-tight">{data.disease_name}</h3>
+            <h3 className="text-slate-900 font-black text-2xl tracking-tight font-heading">{data.disease_name}</h3>
             <div className="flex flex-wrap items-center gap-2 mt-2.5">
               {data.icd11_code && (
-                <span className="text-xs bg-white/10 text-white/90 px-2.5 py-0.5 rounded-full font-mono border border-white/20 font-bold">
+                <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-mono border border-slate-200 font-bold">
                   ICD-11: {data.icd11_code}
                 </span>
               )}
               {data.disease_class && (
-                <span className="text-xs bg-blue-500/25 text-blue-200 px-2.5 py-0.5 rounded-full border border-blue-400/40 font-bold">
+                <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full border border-blue-200 font-bold">
                   {data.disease_class}
                 </span>
               )}
               {data.is_notifiable && (
-                <span className="flex items-center gap-1.5 text-xs bg-amber-500/25 text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-400/40 font-bold">
-                  <Shield className="w-3.5 h-3.5" /> Notifiable Disease
+                <span className="flex items-center gap-1.5 text-xs bg-amber-50 text-amber-800 px-2.5 py-0.5 rounded-full border border-amber-200 font-bold">
+                  <Shield className="w-3.5 h-3.5 text-amber-600" /> Notifiable Disease
                 </span>
               )}
               {data.is_outbreak_active && (
-                <span className="flex items-center gap-1.5 text-xs bg-red-500/35 text-red-100 px-2.5 py-0.5 rounded-full border border-red-400/40 animate-pulse font-extrabold shadow-sm">
-                  <Zap className="w-3.5 h-3.5" /> Active Outbreak
+                <span className="flex items-center gap-1.5 text-xs bg-rose-50 text-rose-700 px-2.5 py-0.5 rounded-full border border-rose-200 font-extrabold shadow-2xs">
+                  <Zap className="w-3.5 h-3.5 text-rose-600" /> Active Outbreak
                 </span>
               )}
             </div>
           </div>
           {data.last_updated && (
-            <span className="text-xs text-white/50 shrink-0 font-medium">
+            <span className="text-xs text-slate-400 shrink-0 font-medium">
               Updated: {data.last_updated}
             </span>
           )}
@@ -584,6 +643,204 @@ export default function DiseaseIntelligencePanel({
                         </a>
                       ))}
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* KNOWLEDGE GRAPH TAB */}
+            {activeTab === "graph" && (
+              <div className="space-y-4">
+                {graphLoading && (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3">
+                    <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+                    <p className="text-xs font-semibold text-slate-500">Querying PostgreSQL Knowledge Graph & Clinical Ontologies...</p>
+                  </div>
+                )}
+
+                {graphError && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center justify-between">
+                    <span>{graphError}</span>
+                    <button
+                      onClick={() => { setGraphData(null); }}
+                      className="px-3 py-1 bg-amber-200/60 hover:bg-amber-200 text-amber-900 rounded-lg font-bold text-xs"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                {graphData && (
+                  <div className="space-y-4">
+                    {/* Header stats & filter */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
+                      <div className="flex items-center gap-2">
+                        <Network className="w-4 h-4 text-indigo-600" />
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Graph Topology: {graphData.nodes.length} Nodes · {graphData.edges.length} Edges
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {["all", "symptom", "investigation", "medicine"].map(type => (
+                          <button
+                            key={type}
+                            onClick={() => setGraphFilter(type)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                              graphFilter === type
+                                ? "bg-indigo-600 text-white shadow-xs"
+                                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            {type === "all" ? "All Nodes" : `${type}s`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Interactive 3-Cluster Layout */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Left: Symptoms */}
+                      {(graphFilter === "all" || graphFilter === "symptom") && (
+                        <div className="border border-slate-200 bg-slate-50/50 rounded-2xl p-3.5">
+                          <div className="flex items-center justify-between mb-2.5">
+                            <span className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                              <Activity className="w-3.5 h-3.5" /> Manifestations
+                            </span>
+                            <span className="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">
+                              {graphData.nodes.filter(n => n.node_type === "symptom").length}
+                            </span>
+                          </div>
+                          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                            {graphData.nodes.filter(n => n.node_type === "symptom").map(node => (
+                              <div
+                                key={node.id}
+                                onClick={() => setSelectedNode(node)}
+                                className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                                  selectedNode?.id === node.id
+                                    ? "bg-blue-50 border-blue-400 shadow-xs"
+                                    : "bg-white border-slate-200 hover:border-blue-300"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="text-xs font-bold text-slate-800">{node.name}</span>
+                                  <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                    {node.code}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Middle: Investigations */}
+                      {(graphFilter === "all" || graphFilter === "investigation") && (
+                        <div className="border border-slate-200 bg-slate-50/50 rounded-2xl p-3.5">
+                          <div className="flex items-center justify-between mb-2.5">
+                            <span className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
+                              <FlaskConical className="w-3.5 h-3.5" /> Diagnostic Workup
+                            </span>
+                            <span className="text-xs font-mono bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-bold">
+                              {graphData.nodes.filter(n => n.node_type === "investigation").length}
+                            </span>
+                          </div>
+                          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                            {graphData.nodes.filter(n => n.node_type === "investigation").map(node => (
+                              <div
+                                key={node.id}
+                                draggable
+                                onDragStart={e => e.dataTransfer.setData("text/plain", `Order: ${node.name}`)}
+                                onClick={() => setSelectedNode(node)}
+                                className={`p-2.5 rounded-xl border transition-all cursor-pointer group ${
+                                  selectedNode?.id === node.id
+                                    ? "bg-purple-50 border-purple-400 shadow-xs"
+                                    : "bg-white border-slate-200 hover:border-purple-300"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="text-xs font-bold text-slate-800">{node.name}</span>
+                                  <span className="text-[10px] font-mono text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">
+                                    {node.code}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Right: Medications */}
+                      {(graphFilter === "all" || graphFilter === "medicine") && (
+                        <div className="border border-slate-200 bg-slate-50/50 rounded-2xl p-3.5">
+                          <div className="flex items-center justify-between mb-2.5">
+                            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                              <Pill className="w-3.5 h-3.5" /> Pharmacotherapy
+                            </span>
+                            <span className="text-xs font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+                              {graphData.nodes.filter(n => n.node_type === "medicine").length}
+                            </span>
+                          </div>
+                          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                            {graphData.nodes.filter(n => n.node_type === "medicine").map(node => (
+                              <div
+                                key={node.id}
+                                draggable
+                                onDragStart={e => e.dataTransfer.setData("text/plain", `Rx: ${node.name}`)}
+                                onClick={() => setSelectedNode(node)}
+                                className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                                  selectedNode?.id === node.id
+                                    ? "bg-emerald-50 border-emerald-400 shadow-xs"
+                                    : "bg-white border-slate-200 hover:border-emerald-300"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="text-xs font-bold text-slate-800">{node.name}</span>
+                                  <span className="text-[10px] font-mono text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                    {node.code}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Selected Node Inspector Drawer */}
+                    {selectedNode && (
+                      <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                {selectedNode.node_type}
+                              </span>
+                              <h5 className="text-sm font-bold text-slate-900">{selectedNode.name}</h5>
+                            </div>
+                            <p className="text-xs text-slate-500 font-mono mt-1">Code: {selectedNode.code} · ID: {selectedNode.id}</p>
+                          </div>
+                          <span className="text-[11px] text-slate-400 italic">Connected to Root Entity</span>
+                        </div>
+                        {/* Connected edges */}
+                        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
+                          {graphData.edges
+                            .filter(e => e.target_id === selectedNode.id || e.source_id === selectedNode.id)
+                            .map((edge, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                              >
+                                <span className="font-bold text-indigo-600">{edge.relationship}</span>
+                                {edge.metadata && Object.keys(edge.metadata).length > 0 && (
+                                  <span className="text-slate-400 font-mono text-[10px]">
+                                    ({Object.entries(edge.metadata).map(([k, v]) => `${k}: ${v}`).join(", ")})
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

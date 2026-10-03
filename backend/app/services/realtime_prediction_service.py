@@ -29,6 +29,7 @@ from app.services.clinical_note_parser import clinical_note_parser
 from app.services.discriminative_test_engine import discriminative_test_engine
 from app.services.clinical_criteria_evaluator import criteria_evaluator
 from app.services.lab_value_interpreter import lab_value_interpreter
+from app.services.india_outbreak_surveillance import match_outbreaks_for_symptoms
 import structlog
 
 log = structlog.get_logger(__name__)
@@ -255,18 +256,21 @@ class RealtimePredictionService:
         differentiating_recommendation: Optional[Dict[str, Any]] = None
         criteria_evaluations: List[Dict[str, Any]] = []
 
+        text_input: str = symptoms.strip() if isinstance(symptoms, str) else ""
+
         # 1. Parse and normalize inputs
         if isinstance(symptoms, str):
-            text_input = symptoms.strip()
             # Detect if input is a complex or unstructured clinical note
+            t_low = text_input.lower()
             is_clinical_narrative = (
                 "\n" in text_input
-                or len(text_input) > 60
-                or any(k in text_input.lower() for k in [
-                    "bp ", "hr ", "spo2", "temp", "denies", "no fever", "pmh", "hpi", "ros",
-                    "exam:", "labs:", "ekg", "ecg", "patient presents", "yo male", "yo female",
-                    "history of", "physical exam", "vital signs", "vitals:"
+                or len(text_input) > 80
+                or any(re.search(rf"\b{re.escape(k)}\b", t_low) for k in [
+                    "denies", "no fever", "pmh", "hpi", "ros", "ekg", "ecg",
+                    "patient presents", "yo male", "yo female", "history of",
+                    "physical exam", "vital signs"
                 ])
+                or any(k in t_low for k in ["exam:", "labs:", "vitals:", "bp ", "spo2 "])
             )
 
             if is_clinical_narrative:
@@ -294,6 +298,11 @@ class RealtimePredictionService:
                 for dm in diagnostic_markers:
                     if dm.lower() not in [s.lower() for s in raw_symptoms]:
                         raw_symptoms.append(dm)
+
+                # Fallback to direct terms if note parser extracted nothing (e.g. short disease name or query)
+                if not raw_symptoms:
+                    raw_symptoms = [s.strip() for s in re.split(r"[,;\n•]+", text_input) if s.strip()]
+                    is_unstructured = False
             else:
                 # Split on commas, semicolons, newlines, or bullets
                 raw_symptoms = [s.strip() for s in re.split(r"[,;\n•]+", text_input) if s.strip()]
@@ -326,6 +335,13 @@ class RealtimePredictionService:
                     val = str(s).strip()
                 if val:
                     raw_symptoms.append(val)
+            if not travel_history and raw_symptoms:
+                parsed_travel = clinical_note_parser._extract_travel_history(" ".join(raw_symptoms))
+                if parsed_travel:
+                    travel_history = parsed_travel
+                parsed_inc = clinical_note_parser._extract_incubation_days(" ".join(raw_symptoms))
+                if days_since_return is None and parsed_inc is not None:
+                    days_since_return = parsed_inc
 
         # Detect demographic context (gender/sex, pregnancy) for clinical contraindication filtering
         patient_sex: Optional[str] = None
@@ -385,6 +401,8 @@ class RealtimePredictionService:
         symptoms_text = " ".join(raw_symptoms).lower()
         if isinstance(symptoms, str):
             symptoms_text += " " + symptoms.lower()
+        if text_input and text_input.lower() not in symptoms_text:
+            symptoms_text += " " + text_input.lower()
 
         # 2. Check Instant Emergency Red Flags (<1ms)
         emergency_alert = None
@@ -580,7 +598,6 @@ class RealtimePredictionService:
         # 5c. India State-Wide & Global Live Outbreak Matcher & Injection (<2ms)
         outbreak_matches = []
         try:
-            from app.services.india_outbreak_surveillance import match_outbreaks_for_symptoms
             outbreak_matches = match_outbreaks_for_symptoms(
                 patient_symptoms=raw_symptoms,
                 clinical_narrative=symptoms_text,
@@ -591,22 +608,58 @@ class RealtimePredictionService:
                 ob_key = ob_dname.lower().strip()
                 ob_base = ob_key.split(" (")[0].strip()
 
-                # If candidate is already in the list, elevate score and mark with outbreak badge
+                # 1. Match candidate by exact key, base, or pathogen token overlap
                 matched_cand = disease_map.get(ob_key) or disease_map.get(ob_base)
+                if not matched_cand:
+                    ob_pathogen = ob.get("pathogen", "").lower().strip()
+                    KEY_PATHOGENS = [
+                        "nipah", "oropouche", "kyasanur", "kfd", "chandipura", "crimean-congo", "cchf",
+                        "scrub typhus", "leptospirosis", "leptospira", "marburg", "ebola", "bundibugyo",
+                        "sudan", "lassa", "dengue", "chikungunya", "zika", "japanese encephalitis",
+                        "yellow fever", "hanta", "cholera", "mpox", "monkeypox", "anthrax", "plague",
+                        "west nile", "rift valley", "influenza a", "h1n1", "h5n1", "h3n2", "covid", "sars-cov-2"
+                    ]
+                    for kp in KEY_PATHOGENS:
+                        if kp in ob_key or kp in ob_pathogen:
+                            for cand in all_candidates:
+                                c_name = cand["disease"].lower()
+                                if kp in c_name:
+                                    matched_cand = cand
+                                    break
+                        if matched_cand:
+                            break
+
+                if not matched_cand:
+                    # Token overlap match
+                    STOP_WORDS = {"acute", "chronic", "syndrome", "disease", "fever", "virus", "infection", "cluster", "outbreak", "alert"}
+                    ob_tokens = {w for w in re.findall(r"[a-z]+", ob_base) if len(w) > 3 and w not in STOP_WORDS}
+                    if ob_tokens:
+                        for cand in all_candidates:
+                            c_tokens = {w for w in re.findall(r"[a-z]+", cand["disease"].lower()) if len(w) > 3 and w not in STOP_WORDS}
+                            if ob_tokens & c_tokens:
+                                matched_cand = cand
+                                break
+
                 geo_boost = 0.35 if ob.get("geographic_match") else 0.0
                 crit_boost = 0.30 if ob.get("alert_level") == "CRITICAL" else 0.0
                 if matched_cand:
-                    matched_cand["score"] = max(matched_cand["score"] + 0.35 + geo_boost + crit_boost, 1.35 if (ob.get("geographic_match") and ob.get("alert_level") == "CRITICAL") else 0.88)
-                    matched_cand["is_outbreak_match"] = True
-                    matched_cand["outbreak_badge"] = f"⚠️ LIVE OUTBREAK ALERT: {ob['state_or_country']} ({ob['pathogen']})"
-                    matched_cand["outbreak_details"] = ob
-                    matched_cand["severity"] = "critical" if ob["alert_level"] == "CRITICAL" else "high"
-                    matched_cand["triage"] = "EMERGENT" if ob["alert_level"] == "CRITICAL" else "URGENT"
-                    if ob["confirmatory_test"] not in matched_cand.get("immediate_tests", []):
-                        matched_cand.setdefault("immediate_tests", []).insert(0, f"URGENT: {ob['confirmatory_test']}")
+                    # If this candidate already matched a geographic outbreak alert, don't overwrite with a non-geographic alert from another state
+                    prev_ob = matched_cand.get("outbreak_details")
+                    if prev_ob and prev_ob.get("geographic_match") and not ob.get("geographic_match"):
+                        continue
+                    if not matched_cand.get("is_outbreak_match") or ob.get("geographic_match"):
+                        target_score = 1.40 if (ob.get("geographic_match") and ob.get("alert_level") == "CRITICAL") else (1.15 if ob.get("geographic_match") else 0.92)
+                        matched_cand["score"] = max(matched_cand["score"] + 0.35 + geo_boost + crit_boost, target_score)
+                        matched_cand["is_outbreak_match"] = True
+                        matched_cand["outbreak_badge"] = f"⚠️ LIVE OUTBREAK ALERT: {ob['state_or_country']} ({ob['pathogen']})"
+                        matched_cand["outbreak_details"] = ob
+                        matched_cand["severity"] = "critical" if ob["alert_level"] == "CRITICAL" else "high"
+                        matched_cand["triage"] = "EMERGENT" if ob["alert_level"] == "CRITICAL" else "URGENT"
+                        if ob["confirmatory_test"] not in matched_cand.get("immediate_tests", []):
+                            matched_cand.setdefault("immediate_tests", []).insert(0, f"URGENT: {ob['confirmatory_test']}")
                 else:
                     # Inject new outbreak candidate directly into differential
-                    ob_cand_score = ob["confidence_score"] + (0.25 if ob.get("geographic_match") else 0.0) + (0.15 if ob.get("alert_level") == "CRITICAL" else 0.0)
+                    ob_cand_score = ob["confidence_score"] + (0.35 if ob.get("geographic_match") else 0.0) + (0.20 if ob.get("alert_level") == "CRITICAL" else 0.0)
                     new_ob_cand = {
                         "disease": ob_dname,
                         "disease_name": ob_dname,

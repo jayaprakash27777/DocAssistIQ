@@ -1,9 +1,12 @@
 @import "tailwindcss";
 
+/* Strictly disable dark mode: map dark variant to nonexistent class so OS prefers-color-scheme is ignored */
+@variant dark (&:where(.dark-mode-disabled, .dark-mode-disabled *));
+
 /* ============================================================
-   DocAssistIQ Design System — Premium Glassmorphism
+   DocAssistIQ Design System — Premium Clinical Light
    ============================================================
-   A strictly structured, premium clinical-grade UI/UX foundation.
+   A strictly structured, pristine clinical-grade light UI foundation.
    ============================================================ */
 
 /* --- Color Palette (Light Mode - Premium Clinical) --- */
@@ -34,20 +37,25 @@
 }
 
 :root {
+  color-scheme: light !important;
+  --surface-primary: #ffffff;
+  --surface-secondary: #f8fafc;
+  --surface-tertiary: #f1f5f9;
+
   --bg-gradient-animated: linear-gradient(135deg, #f9fafb, #ffffff, #f4fbf8, #e5f6ee);
-  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-bg: rgba(255, 255, 255, 0.92);
   --glass-blur: blur(24px);
   --text-primary: var(--color-neutral-900);
   --text-secondary: var(--color-neutral-600);
   --text-tertiary: var(--color-neutral-400);
-  --border-default: rgba(75, 170, 160, 0.12); /* Subtle surgical green border */
+  --border-default: rgba(75, 170, 160, 0.16); /* Subtle surgical green border */
   --border-strong: rgba(75, 170, 160, 0.35);
   --shadow-premium: 0 10px 40px -10px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.02);
   
   --sidebar-width: 280px;
   --sidebar-collapsed-width: 72px;
   --header-height: 72px;
-  --sidebar-bg: rgba(255, 255, 255, 0.95);
+  --sidebar-bg: rgba(255, 255, 255, 0.98);
   --sidebar-text: var(--color-neutral-600);
   --sidebar-hover-bg: rgba(75, 170, 160, 0.08);
 
@@ -104,6 +112,8 @@ body {
 .shell { display: flex; height: 100vh; width: 100vw; overflow: hidden; position: relative; }
 .shell-content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .shell-main { flex: 1; overflow-y: auto; position: relative; z-index: 1; }
+.shell-main:has(.consultation-workspace-root),
+.shell-main:has(.review-workspace-root) { overflow-y: hidden; display: flex; flex-direction: column; }
 
 .shell-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -332,13 +342,29 @@ body {
 }
 
 .glass-panel-dark-4k {
-  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%) !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%) !important;
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
   box-shadow: 
-    0 20px 50px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 10px 30px -10px rgba(0, 0, 0, 0.05),
+    0 1px 3px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
   border-radius: 24px;
+  color: #0f172a !important;
 }
+
+/* Force light color-scheme across OS and browser settings */
+html, body {
+  color-scheme: light !important;
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root, html, body {
+    color-scheme: light !important;
+  }
+}
+
 

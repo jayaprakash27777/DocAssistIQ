@@ -33,8 +33,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>
-      <body className="antialiased font-sans bg-[var(--surface-primary)] text-[var(--text-primary)] transition-colors duration-300">
+    <html lang="en" className={`light ${inter.variable} ${outfit.variable}`} style={{ colorScheme: "light" }} suppressHydrationWarning>
+      <body className="antialiased font-sans bg-[#f8fafc] text-slate-900 transition-colors duration-300">
         <QueryProvider>
           <ThemeProvider
             attribute="class"

@@ -9,8 +9,6 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { getSharedRealtimeClient } from "@/lib/ws";
-import { getStoredToken } from "@/lib/api";
 
 export type AudioCaptureState = 
   | "idle" 
@@ -28,6 +26,8 @@ export function useAudioCapture() {
   const [error, setError] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState<number>(0);
   const [isSilent, setIsSilent] = useState<boolean>(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [speechPreview, setSpeechPreview] = useState<string>("");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -35,6 +35,7 @@ export function useAudioCapture() {
   const startTimeRef = useRef<number>(0);
   const pauseTimeRef = useRef<number>(0); // Timestamp when paused
   const accumulatedMsRef = useRef<number>(0); // Total ms before current resume
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   // Web Audio API refs for real-time volume metering
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -115,7 +116,11 @@ export function useAudioCapture() {
   const stop = useCallback(() => {
     if (mediaRecorderRef.current?.state !== "inactive") {
       setState("stopping");
-      mediaRecorderRef.current?.stop();
+      try {
+        mediaRecorderRef.current?.stop();
+      } catch (e) {
+        console.warn("Error stopping MediaRecorder:", e);
+      }
     }
     stopAudioMeter();
   }, [stopAudioMeter]);
@@ -162,10 +167,19 @@ export function useAudioCapture() {
     setElapsedMs(elapsed);
   }, []);
 
+  const getAudioBlob = useCallback(() => {
+    if (recordedChunksRef.current.length === 0) return null;
+    const mime = mediaRecorderRef.current?.mimeType || "audio/webm";
+    return new Blob(recordedChunksRef.current, { type: mime });
+  }, []);
+
   const start = useCallback(async () => {
     try {
       setState("requesting_permission");
       setError(null);
+      recordedChunksRef.current = [];
+      setAudioBlob(null);
+      setSpeechPreview("");
       
       const streamObj = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = streamObj;
@@ -225,38 +239,25 @@ export function useAudioCapture() {
         stop();
       };
 
-      const token = getStoredToken();
-      const wsClient = token ? getSharedRealtimeClient(token) : null;
-
-      // Stream audio chunks via WebSocket
+      // Accumulate audio chunks locally for post-consultation transcription batch
       recorder.ondataavailable = (e) => {
-        if (e.data.size > 0 && wsClient) {
-          try {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              if (reader.result) {
-                const base64data = (reader.result as string).split(',')[1];
-                wsClient.send("audio_chunk", { data: base64data });
-              }
-            };
-            reader.readAsDataURL(e.data);
-          } catch (err) {
-            console.error("Failed to process audio chunk", err);
-          }
+        if (e.data && e.data.size > 0) {
+          recordedChunksRef.current.push(e.data);
         }
       };
 
       recorder.onstop = () => {
         if (timerRef.current) clearInterval(timerRef.current);
         releaseMicrophone();
-        if (wsClient) {
-          wsClient.send("audio_stop", {});
-        }
-        setState("processing"); // App logic takes over
+
+        const mime = recorder.mimeType || "audio/webm";
+        const completeBlob = new Blob(recordedChunksRef.current, { type: mime });
+        setAudioBlob(completeBlob);
+        setState("processing");
       };
 
-      // Start recording with timeslice (2000ms)
-      recorder.start(2000); 
+      // Record chunks every 3 seconds for safe memory buffering
+      recorder.start(3000); 
       
     } catch (err: any) {
       console.error("Audio capture error:", err);
@@ -289,6 +290,9 @@ export function useAudioCapture() {
     setElapsedMs(0);
     setError(null);
     accumulatedMsRef.current = 0;
+    recordedChunksRef.current = [];
+    setAudioBlob(null);
+    setSpeechPreview("");
   }, [stopAudioMeter]);
 
   return {
@@ -303,6 +307,9 @@ export function useAudioCapture() {
     stop,
     reset,
     stream,
+    getAudioBlob,
+    audioBlob,
+    speechPreview,
   };
 }
 

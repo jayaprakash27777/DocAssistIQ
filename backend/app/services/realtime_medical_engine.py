@@ -823,12 +823,13 @@ Be thorough, professional, and directly address the user's specific query."""
                 llm_service.generate(
                     prompt=prompt,
                     system=system_prompt,
+                    model=llm_service.fast_model,
                     max_tokens=400,
                 ),
-                timeout=35.0,
+                timeout=25.0,
             )
             if llm_text and len(llm_text.strip()) > 60:
-                answer = llm_text.strip() + "\n\n---\n*This clinical summary was synthesized with llama3.1:8b and grounded in peer-reviewed medical sources. Requires review by a qualified clinician. Not a substitute for professional medical judgement.*"
+                answer = llm_text.strip() + "\n\n---\n*This clinical summary was synthesized with local clinical AI and grounded in peer-reviewed medical sources. Requires review by a qualified clinician. Not a substitute for professional medical judgement.*"
                 confidence = max(confidence, 0.94)
     except Exception as e:
         log.warning(f"LLM clinical synthesis fallback to rule-based: {e}")

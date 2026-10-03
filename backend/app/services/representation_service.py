@@ -33,66 +33,75 @@ from app.schemas.representation import (
 # Handles doctor notes, SOAP notes, free text
 # ─────────────────────────────────────────────────────────────────────────────
 
+NON_SYMPTOM_TOKENS = {
+    "draft", "final", "pending", "confirmed", "unknown", "none", "nil", "na", "n/a",
+    "status", "review", "note", "section", "clinical", "patient", "male", "female",
+    "years old", "year old", "yo", "history", "examination", "plan", "assessment",
+    "medications", "allergies", "vitals", "objective", "subjective", "associated with",
+    "presenting with", "complaining of", "complains of", "history of", "normal"
+}
+
 SYMPTOM_PATTERNS = [
     # Chief complaint patterns
-    r"(?:c/o|complains? of|presenting with|presents with|c\.c\.?:?)\s*([^.;\n]{3,80})",
-    r"(?:chief complaint|chief c/o|main complaint):\s*([^.;\n]{3,80})",
+    r"(?i)\b(?:c/o|complains? of|presenting with|presents with|c\.c\.?)\s*[:=-]?\s*([^.;\n]{3,80})",
+    r"(?i)\b(?:chief complaint|chief c/o|main complaint)\s*[:=-]\s*([^.;\n]{3,80})",
     # Symptom list patterns
-    r"(?:symptoms?|features?|s/s):\s*([^.;\n]{3,100})",
-    # SOAP: Subjective section
-    r"(?:subjective|s:)\s*([^.;\n]{3,100})",
+    r"(?i)\b(?:symptoms?|features?|s/s)\s*[:=-]\s*([^.;\n]{3,100})",
+    # SOAP: Subjective section (strictly bounded)
+    r"(?i)\b(?:subjective|chief complaint)\s*:\s*([^.;\n]{3,100})",
     # Direct symptom mentions (highly specific medical terms)
-    r"\b(fever|cough|dyspnoea|shortness of breath|SOB|chest pain|headache|nausea|vomiting|"
-    r"diarrhoea|diarrhea|abdominal pain|fatigue|malaise|rigors|chills|sweats|night sweats|"
-    r"haemoptysis|haematuria|rash|jaundice|oedema|swelling|myalgia|arthralgia|sore throat|"
-    r"rhinorrhoea|weight loss|loss of appetite|anorexia|palpitations|syncope|dizziness|"
-    r"confusion|altered consciousness|seizures|weakness|paraesthesia|back pain|neck stiffness|"
+    r"(?i)\b(fever|cough|dyspnoea|dyspnea|shortness of breath|SOB|chest pain|chest tightness|headache|nausea|vomiting|"
+    r"diarrhoea|diarrhea|abdominal pain|fatigue|malaise|rigors|chills|sweats|night sweats|diaphoresis|"
+    r"haemoptysis|hemoptysis|haematuria|hematuria|rash|jaundice|oedema|edema|swelling|myalgia|arthralgia|sore throat|"
+    r"rhinorrhoea|rhinorrhea|weight loss|loss of appetite|anorexia|palpitations|syncope|dizziness|"
+    r"confusion|altered consciousness|seizures|weakness|paraesthesia|paresthesia|back pain|neck stiffness|"
     r"photophobia|phonophobia|dysuria|polyuria|polydipsia|polyphagia|blurred vision|"
-    r"bleeding|bruising|petechiae|purpura|haemorrhage)\b",
+    r"bleeding|bruising|petechiae|purpura|haemorrhage|hemorrhage|pica|koilonychia|claudication|podagra|"
+    r"orthopnea|stridor|wheezing|chest pressure|pruritus|eschar|thrombocytopenia|anemia|pallor)\b",
 ]
 
 DURATION_PATTERNS = [
-    r"(?:duration|for|since|x)\s+(\d+\s*(?:day|week|month|year|hour|hr)s?)",
-    r"(\d+\s*(?:day|week|month|year|hour|hr)s?\s*(?:duration|ago|history|h/o)?)",
-    r"(?:onset|started|began)\s+(\d+\s*(?:day|week|month|year|hour|hr)s?\s*ago)",
+    r"(?i)\b(?:duration|for|since|x)\s+(\d+\s*(?:day|week|month|year|hour|hr)s?)\b",
+    r"(?i)\b(\d+\s*(?:day|week|month|year|hour|hr)s?\s*(?:duration|ago|history|h/o)?)\b",
+    r"(?i)\b(?:onset|started|began)\s+(\d+\s*(?:day|week|month|year|hour|hr)s?\s*ago)\b",
 ]
 
 SEVERITY_PATTERNS = [
-    r"(?:severity|severity:|grade|vas|pain score)\s*:?\s*(\d+/\d+|\w+)",
-    r"\b(mild|moderate|severe|critical|extreme|significant|minimal)\b",
-    r"(?:pain\s*(?:score|rating)?)\s*:?\s*(\d+\s*/\s*10)",
+    r"(?i)\b(?:severity|grade|pain score)\s*:\s*(\d+/\d+|\w+)\b",
+    r"(?i)\b(mild|moderate|severe|critical|extreme|significant|minimal)\b",
+    r"(?i)\bpain\s*(?:score|rating)?\s*:\s*(\d+\s*/\s*10)\b",
 ]
 
 NEGATION_PATTERNS = [
-    r"(?:no|denies?|negative for|without|absent|not|never)\s+([a-z][a-z\s]{2,30}?)(?:\s*[.,;]|$)",
+    r"(?i)\b(?:no|denies?|negative for|without|absent|not|never)\s+([a-z][a-z\s]{2,30}?)(?:\s*[.,;]|$)",
 ]
 
-VITAL_PATTERNS = [
-    r"(?:BP|blood pressure)[\s:]*(\d{2,3}\s*/\s*\d{2,3})\s*(?:mmHg)?",
-    r"(?:HR|heart rate|pulse)[\s:]*(\d{2,3})\s*(?:bpm|/min)?",
-    r"(?:RR|respiratory rate)[\s:]*(\d{1,2})\s*(?:/min|breaths?)?",
-    r"(?:temp|temperature|T°?)[\s:]*(\d{2}(?:\.\d)?)\s*°?[CF]?",
-    r"(?:SpO2|O2 sat|oxygen sat(?:uration)?)[\s:]*(\d{2,3})\s*%?",
-    r"(?:GCS)[\s:]*(\d{1,2}(?:/\d{1,2})?)",
-    r"(?:weight|wt)[\s:]*(\d{2,3}(?:\.\d)?)\s*(?:kg|lb)?",
+VITAL_DEFINITIONS = [
+    ("Blood Pressure", r"(?i)\b(?:BP|blood pressure)[\s:]*(\d{2,3}\s*/\s*\d{2,3})\s*(?:mmHg)?\b"),
+    ("Heart Rate", r"(?i)\b(?:HR|heart rate|pulse)[\s:]*(\d{2,3})\s*(?:bpm|/min)?\b"),
+    ("Respiratory Rate", r"(?i)\b(?:RR|respiratory rate)[\s:]*(\d{1,2})\s*(?:/min|breaths?)?\b"),
+    ("Temperature", r"(?i)\b(?:temp(?:erature)?)\s*[:=]?\s*(\d{2}(?:\.\d)?)\s*(?:°?[CF])?\b"),
+    ("Oxygen Saturation", r"(?i)\b(?:SpO2|O2 sat|oxygen sat(?:uration)?)[\s:]*(\d{2,3})\s*%?\b"),
+    ("GCS", r"(?i)\b(?:GCS)[\s:]*(\d{1,2}(?:/\d{1,2})?)\b"),
+    ("Weight", r"(?i)\b(?:weight|wt)[\s:]*(\d{2,3}(?:\.\d)?)\s*(?:kg|lb)?\b"),
 ]
 
 TRAVEL_PATTERNS = [
-    r"(?:travel(?:led|led to|history|h/o)|returned from|visited|trip to)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
-    r"(?:from|in)\s+(India|Pakistan|Bangladesh|Nepal|Sri Lanka|Africa|Nigeria|Kenya|DRC|Congo|"
+    r"(?i)(?:travel(?:led|led to|history|h/o)|returned from|visited|trip to)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
+    r"(?i)\b(?:from|in)\s+(India|Pakistan|Bangladesh|Nepal|Sri Lanka|Africa|Nigeria|Kenya|DRC|Congo|"
     r"Ghana|Ethiopia|Sudan|Somalia|Uganda|Tanzania|Malawi|Zambia|Zimbabwe|Mozambique|Angola|"
     r"Thailand|Vietnam|Cambodia|Myanmar|Indonesia|Malaysia|Philippines|China|"
-    r"Brazil|Colombia|Peru|Bolivia|Ecuador|Venezuela|Mexico)",
+    r"Brazil|Colombia|Peru|Bolivia|Ecuador|Venezuela|Mexico)\b",
 ]
 
 HISTORY_PATTERNS = [
-    r"(?:PMH|past medical history|known case of|k/c/o|background|comorbidities?):\s*([^.;\n]{5,100})",
-    r"(?:h/o|history of)\s+([a-z][a-z\s]{3,50}?)(?:\s*[.,;]|$)",
+    r"(?i)(?:PMH|past medical history|known case of|k/c/o|background|comorbidities?):\s*([^.;\n]{5,100})",
+    r"(?i)(?:h/o|history of)\s+([a-z][a-z\s]{3,50}?)(?:\s*[.,;]|$)",
 ]
 
 MEDICATION_PATTERNS = [
-    r"(?:medications?|drugs?|currently on|on treatment|Rx):\s*([^.;\n]{3,100})",
-    r"(?:taking|prescribed|treatment with)\s+([A-Z][a-z]+(?:\s+\d+\s*mg)?)",
+    r"(?i)(?:medications?|drugs?|currently on|on treatment|Rx):\s*([^.;\n]{3,100})",
+    r"(?i)(?:taking|prescribed|treatment with)\s+([A-Z][a-z]+(?:\s+\d+\s*mg)?)",
 ]
 
 SHORTHAND_MAP = {
@@ -141,6 +150,13 @@ def _expand_shorthands(text: str) -> str:
     return text
 
 
+EXCLUDED_NOTE_KEYS = {
+    "status", "generated_at", "_meta", "version", "id", "author_id",
+    "created_at", "updated_at", "template_id", "type", "consultation_id",
+    "is_draft", "is_final", "metadata", "schema_version"
+}
+
+
 def _extract_from_text(text: str) -> dict:
     """
     Fast regex NLP extraction from free text.
@@ -169,13 +185,14 @@ def _extract_from_text(text: str) -> dict:
         for m in re.finditer(pat, text, re.IGNORECASE):
             items = [s.strip() for s in re.split(r"[,;/]|\band\b", m.group(1)) if s.strip()]
             for item in items:
-                if 3 < len(item) < 60 and not item.isdigit():
-                    results["symptoms"].append(item.lower().strip())
+                clean_item = item.lower().strip()
+                if 3 < len(clean_item) < 60 and not clean_item.isdigit() and clean_item not in NON_SYMPTOM_TOKENS:
+                    results["symptoms"].append(clean_item)
 
     # Direct medical term matching
     for m in re.finditer(SYMPTOM_PATTERNS[4], text, re.IGNORECASE):
         sym = m.group(1).lower().strip()
-        if sym not in results["symptoms"]:
+        if sym not in results["symptoms"] and sym not in NON_SYMPTOM_TOKENS:
             results["symptoms"].append(sym)
 
     # ── Duration ──────────────────────────────────────────────────────────
@@ -200,11 +217,9 @@ def _extract_from_text(text: str) -> dict:
                 results["negations"].append(neg)
 
     # ── Vitals ────────────────────────────────────────────────────────────
-    for pat in VITAL_PATTERNS:
+    for label, pat in VITAL_DEFINITIONS:
         for m in re.finditer(pat, text, re.IGNORECASE):
-            label = pat.split("(")[0].strip("(?:")
-            label = re.sub(r"\\b|\\s|[\[\]\(\)\?]", "", label).split("|")[0][:15].strip()
-            val = f"{label}: {m.group(1)}"
+            val = f"{label}: {m.group(1).strip()}"
             if val not in results["vitals"]:
                 results["vitals"].append(val)
 
@@ -220,7 +235,7 @@ def _extract_from_text(text: str) -> dict:
         for m in re.finditer(pat, text, re.IGNORECASE):
             items = [s.strip() for s in re.split(r"[,;]|\band\b", m.group(1)) if s.strip()]
             for item in items:
-                if 3 < len(item) < 80:
+                if 3 < len(item) < 80 and item.lower().strip() not in NON_SYMPTOM_TOKENS:
                     results["history"].append(item.lower().strip())
 
     # ── Medications ───────────────────────────────────────────────────────
@@ -228,7 +243,7 @@ def _extract_from_text(text: str) -> dict:
         for m in re.finditer(pat, text, re.IGNORECASE):
             items = [s.strip() for s in re.split(r"[,;]|\band\b", m.group(1)) if s.strip()]
             for item in items:
-                if 2 < len(item) < 60:
+                if 2 < len(item) < 60 and item.lower().strip() not in NON_SYMPTOM_TOKENS:
                     results["medications"].append(item.strip())
 
     # Deduplicate each list
@@ -246,43 +261,38 @@ def _extract_from_text(text: str) -> dict:
 
 def _extract_text_from_note_body(body: dict) -> str:
     """
-    Extract all text content from a ClinicalNote.body JSON structure.
-    Supports various SOAP and structured formats.
+    Extract clinical text content from a ClinicalNote.body JSON structure.
+    Strictly ignores system metadata keys like status, generated_at, _meta.
     """
     if not body:
         return ""
 
     texts = []
 
-    # Handle dict body (common format)
-    if isinstance(body, dict):
-        for key, value in body.items():
-            if isinstance(value, str) and value.strip():
-                texts.append(f"{key}: {value}")
-            elif isinstance(value, dict):
-                for k2, v2 in value.items():
-                    if isinstance(v2, str) and v2.strip():
-                        texts.append(f"{k2}: {v2}")
-            elif isinstance(value, list):
-                for item in value:
-                    if isinstance(item, str) and item.strip():
-                        texts.append(item)
-                    elif isinstance(item, dict):
-                        for k2, v2 in item.items():
-                            if isinstance(v2, str) and v2.strip():
-                                texts.append(f"{k2}: {v2}")
+    def _recurse(node, parent_key=""):
+        if isinstance(node, dict):
+            # Check for direct section content or text
+            if "text" in node and isinstance(node["text"], str) and node["text"].strip():
+                texts.append(node["text"].strip())
+            elif "content" in node and isinstance(node["content"], str) and node["content"].strip():
+                texts.append(node["content"].strip())
+            else:
+                for k, v in node.items():
+                    if k.lower() in EXCLUDED_NOTE_KEYS:
+                        continue
+                    if isinstance(v, str) and v.strip():
+                        if v.strip().lower() not in NON_SYMPTOM_TOKENS:
+                            texts.append(f"{k}: {v.strip()}")
+                    else:
+                        _recurse(v, k)
+        elif isinstance(node, list):
+            for item in node:
+                _recurse(item, parent_key)
+        elif isinstance(node, str) and node.strip():
+            if node.strip().lower() not in NON_SYMPTOM_TOKENS:
+                texts.append(node.strip())
 
-    elif isinstance(body, str):
-        texts.append(body)
-    elif isinstance(body, list):
-        for item in body:
-            if isinstance(item, str):
-                texts.append(item)
-            elif isinstance(item, dict):
-                for k, v in item.items():
-                    if isinstance(v, str):
-                        texts.append(f"{k}: {v}")
-
+    _recurse(body)
     return "\n".join(texts)
 
 
@@ -296,6 +306,7 @@ async def build_clinical_representation(
     1. ManualIntake — structured intake form
     2. ClinicalFinding — confirmed/AI-suggested findings
     3. ClinicalNote.body — doctor notes (NOW INCLUDED via regex NLP)
+    4. Audio Transcript — live consultation audio transcripts
     """
     # 1. Fetch all data sources in parallel
     consultation_res = await db.execute(
@@ -340,8 +351,15 @@ async def build_clinical_representation(
         value = value.strip()
         if not value or len(value) < 2:
             return
+        # Guard: never allow metadata or non-symptom tokens into symptoms or history
+        v_low = value.lower().strip()
+        if target_list in (rep.symptoms, rep.history):
+            if v_low in NON_SYMPTOM_TOKENS:
+                return
+            if any(v_low.startswith(p) for p in ("status:", "draft", "note:", "section:", "clinical:", "version:")):
+                return
         for item in target_list:
-            if item.value.lower() == value.lower():
+            if item.value.lower() == v_low:
                 if not any(p.source_id == provenance.source_id for p in item.provenances):
                     item.provenances.append(provenance)
                 return
@@ -414,9 +432,9 @@ async def build_clinical_representation(
 
         if f.negated:
             add_item(rep.negations, val, concept, status, prov)  # type: ignore
-        elif f.finding_type in ("symptom", "diagnosis") or concept in ("symptom", "CONDITION"):
+        elif f.finding_type in ("symptom", "diagnosis") or concept in ("symptom", "CONDITION", "SYMPTOM", "DIAGNOSIS"):
             add_item(rep.symptoms, val, concept, status, prov)  # type: ignore
-        elif f.finding_type == "measurement" or concept in ("vitals", "VITALS"):
+        elif f.finding_type == "measurement" or concept in ("vitals", "VITALS", "MEASUREMENT"):
             add_item(rep.vitals, val, concept, status, prov)  # type: ignore
         elif concept in ("medication", "MEDICATION"):
             add_item(rep.medications, val, concept, status, prov)  # type: ignore
@@ -424,7 +442,7 @@ async def build_clinical_representation(
             add_item(rep.allergies, val, concept, status, prov)  # type: ignore
         elif concept in ("travel_history", "travel", "TRAVEL_HISTORY", "GEOGRAPHIC_EXPOSURE"):
             add_item(rep.travel_history, val, concept, status, prov)  # type: ignore
-        elif f.temporality == "past" or concept == "history":
+        elif f.temporality == "past" or concept in ("history", "HISTORY", "PAST_MEDICAL_HISTORY"):
             add_item(rep.history, val, concept, status, prov)  # type: ignore
         else:
             add_item(rep.report_findings, val, concept, status, prov)  # type: ignore
@@ -590,6 +608,65 @@ async def build_clinical_representation(
                     add_item(rep.vitals, val, "vitals", "confirmed", prov_consult)
         except Exception:
             pass
+
+    # ── 6. Process Live Transcripts (if notes/intake are thin or audio present) ──
+    try:
+        from app.models.transcript import Transcript, TranscriptSegment
+        transcript_res = await db.execute(
+            select(Transcript).where(Transcript.consultation_id == consultation_id)
+        )
+        transcript = transcript_res.scalar_one_or_none()
+        if transcript:
+            segments_res = await db.execute(
+                select(TranscriptSegment)
+                .where(TranscriptSegment.transcript_id == transcript.id)
+                .order_by(TranscriptSegment.start_time)
+            )
+            segments = segments_res.scalars().all()
+            if segments:
+                combined_transcript = " ".join(
+                    s.clinician_corrected_text or s.processed_text or s.raw_text
+                    for s in segments
+                    if (s.clinician_corrected_text or s.processed_text or s.raw_text)
+                ).strip()
+                if combined_transcript:
+                    prov_t = Provenance(
+                        source_type="transcript",
+                        source_id=str(transcript.id),
+                        timestamp=transcript.updated_at or transcript.created_at,
+                        author_id=None,
+                    )
+                    extracted_t = _extract_from_text(combined_transcript)
+                    for s in extracted_t.get("symptoms", []):
+                        add_item(rep.symptoms, s, "symptom", "confirmed", prov_t)
+                    for d in extracted_t.get("duration", []):
+                        add_item(rep.duration, d, "duration", "confirmed", prov_t)
+                    for sev in extracted_t.get("severity", []):
+                        add_item(rep.severity, sev, "severity", "confirmed", prov_t)
+                    for n in extracted_t.get("negations", []):
+                        add_item(rep.negations, n, "negation", "negated", prov_t)
+                    for v in extracted_t.get("vitals", []):
+                        add_item(rep.vitals, v, "vitals", "confirmed", prov_t)
+                    for t in extracted_t.get("travel", []):
+                        add_item(rep.travel_history, t, "travel_history", "confirmed", prov_t)
+                    for h in extracted_t.get("history", []):
+                        add_item(rep.history, h, "history", "confirmed", prov_t)
+                    for m in extracted_t.get("medications", []):
+                        add_item(rep.medications, m, "medication", "confirmed", prov_t)
+
+                    try:
+                        from app.services.clinical_note_parser import clinical_note_parser
+                        parsed_t = clinical_note_parser.parse(combined_transcript)
+                        for f in parsed_t.get("positive_findings", []):
+                            add_item(rep.symptoms, f, "symptom", "confirmed", prov_t)
+                        for nf in parsed_t.get("negated_findings", []):
+                            add_item(rep.negations, nf, "negation", "negated", prov_t)
+                        for th in parsed_t.get("travel_history", []):
+                            add_item(rep.travel_history, th, "travel_history", "confirmed", prov_t)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
 
     return rep
 

@@ -23,12 +23,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic, Pause, Square, Loader2, FileText, Copy, Check,
   Trash2, ChevronDown, Stethoscope, User, HelpCircle,
-  Activity, Clock, BarChart2, ArrowRight, Zap, Volume2, Sparkles
+  Activity, Clock, BarChart2, ArrowRight, Zap, Volume2, Sparkles, Upload
 } from "lucide-react";
 import { useWebSpeechASR, SpeakerRole, TranscriptSegment } from "@/hooks/useWebSpeechASR";
-import { getStoredToken } from "@/lib/api";
+import { getStoredToken, transcribeConsultationAudio } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, "") ?? "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, "") ?? "http://127.0.0.1:8000";
 
 const fmt = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -82,6 +82,8 @@ interface Props {
   onStartConsultationRecording?: () => void;
   onStopConsultationRecording?: () => void;
   currentConsultationStatus?: string;
+  backendSegments?: any[];
+  backendAsrText?: string;
 }
 
 export default function LiveTranscriptionPanel({ 
@@ -92,6 +94,8 @@ export default function LiveTranscriptionPanel({
   onStartConsultationRecording,
   onStopConsultationRecording,
   currentConsultationStatus,
+  backendSegments,
+  backendAsrText,
 }: Props) {
   const [asr, controls] = useWebSpeechASR();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -102,6 +106,23 @@ export default function LiveTranscriptionPanel({
   const [speakerMode, setSpeakerMode] = useState<SpeakerMode>("auto");
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [overrideMap, setOverrideMap] = useState<Record<string, SpeakerRole>>({});
+
+  // Synchronize recording state with consultation status
+  useEffect(() => {
+    if (isConsultationRecording && !asr.isRecording) {
+      controls.start();
+    } else if (!isConsultationRecording && asr.isRecording) {
+      controls.stop();
+    }
+  }, [isConsultationRecording, asr.isRecording, controls]);
+
+  // Propagate transcript updates up to parent consultation state
+  useEffect(() => {
+    if (asr.segments.length > 0) {
+      const text = controls.generateNoteText();
+      onTranscriptReady?.(text, asr.segments);
+    }
+  }, [asr.segments, controls, onTranscriptReady]);
 
   // Auto-scroll
   useEffect(() => {
@@ -116,16 +137,33 @@ export default function LiveTranscriptionPanel({
     setAutoScroll(scrollHeight - scrollTop - clientHeight < 50);
   }, []);
 
+  // Display segments: live WebSpeech segments take precedence, falling back to backend/transcribed segments
+  const displaySegments: TranscriptSegment[] = React.useMemo(() => {
+    if (asr.segments.length > 0) return asr.segments;
+    if (backendSegments && backendSegments.length > 0) {
+      return backendSegments.map((s, idx) => ({
+        id: s.id || `backend-${idx}`,
+        speaker: (s.speaker || s.speaker_label || (s.speaker_id === "doctor" ? "Doctor" : s.speaker_id === "patient" ? "Patient" : "Unknown")) as SpeakerRole,
+        text: s.text || s.processed_text || s.raw_text || "",
+        timestamp: s.timestamp ? Number(s.timestamp) : (Date.now() - (backendSegments.length - idx) * 3000),
+        isFinal: true,
+        confidence: s.confidence || s.speaker_confidence || 0.90,
+        speakerConfidence: s.speakerConfidence || s.speaker_confidence || 0.90,
+      }));
+    }
+    return [];
+  }, [asr.segments, backendSegments]);
+
   const handleCopy = useCallback(async () => {
-    const text = controls.generateNoteText();
+    const text = controls.generateNoteText() || displaySegments.map(s => `[${s.speaker}]: ${s.text}`).join("\n");
     if (!text) return;
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [controls]);
+  }, [controls, displaySegments]);
 
   const handleGenerateNote = useCallback(async () => {
-    const text = controls.generateNoteText();
+    const text = controls.generateNoteText() || displaySegments.map(s => `[${s.speaker}]: ${s.text}`).join("\n");
     if (!text) return;
     setGeneratingNote(true);
     setNoteGenStatus("Generating note…");
@@ -144,7 +182,7 @@ export default function LiveTranscriptionPanel({
         });
         if (res.ok) {
           setNoteGenStatus("✓ Note generated!");
-          onTranscriptReady?.(text, asr.segments);
+          onTranscriptReady?.(text, displaySegments);
         } else {
           setNoteGenStatus("⚠ Generation failed");
         }
@@ -157,7 +195,7 @@ export default function LiveTranscriptionPanel({
       setGeneratingNote(false);
       setTimeout(() => setNoteGenStatus(null), 3000);
     }
-  }, [controls, consultationId, onGenerateNote, onTranscriptReady, asr.segments]);
+  }, [controls, displaySegments, consultationId, onGenerateNote, onTranscriptReady]);
 
   const overrideSegment = useCallback((id: string, role: SpeakerRole) => {
     setOverrideMap(prev => ({ ...prev, [id]: role }));
@@ -165,9 +203,10 @@ export default function LiveTranscriptionPanel({
 
   // Handle start recording with synchronized consultation trigger
   const handleStartRecording = () => {
-    controls.start();
     if (onStartConsultationRecording) {
       onStartConsultationRecording();
+    } else {
+      controls.start();
     }
   };
 
@@ -178,8 +217,26 @@ export default function LiveTranscriptionPanel({
     }
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+
+  const handleAudioFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !consultationId) return;
+    setIsUploadingAudio(true);
+    try {
+      const res = await transcribeConsultationAudio(consultationId, file, file.type || "audio/webm");
+      if (res.ok && res.data.segments && res.data.segments.length > 0) {
+        onTranscriptReady?.(res.data.text, res.data.segments as any);
+      }
+    } finally {
+      setIsUploadingAudio(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   // Speaker stats
-  const stats = asr.segments.reduce(
+  const stats = displaySegments.reduce(
     (acc, seg) => {
       const effective = overrideMap[seg.id] ?? seg.speaker;
       acc[effective] = (acc[effective] ?? 0) + 1;
@@ -187,11 +244,11 @@ export default function LiveTranscriptionPanel({
     },
     {} as Record<SpeakerRole, number>
   );
-  const total = asr.segments.length || 1;
+  const total = displaySegments.length || 1;
   const pct = (r: SpeakerRole) => Math.round(((stats[r] ?? 0) / total) * 100);
 
   const isActive = (asr.isRecording && !asr.isPaused) || isConsultationRecording === true;
-  const isEmpty = asr.segments.length === 0 && !asr.interimText;
+  const isEmpty = displaySegments.length === 0 && !asr.interimText;
 
   // Merge: get effective speaker for a segment
   const effectiveSpeaker = (seg: TranscriptSegment): SpeakerRole =>
@@ -211,52 +268,50 @@ export default function LiveTranscriptionPanel({
     >
       {/* ── Header ────────────────────────────────────────────── */}
       <div
-        className="flex flex-wrap items-center justify-between px-6 py-4 border-b border-slate-200/80 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-md relative overflow-hidden gap-3"
+        className="flex flex-wrap items-center justify-between px-6 py-3.5 border-b border-slate-200/90 bg-white text-slate-900 shadow-2xs relative overflow-hidden gap-3"
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-teal-500/10 via-indigo-500/10 to-purple-500/10 pointer-events-none" />
-        
         {/* Left: Title + recording status */}
         <div className="flex items-center gap-3.5 relative z-10">
           <div
-            className={`flex items-center justify-center w-11 h-11 rounded-2xl shadow-md transition-all ${
+            className={`flex items-center justify-center w-10 h-10 rounded-2xl shadow-xs transition-all ${
               isActive 
-                ? "bg-gradient-to-br from-rose-500 to-red-600 shadow-rose-500/40 ring-4 ring-rose-500/20 animate-pulse" 
-                : "bg-gradient-to-br from-teal-400 to-indigo-600 shadow-teal-500/30 ring-2 ring-white/20"
+                ? "bg-rose-600 text-white animate-pulse" 
+                : "bg-teal-50 border border-teal-200 text-teal-700"
             }`}
           >
-            <Mic className="w-5 h-5 text-white" />
+            <Mic className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-3">
-              <span className="text-base font-extrabold text-white tracking-tight font-heading">
+              <span className="text-sm font-extrabold text-slate-900 tracking-tight font-heading">
                 Live Clinical Transcription
               </span>
               {isActive ? (
-                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/25 border border-rose-400/50 text-rose-200 shadow-xs">
-                  <span className="relative flex h-2.5 w-2.5">
+                <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 shadow-2xs">
+                  <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600" />
                   </span>
-                  <span className="text-[11px] font-black uppercase tracking-wider">LIVE RECORDING</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider">LIVE RECORDING</span>
                 </span>
               ) : (
-                <span className="text-[11px] font-bold text-slate-300 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/10">
+                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
                   Ready to Listen
                 </span>
               )}
             </div>
-            <div className="text-xs text-slate-300 mt-0.5 flex items-center gap-2.5">
-              <Clock className="w-3.5 h-3.5 text-teal-300" />
-              <span className="font-mono font-bold text-white">{fmt(asr.elapsedMs)}</span>
-              <span className="text-slate-500">•</span>
-              <span className="font-medium text-slate-300">
-                {asr.segments.length} dialogue segment{asr.segments.length !== 1 ? "s" : ""}
+            <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
+              <Clock className="w-3 h-3 text-slate-400" />
+              <span className="font-mono font-bold text-slate-700">{fmt(asr.elapsedMs)}</span>
+              <span className="text-slate-300">•</span>
+              <span className="font-medium text-slate-600">
+                {displaySegments.length} dialogue segment{displaySegments.length !== 1 ? "s" : ""}
               </span>
               {isActive && (
                 <>
-                  <span className="text-slate-500">•</span>
-                  <span className="flex items-center gap-1 text-teal-300 font-semibold text-[11px]">
-                    <Volume2 className="w-3.5 h-3.5 animate-pulse" />
+                  <span className="text-slate-300">•</span>
+                  <span className="flex items-center gap-1 text-teal-700 font-semibold text-[10px]">
+                    <Volume2 className="w-3 h-3 animate-pulse" />
                     WebSpeech Stream Active
                   </span>
                 </>
@@ -266,28 +321,28 @@ export default function LiveTranscriptionPanel({
         </div>
 
         {/* Right: Controls */}
-        <div className="flex items-center gap-2.5 relative z-10">
+        <div className="flex items-center gap-2 relative z-10">
           {/* Speaker Mode selector */}
           <div className="relative">
             <button
               onClick={() => setShowModeDropdown(v => !v)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all bg-white/10 hover:bg-white/20 border border-white/20 text-white shadow-sm backdrop-blur-md active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 shadow-2xs"
             >
               {speakerMode === "auto" ? (
-                <span className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-indigo-300" /> Speaker: Auto</span>
+                <span className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Auto</span>
               ) : speakerMode === "doctor" ? (
-                <span className="flex items-center gap-1.5"><Stethoscope className="w-3.5 h-3.5 text-blue-300" /> Doctor Only</span>
+                <span className="flex items-center gap-1.5"><Stethoscope className="w-3.5 h-3.5 text-blue-600" /> Doctor Only</span>
               ) : (
-                <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-emerald-300" /> Patient Only</span>
+                <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-emerald-600" /> Patient Only</span>
               )}
-              <ChevronDown className="w-3.5 h-3.5 text-slate-300" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
             <AnimatePresence>
               {showModeDropdown && (
                 <motion.div
-                  initial={{ opacity: 0, y: -4, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.12 }}
                   className="absolute right-0 top-full mt-1.5 z-50 rounded-2xl overflow-hidden bg-white border border-slate-200 shadow-xl min-w-[170px]"
                 >
@@ -316,25 +371,20 @@ export default function LiveTranscriptionPanel({
           </div>
 
           {/* Copy */}
-          {asr.segments.length > 0 && (
+          {displaySegments.length > 0 && (
             <button
               onClick={handleCopy}
-              className="px-3 py-2 rounded-xl text-xs font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 shadow-sm"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold transition-colors bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 flex items-center gap-1.5 shadow-2xs"
               title="Copy transcript"
-              style={{
-                background: copied ? "rgba(16,185,129,0.25)" : "rgba(255,255,255,0.12)",
-                border: copied ? "1px solid rgba(16,185,129,0.5)" : "1px solid rgba(255,255,255,0.2)",
-                color: copied ? "#34d399" : "#e2e8f0",
-              }}
             >
               {copied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Copied</span>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-emerald-700">Copied</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-3.5 h-3.5" />
+                  <Copy className="w-3.5 h-3.5 text-slate-500" />
                   <span>Copy</span>
                 </>
               )}
@@ -342,10 +392,10 @@ export default function LiveTranscriptionPanel({
           )}
 
           {/* Clear */}
-          {asr.segments.length > 0 && (
+          {displaySegments.length > 0 && (
             <button
               onClick={controls.clearTranscript}
-              className="p-2 rounded-xl transition-all hover:scale-105 active:scale-95 bg-white/10 hover:bg-rose-500/25 border border-white/20 text-slate-300 hover:text-rose-200"
+              className="p-1.5 rounded-xl transition-colors bg-slate-100 hover:bg-rose-50 border border-slate-200 text-slate-600 hover:text-rose-600"
               title="Clear transcript"
             >
               <Trash2 className="w-4 h-4" />
@@ -355,7 +405,7 @@ export default function LiveTranscriptionPanel({
       </div>
 
       {/* ── Speaker Stats Bar ──────────────────────────────────── */}
-      {asr.segments.length > 0 && (
+      {displaySegments.length > 0 && (
         <div className="px-6 py-3 flex flex-wrap items-center justify-between gap-3 bg-slate-50/90 border-b border-slate-200/80">
           <div className="flex items-center gap-3 flex-1 min-w-[240px]">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 shrink-0">
@@ -403,7 +453,7 @@ export default function LiveTranscriptionPanel({
               <button
                 key={role}
                 onClick={() => controls.forceNextSpeaker(role)}
-                className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs hover:scale-105 active:scale-95"
+                className="flex items-center gap-2 px-3 py-1 rounded-xl text-xs font-bold transition-colors shadow-2xs"
                 style={{
                   background: SPEAKER_CONFIG[role].badge.bg,
                   border: `1px solid ${SPEAKER_CONFIG[role].badge.border}`,
@@ -462,7 +512,7 @@ export default function LiveTranscriptionPanel({
         ) : (
           <>
             <AnimatePresence initial={false}>
-              {asr.segments.map((seg) => {
+              {displaySegments.map((seg) => {
                 const role = effectiveSpeaker(seg);
                 const cfg = SPEAKER_CONFIG[role];
                 const cc = confColor(seg.confidence);
@@ -522,7 +572,7 @@ export default function LiveTranscriptionPanel({
                             <button
                               key={r}
                               onClick={() => overrideSegment(seg.id, r)}
-                              className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-lg border font-bold transition-all hover:scale-105 active:scale-95"
+                              className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-lg border font-bold transition-colors"
                               style={{
                                 background: SPEAKER_CONFIG[r].badge.bg,
                                 borderColor: SPEAKER_CONFIG[r].badge.border,
@@ -591,82 +641,81 @@ export default function LiveTranscriptionPanel({
           <div className="flex flex-wrap items-center gap-3">
             {/* Start / Pause / Resume */}
             {!asr.isRecording ? (
-              <motion.button
-                whileTap={{ scale: 0.96 }}
-                whileHover={{ scale: 1.02, y: -1 }}
-                onClick={handleStartRecording}
-                className="flex items-center gap-2.5 px-6 py-3 rounded-2xl text-sm font-extrabold text-white shadow-lg transition-all"
-                style={{
-                  background: "linear-gradient(135deg, #0d9488 0%, #0284c7 100%)",
-                  boxShadow: "0 6px 20px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.3)",
-                }}
-              >
-                <Mic className="w-4 h-4" />
-                <span>Start Live Voice Recording</span>
-              </motion.button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleStartRecording}
+                  className="flex items-center gap-2.5 px-6 py-3 rounded-2xl text-sm font-extrabold text-white shadow-md transition-colors bg-teal-600 hover:bg-teal-700"
+                >
+                  <Mic className="w-4 h-4" />
+                  <span>Start Live Voice Recording</span>
+                </button>
+                {consultationId && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleAudioFileSelected}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingAudio}
+                      className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold text-slate-700 bg-white border border-slate-200 shadow-2xs hover:bg-slate-50 transition-colors disabled:opacity-60"
+                    >
+                      {isUploadingAudio ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                      ) : (
+                        <Upload className="w-4 h-4 text-indigo-600" />
+                      )}
+                      <span>{isUploadingAudio ? "Transcribing Audio…" : "Upload Audio File"}</span>
+                    </button>
+                  </>
+                )}
+              </>
             ) : asr.isPaused ? (
-              <motion.button
-                whileTap={{ scale: 0.96 }}
-                whileHover={{ scale: 1.02, y: -1 }}
+              <button
+                type="button"
                 onClick={controls.resume}
-                className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-extrabold text-white shadow-lg"
-                style={{
-                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                  boxShadow: "0 6px 18px rgba(16,185,129,0.35), inset 0 1px 0 rgba(255,255,255,0.3)",
-                }}
+                className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-extrabold text-white shadow-md bg-emerald-600 hover:bg-emerald-700 transition-colors"
               >
                 <Mic className="w-4 h-4" />
                 <span>Resume Recording</span>
-              </motion.button>
+              </button>
             ) : (
-              <motion.button
-                whileTap={{ scale: 0.96 }}
-                whileHover={{ scale: 1.02, y: -1 }}
+              <button
+                type="button"
                 onClick={controls.pause}
-                className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-extrabold text-white shadow-md"
-                style={{
-                  background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-                  boxShadow: "0 6px 18px rgba(245,158,11,0.35), inset 0 1px 0 rgba(255,255,255,0.3)",
-                }}
+                className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-extrabold text-white shadow-md bg-amber-600 hover:bg-amber-700 transition-colors"
               >
                 <Pause className="w-4 h-4" />
                 <span>Pause Recording</span>
-              </motion.button>
+              </button>
             )}
 
             {/* Stop */}
             {asr.isRecording && (
-              <motion.button
-                whileTap={{ scale: 0.96 }}
-                whileHover={{ scale: 1.02, y: -1 }}
+              <button
+                type="button"
                 onClick={handleStopRecording}
-                className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-extrabold text-white shadow-md"
-                style={{
-                  background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                  boxShadow: "0 6px 18px rgba(239,68,68,0.35), inset 0 1px 0 rgba(255,255,255,0.3)",
-                }}
+                className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-extrabold text-white shadow-md bg-rose-600 hover:bg-rose-700 transition-colors"
               >
                 <Square className="w-4 h-4" />
                 <span>Stop Recording</span>
-              </motion.button>
+              </button>
             )}
           </div>
         )}
 
         {/* Generate note button */}
-        {asr.segments.length > 0 && (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            whileHover={{ scale: 1.02, y: -1 }}
+        {displaySegments.length > 0 && (
+          <button
+            type="button"
             onClick={handleGenerateNote}
             disabled={generatingNote}
-            className="ml-auto flex items-center gap-2.5 px-6 py-3 rounded-2xl text-sm font-extrabold text-white transition-all disabled:opacity-70 shadow-lg"
-            style={{
-              background: generatingNote
-                ? "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)"
-                : "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
-              boxShadow: generatingNote ? "none" : "0 6px 20px rgba(124,58,237,0.35), inset 0 1px 0 rgba(255,255,255,0.3)",
-            }}
+            className="ml-auto flex items-center gap-2.5 px-6 py-3 rounded-2xl text-sm font-extrabold text-white transition-colors disabled:opacity-70 shadow-md bg-indigo-600 hover:bg-indigo-700"
           >
             {generatingNote ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -674,7 +723,7 @@ export default function LiveTranscriptionPanel({
               <Zap className="w-4 h-4" />
             )}
             <span>{noteGenStatus ?? "Synthesize Clinical Note From Audio"}</span>
-          </motion.button>
+          </button>
         )}
       </div>
     </div>

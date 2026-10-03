@@ -967,27 +967,40 @@ class OpenDomainMedicalEngine:
                     break
 
             # 2. Check hallmark symptoms (exact or clinical keyword overlap)
+            GENERIC_OPEN_DOMAIN_STOPWORDS = {
+                "with", "from", "after", "high", "severe", "sudden", "crisis", "distress",
+                "pain", "fever", "fatigue", "nausea", "vomiting", "headache", "edema",
+                "rash", "weakness", "weight", "loss", "chronic", "joint", "skin", "acute",
+                "cough", "urine", "chest", "mild", "flushing", "flare", "blood", "stomach",
+                "muscle", "generalized", "syndrome", "presentation", "symptoms"
+            }
+
             hallmark_matches = 0
             for sym in meta.get("hallmark_symptoms", []):
                 sym_lower = sym.lower()
                 if sym_lower in full_text or any(sym_lower in p for p in patient_tokens):
-                    hallmark_matches += 1
+                    hallmark_matches += 1.0
                     matched_findings.append(sym)
                 else:
-                    core_words = [w for w in re.findall(r"\w+", sym_lower) if len(w) > 3 and w not in {"with", "from", "after", "high", "severe", "sudden", "crisis", "distress"}]
+                    core_words = [w for w in re.findall(r"\w+", sym_lower) if len(w) > 3 and w not in GENERIC_OPEN_DOMAIN_STOPWORDS]
+                    # Specific multi-word or non-generic token match
                     if core_words and any(w in full_text for w in core_words):
-                        hallmark_matches += 0.85
-                        matched_findings.append(sym)
+                        # Ensure not just a tiny substring
+                        matched_words = [w for w in core_words if re.search(r"\b" + re.escape(w) + r"\b", full_text)]
+                        if matched_words:
+                            hallmark_matches += 0.75
+                            matched_findings.append(sym)
 
-            if hallmark_matches > 0:
-                fraction = hallmark_matches / len(meta["hallmark_symptoms"])
+            # Require at least 2 distinct hallmark matches or high fraction if no pathognomonic match
+            if hallmark_matches >= 1.5 or (hallmark_matches >= 1.0 and len(meta.get("hallmark_symptoms", [])) <= 2):
+                fraction = hallmark_matches / max(len(meta["hallmark_symptoms"]), 1)
                 score += min(0.35 + (fraction * 0.55), 0.90)
 
-            # Disease name in input text gives strong direct clinical confirmation
+            # Disease name in input text gives decisive direct clinical confirmation
             d_clean = disease_name.lower().split(" (")[0].split(" &")[0].strip()
-            if d_clean in full_text:
-                score += 0.65
-                matched_findings.append(f"Clinical context / history matches: {d_clean}")
+            if re.search(r"\b" + re.escape(d_clean) + r"\b", full_text) or any(d_clean == p for p in patient_tokens):
+                score += 1.25
+                matched_findings.insert(0, f"Clinical condition directly identified: {disease_name}")
 
             if score >= 0.35:
                 immediate_tests = meta.get("immediate_tests") or meta.get("investigations", [])[:3]

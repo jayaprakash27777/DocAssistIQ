@@ -1384,9 +1384,9 @@ async def generate_disease_intelligence(db: AsyncSession, disease_name: str) -> 
             return default
 
     # RAG tasks depend on DB; safe 1.5s timeout prevents blocking when DB is slow/offline
-    intel_task = _safe_fetch(intelligence_engine.get_disease_intelligence_context(disease_name), timeout_sec=5.0, default={})
-    rag_evidence_task = _safe_fetch(retrieve_evidence(db, rag_request), timeout_sec=1.5, default=None)
-    rag_context_task = _safe_fetch(retrieve_medical_context(db, f"{disease_name} clinical features management", top_k=3), timeout_sec=1.5, default="")
+    intel_task = _safe_fetch(intelligence_engine.get_disease_intelligence_context(disease_name), timeout_sec=7.0, default={})
+    rag_evidence_task = _safe_fetch(retrieve_evidence(db, rag_request), timeout_sec=1.5, default=None) if db is not None else asyncio.sleep(0, result=None)
+    rag_context_task = _safe_fetch(retrieve_medical_context(db, f"{disease_name} clinical features management", top_k=3), timeout_sec=1.5, default="") if db is not None else asyncio.sleep(0, result="")
     dynamic_kb_task = _safe_fetch(on_demand_lookup(disease_name, f"clinical profile for {disease_name}"), timeout_sec=2.0, default={})
 
     results = await asyncio.gather(
@@ -1453,7 +1453,7 @@ async def generate_disease_intelligence(db: AsyncSession, disease_name: str) -> 
 
     combined_context = "\n\n".join(context_parts) if context_parts else f"No external context found for {disease_name}. Use your training data."
 
-    # 4. Call LLM with extended context budget — hard 25s timeout prevents UI hangs
+    # 4. Call LLM with extended context budget — resilient 3.5s timeout prevents UI hangs
     user_prompt = f"Generate the comprehensive clinical intelligence profile for: {disease_name}\n\n{combined_context[:6000]}"
 
     data = {}
@@ -1461,7 +1461,7 @@ async def generate_disease_intelligence(db: AsyncSession, disease_name: str) -> 
         llm_coro = llm_service.generate_json_large(
             user_prompt, system=DEEP_INTELLIGENCE_PROMPT.split("## Multi-Source Context:")[0]
         )
-        data = await asyncio.wait_for(llm_coro, timeout=25.0)
+        data = await asyncio.wait_for(llm_coro, timeout=3.5)
         if data:
             log.info("disease_intelligence_llm_ok", disease=disease_name, fields=len(data))
         else:
@@ -1514,6 +1514,27 @@ async def generate_disease_intelligence(db: AsyncSession, disease_name: str) -> 
     except Exception as ex:
         log.debug("clinical_registry_enrichment_skipped", error=str(ex))
 
+    # Ensure summary is rich with real Wikipedia medical context if brief or missing
+    current_summary = data.get("summary") or ""
+    if (len(current_summary) < 50 or "No summary available" in current_summary) and wiki_ctx:
+        import re
+        clean_wiki = re.sub(r"^WIKIPEDIA SUMMARY \([^)]+\):\s*", "", wiki_ctx).strip()
+        if clean_wiki:
+            data["summary"] = clean_wiki[:1200]
+
+    # Ensure ICD-11 code is populated
+    if not data.get("icd11_code"):
+        try:
+            if 'clinical_profile' in locals() and clinical_profile and clinical_profile.get("icd11_code"):
+                data["icd11_code"] = clinical_profile.get("icd11_code")
+            elif icd_ctx and "Code:" in icd_ctx:
+                import re
+                m = re.search(r"Code:\s*([A-Za-z0-9.]+)", icd_ctx)
+                if m:
+                    data["icd11_code"] = m.group(1).strip()
+        except Exception:
+            pass
+
     # Ensure medications, investigations, and first_line_treatment are NEVER empty
     if not data.get("medications"):
         try:
@@ -1551,25 +1572,29 @@ async def generate_disease_intelligence(db: AsyncSession, disease_name: str) -> 
     # Add Wikipedia citation
     if wiki_ctx:
         from app.schemas.rag import RAGCitation
-        from uuid import uuid4
+        import re
+        clean_wiki = re.sub(r"^WIKIPEDIA SUMMARY \([^)]+\):\s*", "", wiki_ctx).strip()
         citations.insert(0, RAGCitation(
-            source_id=str(uuid4()),
+            claim=f"Clinical summary and disease overview for {disease_name}",
+            source_name="Wikipedia Medical Library (REST API)",
             source_type="wikipedia_medical",
-            source_uri=f"https://en.wikipedia.org/wiki/{disease_name.replace(' ', '_')}",
-            preview_text=wiki_ctx[:400],
-            score=1.0
+            excerpt=clean_wiki[:400],
+            url=f"https://en.wikipedia.org/wiki/{disease_name.replace(' ', '_')}",
+            relevance_score=0.98,
         ))
 
     # Add PubMed citation
     if pubmed_ctx:
         from app.schemas.rag import RAGCitation
-        from uuid import uuid4
+        import re
+        clean_pubmed = re.sub(r"^RECENT PUBMED LITERATURE \([^)]+\):\s*", "", pubmed_ctx).strip()
         citations.append(RAGCitation(
-            source_id=str(uuid4()),
+            claim=f"Peer-reviewed clinical and outbreak literature for {disease_name}",
+            source_name="National Center for Biotechnology Information (NCBI PubMed)",
             source_type="pubmed_ncbi",
-            source_uri="https://pubmed.ncbi.nlm.nih.gov/",
-            preview_text=pubmed_ctx[:400],
-            score=0.95
+            excerpt=clean_pubmed[:400],
+            url="https://pubmed.ncbi.nlm.nih.gov/",
+            relevance_score=0.95,
         ))
 
     # Build epidemiology object

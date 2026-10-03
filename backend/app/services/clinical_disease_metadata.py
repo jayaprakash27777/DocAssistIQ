@@ -1399,6 +1399,336 @@ DISEASE_METADATA_EXT: Dict[str, Dict[str, Any]] = {
         },
         "pearl": "Fever, cough with purulent sputum, and focal crackles. CXR confirms lobar infiltrate. Risk-stratify with CURB-65. First-line Ceftriaxone + Azithromycin for hospitalized patients."
     },
+
+    "Nipah Virus Encephalitis": {
+        "icd10": "B33.8", "icd11": "1D48", "category": "Viral Hemorrhagic & Encephalitic Disease — Henipavirus", "triage": "EMERGENT",
+        "immediate_tests": [
+            "Stat Nipah virus RT-PCR (Throat swab, CSF, Serum — BSL-4 NIV Pune / CDC)",
+            "Emergency Lumbar Puncture (lymphocytic pleocytosis, elevated protein, normal glucose)",
+            "MRI Brain with Contrast (multiple discrete 2-7mm hyperintense lesions in subcortical/deep white matter on T2/FLAIR)",
+            "Arterial Blood Gas and Lactate (evaluate ARDS, tissue hypoperfusion, autonomic storm)",
+            "Complete Blood Count with differential (marked thrombocytopenia and leukopenia)"
+        ],
+        "recommended_investigations": [
+            "Nipah virus specific IgM and IgG ELISA in serum and CSF (paired acute & convalescent serology)",
+            "Continuous 12-lead ECG monitoring and continuous arterial line BP (detect severe autonomic swings and arrhythmias)",
+            "Chest Radiograph / CT Thorax (bilateral diffuse infiltrates characteristic of acute Nipah pneumonitis and ARDS)",
+            "Continuous EEG (status epilepticus and non-convulsive seizure detection)",
+            "Serial neurological exams focusing on brainstem reflexes and GCS"
+        ],
+        "recommended_medications": [
+            "Monoclonal Antibody Therapy (Emergency Compassionate Use): m102.4 human monoclonal antibody (targets Henipavirus G glycoprotein)",
+            "Broad-Spectrum Antiviral (Adjunctive): IV Ribavirin 1000 mg IV q6h for 4 days, then 500 mg IV q8h for 6 days",
+            "Alternative Antiviral: IV Remdesivir 200 mg IV loading dose, then 100 mg IV once daily for 10 days",
+            "Seizure Control: IV Levetiracetam 1000-1500 mg IV BID; IV Lorazepam 4 mg IV bolus for active myoclonic status",
+            "Intracranial Pressure (ICP) Management: 3% Hypertonic Saline or IV Mannitol 0.5-1.0 g/kg for cerebral edema",
+            "Autonomic Storm Control: IV Esmolol infusion or Clonidine for severe autonomic hypertensive crises",
+            "Strict Contraindication: AVOID NSAIDs, Aspirin, and intramuscular injections"
+        ],
+        "treatment_summary": "Immediate high-level isolation (BSL-4 barrier precautions) + droplet/contact precautions. Compassionate m102.4 monoclonal antibody / IV Ribavirin. Intensive neuro-critical care (airway protection, ICP control, mechanical ventilation for ARDS). Urgent notification to ICMR-NIV and State IDSP.",
+        "disease_intelligence": {
+            "disease_name": "Nipah Virus Encephalitis",
+            "species": "Nipah henipavirus",
+            "genus": "Henipavirus",
+            "family": "Paramyxoviridae",
+            "icd10_code": "B33.8",
+            "icd11_code": "1D48",
+            "transmission": "Zoonotic spillover via raw date palm sap contaminated with Pteropus fruit bat saliva/urine, contact with infected pigs, or direct human-to-human transmission via respiratory droplets/secretions.",
+            "incubation_period": "4 to 14 days (range up to 45 days)",
+            "epidemiology_context": "Endemic outbreaks in South Asia (Kerala, West Bengal, Bangladesh). Case fatality 40% to 75%. High risk of late-onset relapsing encephalitis.",
+            "cardinal_symptoms": ["Rapidly progressive acute encephalitis", "Drowsiness progressing to coma within 24-48 hours", "Brainstem signs (segmental myoclonus, abnormal doll's eye reflex)", "High fever with acute respiratory distress", "Autonomic storm (severe hypertension and tachycardia)"],
+            "red_flags": ["Rapid GCS deterioration within hours", "Segmental myoclonus / decerebrate posturing", "Acute hypoxemic respiratory failure / ARDS", "Severe autonomic swings (malignant hypertension / bradycardia)"],
+            "clinical_pearl": "Suspect in patients with rapid progression from febrile respiratory illness to brainstem encephalitis and myoclonus, especially with a history of consuming raw date palm sap or living in endemic Kerala/Bengal districts."
+        },
+        "pearl": "High-consequence Henipavirus. Causes severe acute encephalitis and ARDS. Case fatality 40-75%. BSL-4 isolation mandatory. Compassionate m102.4 mAb and Ribavirin."
+    },
+
+    "Kyasanur Forest Disease (KFD)": {
+        "icd10": "A98.2", "icd11": "1D41", "category": "Arboviral Hemorrhagic Fever — Flavivirus (Tick-Borne)", "triage": "EMERGENT",
+        "immediate_tests": [
+            "Stat KFDV RT-PCR (Serum / Whole Blood — NIV Pune / VDL Shivamogga)",
+            "Complete Blood Count (marked leukopenia WBC < 3,000/uL, severe thrombocytopenia platelets < 50,000/uL)",
+            "Coagulation Profile (PT/INR, aPTT, Fibrinogen, D-Dimer for hemorrhagic diathesis)",
+            "Comprehensive Metabolic Panel (AST >> ALT, BUN, Serum Creatinine)",
+            "Peripheral Blood Smear for tick-borne hemoparasites / malaria exclusion"
+        ],
+        "recommended_investigations": [
+            "KFDV IgM/IgG MAC-ELISA (detectable from day 5-8 of illness)",
+            "Serial Platelet Count monitoring (every 12-24 hours during viremic hemorrhagic phase)",
+            "Liver and Renal Function Tests (monitoring multi-organ dysfunction)",
+            "Chest Radiograph (evaluate for pulmonary hemorrhage or consolidation)",
+            "Lumbar Puncture with CSF analysis (if secondary phase neurological manifestations emerge: tremors, neck stiffness, confusion)"
+        ],
+        "recommended_medications": [
+            "Balanced IV Crystalloids (Ringer's Lactate / Plasmalyte) titrated to maintain hemodynamic stability and urine output >=0.5 mL/kg/h",
+            "Platelet Concentrate / Fresh Frozen Plasma (FFP) transfusion for severe active mucosal/GI bleeding or platelet count < 20,000/uL",
+            "Oral / IV Paracetamol (Acetaminophen 650 mg q6h PRN; max 2g/24h if hepatic transaminases elevated) for fever and severe myalgia",
+            "IV Pantoprazole 40 mg daily for stress ulcer and gastrointestinal mucosal protection",
+            "Therapeutic Alert: STRICTLY AVOID NSAIDs (Ibuprofen, Diclofenac, Naproxen) and Aspirin due to catastrophic platelet dysfunction and fatal hemorrhage"
+        ],
+        "treatment_summary": "Standard barrier precautions with tick-bite history documentation. Intensive supportive fluid resuscitation, serial platelet monitoring, blood component transfusion for hemorrhage. Second-phase neuro-monitoring for tremors and meningoencephalitis. Formal-inactivated KFD vaccine for prophylaxis in Western Ghats forest workers.",
+        "disease_intelligence": {
+            "disease_name": "Kyasanur Forest Disease (Monkey Fever)",
+            "species": "Kyasanur forest disease virus (KFDV)",
+            "genus": "Orthoflavivirus",
+            "family": "Flaviviridae",
+            "icd10_code": "A98.2",
+            "icd11_code": "1D41",
+            "transmission": "Bite of infected Haemaphysalis ticks (especially Haemaphysalis spinigera) or contact with infected sick/dead monkeys (black-faced langur, bonnet macaque) in Western Ghats deciduous forests.",
+            "incubation_period": "3 to 8 days",
+            "epidemiology_context": "Endemic to southwestern India (Karnataka: Shivamogga, Uttara Kannada, Chikkamagaluru, Udupi; Kerala; Goa; Maharashtra). Case fatality rate 3% to 10%.",
+            "cardinal_symptoms": ["Sudden onset high-grade fever with chills", "Severe frontal headache and intense retro-orbital pain", "Extreme prostration and generalized muscle tenderness (especially calves and lumbar region)", "Hemorrhagic manifestations (epistaxis, hematemesis, melena, gingival bleeding)", "Biphasic course with secondary meningoencephalitis in 10-20% of cases"],
+            "red_flags": ["Persistent vomiting and hematemesis / melena", "Profound hypotension / shock", "Platelet count dropping below 20,000/uL", "Tremors, confusion, or neck stiffness during second phase (day 10-15)"],
+            "clinical_pearl": "Often preceded by reports of monkey deaths ('monkey fever') in the locality. The disease features a classic biphasic course: initial hemorrhagic phase followed 1-2 weeks later by neurological complications."
+        },
+        "pearl": "Tick-borne Flavivirus endemic to Western Ghats. Marked leukopenia, thrombocytopenia, and bleeding. Classic biphasic course with late meningoencephalitis. Avoid NSAIDs; supportive fluid and transfusion therapy."
+    },
+
+    "Chandipura Virus Encephalitis": {
+        "icd10": "A85.8", "icd11": "1C8E", "category": "Acute Encephalitis Syndrome — Rhabdoviridae (Vesiculovirus)", "triage": "EMERGENT",
+        "immediate_tests": [
+            "Stat CHPV RT-PCR (Serum, CSF, Throat Swab — NIV Pune / State Reference Lab)",
+            "Emergency Lumbar Puncture (CSF analysis: opening pressure, pleocytosis, protein, glucose)",
+            "Complete Blood Count (leukocytosis, progressive thrombocytopenia)",
+            "Blood Glucose (stat measurement: profound hypoglycemia is common and life-threatening in pediatric CHPV)",
+            "Serum Electrolytes and Arterial Blood Gas (metabolic acidosis, electrolyte imbalances)"
+        ],
+        "recommended_investigations": [
+            "CHPV IgM ELISA (serum and CSF)",
+            "MRI Brain / CT Head (diffuse cerebral edema, bilateral hemispheric swelling without focal lesions)",
+            "Continuous EEG (status epilepticus and non-convulsive seizure detection)",
+            "Liver Function Tests and Serum Lactate (assessing shock and organ dysfunction)",
+            "Renal Function Tests (BUN, Serum Creatinine)"
+        ],
+        "recommended_medications": [
+            "Emergency IV Dextrose (10% Dextrose 5 mL/kg IV bolus for hypoglycemia, followed by 10% dextrose maintenance infusion)",
+            "IV Levetiracetam 20-30 mg/kg IV loading dose for rapid seizure control; IV Midazolam 0.1-0.2 mg/kg for active status epilepticus",
+            "3% Hypertonic Saline (3-5 mL/kg IV over 10 min) or IV Mannitol 0.5 g/kg for acute cerebral edema and herniation prevention",
+            "Empiric Antimicrobial Neuro-Coverage: IV Ceftriaxone 100 mg/kg/day + IV Acyclovir 15 mg/kg q8h while viral PCR results are pending",
+            "Aggressive airway protection with rapid sequence intubation (RSI) for GCS < 8 or respiratory depression"
+        ],
+        "treatment_summary": "Emergency PICU resuscitation. Immediate airway stabilization, aggressive management of refractory seizures, osmotic therapy for intracranial hypertension, and rapid correction of hypoglycemia. Sandfly vector control and State IDSP notification within 2 hours.",
+        "disease_intelligence": {
+            "disease_name": "Chandipura Virus Encephalitis",
+            "species": "Chandipura vesiculovirus (CHPV)",
+            "genus": "Vesiculovirus",
+            "family": "Rhabdoviridae",
+            "icd10_code": "A85.8",
+            "icd11_code": "1C8E",
+            "transmission": "Bite of infected Phlebotomine sandflies (Phlebotomus argentipes / Sergentomyia).",
+            "incubation_period": "24 to 48 hours (hyperacute onset)",
+            "epidemiology_context": "Endemic in western and central India (Gujarat: Sabarkantha, Aravalli, Kutch; Maharashtra; Andhra Pradesh). Affects predominantly children <15 years. Case fatality rate 55% to 75% within 24-48 hours of onset.",
+            "cardinal_symptoms": ["Hyperacute onset of high fever (<24h duration)", "Rapid progression to generalized convulsions and status epilepticus", "Altered sensorium progressing to deep coma within 6-12 hours", "Persistent vomiting and diarrhea", "Severe cerebral edema with decerebrate posturing"],
+            "red_flags": ["Status epilepticus refractory to first-line anticonvulsants", "Rapid GCS drop below 8 within hours of fever", "Signs of uncal or tonsillar herniation (blown pupil, Cushing's triad)", "Profound refractory hypoglycemia and lactic acidosis"],
+            "clinical_pearl": "One of the most lethal pediatric encephalitides in the world. Characterized by sudden high fever, vomiting, and lightning-fast neurological deterioration to coma within 24 hours in rural children exposed to sandflies."
+        },
+        "pearl": "Hyperacute sandfly-borne rhabdovirus in rural children (<15y). High fever, seizures, and coma within 24 hours. CFR 55-75%. PICU resuscitation: airway, osmotic ICP therapy, seizure control, glucose correction."
+    },
+
+    "Oropouche Virus Disease": {
+        "icd10": "A93.0", "icd11": "1D48", "category": "Arboviral Febrile Illness — Orthobunyavirus (Midge-Borne)", "triage": "URGENT",
+        "immediate_tests": [
+            "Stat Oropouche Virus RT-PCR (Serum / Whole Blood — within first 5-7 days of symptom onset)",
+            "Complete Blood Count (leukopenia, mild-to-moderate thrombocytopenia)",
+            "Liver Function Tests (transaminase elevation AST/ALT)",
+            "Lumbar Puncture (if meningeal signs, severe photophobia, or altered sensorium: evaluate CSF pleocytosis)",
+            "Rapid Dengue NS1 / IgM and Malaria RDT (differential rule-out in co-endemic territories)"
+        ],
+        "recommended_investigations": [
+            "Oropouche Virus IgM ELISA (from day 5 of illness onward)",
+            "Paired Acute and Convalescent Serology (4-fold rise in PRNT neutralizing antibody titers)",
+            "Coagulation Profile (PT/INR, aPTT — rule out coagulopathy)",
+            "Obstetric Ultrasound and Serial Fetal Monitoring in pregnant patients (evaluate fetal viability, microcephaly, hydrops)",
+            "Repeat Complete Blood Count (monitor platelet count and resolution of leukopenia)"
+        ],
+        "recommended_medications": [
+            "Oral / IV Paracetamol (Acetaminophen 500-1000 mg q6h PRN, maximum 3g/24h) for intense retro-orbital headache and disabling arthralgias",
+            "Oral Rehydration Salts (ORS) / Balanced IV Crystalloids for dehydration from nausea and emesis",
+            "IV Ondansetron 4-8 mg q8h PRN for severe vomiting",
+            "Absolute Contraindication Alert: AVOID Aspirin and NSAIDs (Ibuprofen, Naproxen, Ketorolac) due to potential hemorrhagic complications and until Dengue/VHF are excluded",
+            "Obstetric and Maternal-Fetal Medicine consult for pregnant patients due to newly identified vertical transmission and congenital malformation risk"
+        ],
+        "treatment_summary": "Supportive clinical care with hydration and analgesia. Avoid NSAIDs. High vigilance for biphasic relapse (occurs in up to 60% of patients 1-2 weeks later). Strict vector precautions with DEET and fine mesh netting for Culicoides biting midges. Reporting to PAHO/WHO and CDC.",
+        "disease_intelligence": {
+            "disease_name": "Oropouche Virus Disease (Oropouche Fever)",
+            "species": "Oropouche orthobunyavirus (OROV)",
+            "genus": "Orthobunyavirus",
+            "family": "Peribunyaviridae",
+            "icd10_code": "A93.0",
+            "icd11_code": "1D48",
+            "transmission": "Bite of infected Culicoides paraensis biting midges (jejenes/maruins) and Culex quinquefasciatus mosquitoes in urban and forested South American and Caribbean environments.",
+            "incubation_period": "3 to 8 days (range 3 to 12 days)",
+            "epidemiology_context": "Epidemic expansion across South America (Peru: Loreto, Madre de Dios, Ucayali; Brazil; Colombia; Bolivia; Cuba; Caribbean travel returnees). Over 10,000 cases in 2024-2026. Documented vertical transmission causing fetal death and microcephaly.",
+            "cardinal_symptoms": ["Abrupt onset of high fever and severe chills", "Intense retro-orbital pain and excruciating headache", "Severe generalized myalgias and arthralgias", "Photophobia and retrobulbar pain with eye movement", "Biphasic illness course with recurrence in up to 60% of patients"],
+            "red_flags": ["Severe persistent neck stiffness and meningismus (Oropouche meningitis)", "Spontaneous petechiae, gingival bleeding, or epistaxis", "In pregnancy: decreased fetal movements, vaginal bleeding, or fetal distress", "Recurrent high fever with debilitating fatigue after initial resolution"],
+            "clinical_pearl": "Clinically mimics Dengue, Chikungunya, and Zika ('Dengue-like syndrome'). Key distinguishing features: higher rate of severe retro-orbital photophobia, biphasic recurrence in up to 60% of patients, and vector is biting midges (Culicoides), not primarily Aedes."
+        },
+        "pearl": "Orthobunyavirus transmitted by Culicoides biting midges in South America/Caribbean. Sudden high fever, retro-orbital pain, photophobia, and frequent biphasic relapse (60%). In pregnancy, risk of congenital microcephaly."
+    },
+
+    "Japanese Encephalitis": {
+        "icd10": "A83.0", "icd11": "1C80", "category": "Arboviral Encephalitis — Flavivirus (Culex Mosquito)", "triage": "EMERGENT",
+        "immediate_tests": [
+            "JEV IgM Capture MAC-ELISA in CSF and Serum (gold standard confirmatory test; CSF IgM is diagnostic)",
+            "Emergency Lumbar Puncture (CSF lymphocytic pleocytosis 10-500 WBC/uL, normal glucose, moderately elevated protein)",
+            "Stat JEV RT-PCR (Serum / CSF — early viremic phase)",
+            "Complete Blood Count with differential (moderate leukocytosis with neutrophilia)",
+            "Serum Electrolytes, BUN, and Creatinine (hyponatremia secondary to SIADH is common)"
+        ],
+        "recommended_investigations": [
+            "MRI Brain with Contrast (pathognomonic bilateral asymmetric hyperintensities in thalami, basal ganglia, midbrain, and substantia nigra on T2/FLAIR)",
+            "Continuous Electroencephalogram (EEG) (continuous delta activity, epileptiform discharges, non-convulsive status)",
+            "Paired Acute and Convalescent Serum Antibody Titers (4-fold rise in neutralizing antibodies)",
+            "Liver Function Tests and Serum Osmolality (monitoring SIADH)",
+            "Chest Radiograph (rule out aspiration pneumonia secondary to bulbar palsy)"
+        ],
+        "recommended_medications": [
+            "Seizure Prophylaxis & Termination: IV Levetiracetam 1000 mg IV BID (pediatric: 20-30 mg/kg/day); IV Lorazepam 0.1 mg/kg for active status epilepticus",
+            "Anti-Cerebral Edema Osmotherapy: 3% Hypertonic Saline (3-5 mL/kg over 20 min) or IV Mannitol 0.5-1.0 g/kg IV q6-8h for raised intracranial pressure",
+            "Empiric Antimicrobial Meningoencephalitis Regimen: IV Ceftriaxone 2g q12h + IV Acyclovir 10 mg/kg q8h while awaiting confirmatory viral serology",
+            "Neuroprotective Fever Management: IV Paracetamol 1g q6h around the clock to prevent hyperthermia-induced neuronal injury",
+            "Airway & Ventilatory Support: Early endotracheal intubation for GCS <= 8, loss of protective gag reflex, or respiratory failure"
+        ],
+        "treatment_summary": "Intensive neuro-critical care. Airway protection, ICP management, aggressive seizure control, fluid restriction if SIADH is present. No licensed antiviral; optimized supportive care determines outcome. Live-attenuated SA 14-14-2 vaccine for prevention in endemic zones.",
+        "disease_intelligence": {
+            "disease_name": "Japanese Encephalitis (JEV)",
+            "species": "Japanese encephalitis virus",
+            "genus": "Orthoflavivirus",
+            "family": "Flaviviridae",
+            "icd10_code": "A83.0",
+            "icd11_code": "1C80",
+            "transmission": "Bite of infected Culex mosquitoes (primarily Culex tritaeniorhynchus and Culex vishnui) breeding in flooded rice paddy fields; ardeid wading birds and pigs serve as amplifying hosts.",
+            "incubation_period": "5 to 15 days",
+            "epidemiology_context": "Leading cause of viral encephalitis in Asia (Uttar Pradesh: Gorakhpur belt; Bihar; Assam; West Bengal; Tamil Nadu; Southeast Asia). 68,000 cases annually. CFR 20-30%; 30-50% of survivors suffer permanent neuropsychiatric disability.",
+            "cardinal_symptoms": ["Acute onset high fever with severe headache and vomiting", "Altered sensorium progressing from stupor to coma", "Generalized seizures and status epilepticus (especially in children)", "Parkinsonian movement disorders (cogwheel rigidity, tremors, masked facies)", "Upper motor neuron signs (hyperreflexia, bilateral extensor plantar responses)"],
+            "red_flags": ["Refractory status epilepticus", "Brainstem herniation signs (pupillary asymmetry, irregular breathing)", "Flaccid paralysis resembling poliomyelitis (anterior horn cell involvement)", "Severe SIADH with serum sodium < 120 mEq/L"],
+            "clinical_pearl": "Classic neuroimaging hallmark is bilateral thalamic involvement on MRI Brain. Tremors, mask-like facies, and rigidity reflect basal ganglia damage. In India, peak incidence occurs during post-monsoon paddy field inundation."
+        },
+        "pearl": "Flavivirus transmitted by paddy Culex mosquitoes. Bilateral thalamic involvement on MRI. High fever, seizures, Parkinsonian tremors, and coma. CFR 20-30%; permanent neurological sequelae in 50%."
+    },
+
+    "Scrub Typhus": {
+        "icd10": "A75.3", "icd11": "1C30.1", "category": "Zoonotic Rickettsial Disease — Orientia tsutsugamushi", "triage": "URGENT",
+        "immediate_tests": [
+            "Orientia tsutsugamushi IgM ELISA (optical density OD >= 0.5 is diagnostic of acute infection)",
+            "Full-Body Skin Examination for characteristic black necrotic eschar (search intertriginous areas: axillae, groin, perineum, under breast folds)",
+            "Complete Blood Count (leukocytosis with left shift, marked thrombocytopenia)",
+            "Liver Function Tests (elevated transaminases AST/ALT 2-5x ULN in >80% of patients)",
+            "Serum Creatinine and BUN (evaluation of acute kidney injury from rickettsial vasculitis)"
+        ],
+        "recommended_investigations": [
+            "Orientia tsutsugamushi 56-kDa Type-Specific Antigen RT-PCR (eschar crust/biopsy or whole blood — highest sensitivity)",
+            "Chest Radiograph / High-Resolution CT Thorax (bilateral interstitial pneumonitis, reticular opacities, or ARDS)",
+            "Weil-Felix Agglutination Test (Proteus OX-K titer >= 1:160 — rapid rural field fallback)",
+            "Arterial Blood Gas (ABG) and Lactate (detecting hypoxemic respiratory failure and septic shock)",
+            "Coagulation Profile (PT/INR, aPTT — evaluate disseminated intravascular coagulation)"
+        ],
+        "recommended_medications": [
+            "First-Line Oral: Doxycycline 100 mg orally twice daily for 7 to 10 days (defervescence typically occurs within 24 to 48 hours)",
+            "First-Line Severe / Parenteral: IV Doxycycline 100 mg IV q12h OR IV Azithromycin 500 mg IV daily in ICU setting",
+            "First-Line Pregnancy and Children: Oral Azithromycin 500 mg once daily for 5 days (Category B; preferred safe alternative to Doxycycline)",
+            "Empirical Co-Coverage: IV Ceftriaxone 2g daily while serology is pending to cover leptospirosis and enteric fever",
+            "Supportive Care: Judicious IV crystalloid resuscitation and oxygen supplementation for capillary leak and pneumonitis"
+        ],
+        "treatment_summary": "Initiate empirical Doxycycline immediately without waiting for laboratory confirmation; defervescence within 48 hours is both diagnostic and therapeutic. Search entire skin surface for eschar. Azithromycin in pregnancy.",
+        "disease_intelligence": {
+            "disease_name": "Scrub Typhus (Tsutsugamushi Disease)",
+            "species": "Orientia tsutsugamushi",
+            "genus": "Orientia",
+            "family": "Rickettsiaceae",
+            "icd10_code": "A75.3",
+            "icd11_code": "1C30.1",
+            "transmission": "Bite of larval Trombiculid mites (chiggers, primarily Leptotrombidium deliense) inhabiting dense scrub vegetation, forest fringes, and overgrown grass.",
+            "incubation_period": "6 to 21 days (mean 10 to 12 days)",
+            "epidemiology_context": "Endemic in the 'Tsutsugamushi Triangle' of Asia-Pacific (India: Himachal Pradesh, Uttarakhand, Tamil Nadu, Kerala, Northeast, Madhya Pradesh). Surges post-monsoon during agricultural grass cutting. Untreated mortality 30-70%; <2% with early Doxycycline.",
+            "cardinal_symptoms": ["Acute continuous high fever with chills and severe headache", "Pathognomonic black necrotic eschar with erythematous rim ('cigarette burn' lesion)", "Generalized tender lymphadenopathy and bilateral conjunctival injection", "Maculopapular rash spreading from trunk to extremities", "Multisystem vasculitis (hepatosplenomegaly, acute renal failure, interstitial pneumonitis)"],
+            "red_flags": ["Acute respiratory distress syndrome (ARDS) requiring mechanical ventilation", "Severe septic shock refractory to fluids (rickettsial endothelial leak)", "Altered sensorium / meningoencephalitis with CSF lymphocytic pleocytosis", "Acute kidney injury requiring renal replacement therapy"],
+            "clinical_pearl": "The presence of a black eschar (tache noire) is virtually pathognomonic. If a patient with unexplained fever, thrombocytopenia, and elevated transaminases defervesces within 24-48 hours of Doxycycline, scrub typhus is confirmed clinically."
+        },
+        "pearl": "Chigger mite-borne obligate intracellular bacterium. Pathognomonic black necrotic eschar. Thrombocytopenia, elevated transaminases, pneumonitis. Dramatic defervescence within 48h of Doxycycline."
+    },
+
+    "Anthrax": {
+        "icd10": "A22.9", "icd11": "1B94", "category": "Bacterial Zoonosis & Biothreat — Bacillus anthracis", "triage": "EMERGENT",
+        "immediate_tests": [
+            "Blood Cultures x2 sets (rapid growth of large gram-positive spore-forming rods with 'medusa-head' colonies)",
+            "Vesicle Fluid / Eschar Exudate Gram stain and PCR for Bacillus anthracis (BSL-3 reference laboratory)",
+            "Chest Radiograph / CT Thorax (inhalation anthrax: classic widened mediastinum, bilateral pleural effusions without parenchymal infiltrate)",
+            "Complete Blood Count with differential (marked leukocytosis with prominent neutrophilia)",
+            "Pleural Fluid Diagnostic Tap (serosanguinous or hemorrhagic pleural effusion with PCR/culture)"
+        ],
+        "recommended_investigations": [
+            "Bacillus anthracis specific PCR for protective antigen (pagA) and capsule (capC) genes",
+            "Serological ELISA (anti-protective antigen IgG seroconversion)",
+            "Lumbar Puncture (if meningeal signs present: hemorrhagic meningitis with gross blood and gram-positive rods)",
+            "Arterial Blood Gas and Lactate (severe hypoxemia and refractory septic shock)",
+            "Liver and Renal Function Tests (monitoring multi-organ failure)"
+        ],
+        "recommended_medications": [
+            "Inhalation / Systemic Anthrax Triple Bactericidal Regimen: IV Ciprofloxacin 400 mg q8h (or Levofloxacin 750 mg q24h) + IV Meropenem 2g q8h + IV Clindamycin 900 mg q8h (protein synthesis inhibitor to halt toxin production)",
+            "Antitoxin Monoclonal Antibody Therapy: Raxibacumab 40 mg/kg IV single dose OR Obiltoxaximab 16 mg/kg IV single dose (neutralizes protective antigen)",
+            "Alternative Toxin Suppressant: Linezolid 600 mg IV q12h as alternative protein synthesis inhibitor",
+            "Cutaneous Anthrax (Uncomplicated): Oral Ciprofloxacin 500 mg twice daily OR Doxycycline 100 mg twice daily for 60 days",
+            "Post-Exposure Prophylaxis (PEP): Oral Ciprofloxacin 500 mg BD for 60 days + Anthrax Vaccine Adsorbed (AVA) 3-dose series"
+        ],
+        "treatment_summary": "Emergency triple combination bactericidal + protein-synthesis-inhibiting therapy (Ciprofloxacin + Meropenem + Clindamycin) plus antitoxin monoclonal antibody (Raxibacumab). Immediate public health and national security biothreat reporting. Contact precautions.",
+        "disease_intelligence": {
+            "disease_name": "Anthrax (Bacillus anthracis)",
+            "species": "Bacillus anthracis",
+            "genus": "Bacillus",
+            "family": "Bacillaceae",
+            "icd10_code": "A22.9",
+            "icd11_code": "1B94",
+            "transmission": "Inoculation of spores through broken skin (cutaneous ~95%), inhalation of aerosolized spores from infected animal hides/wool (inhalation ~5%), or ingestion of contaminated undercooked meat (gastrointestinal).",
+            "incubation_period": "1 to 7 days (cutaneous); up to 60 days for inhalation due to latent spore germination",
+            "epidemiology_context": "Endemic in agricultural regions of South Asia, Africa, and Americas handling livestock carcasses. Category A Tier 1 bioterrorism select agent. Inhalation anthrax untreated mortality >85%.",
+            "cardinal_symptoms": ["Cutaneous: painless pruritic papule progressing to black depressed necrotic eschar with extensive non-pitting edema", "Inhalation: biphasic illness with mild fever/malaise followed by sudden catastrophic dyspnea, cyanosis, and shock", "Radiological hallmark: striking widening of the mediastinum with extensive pleural effusions", "Gastrointestinal: severe abdominal pain, hematemesis, massive hemorrhagic ascites"],
+            "red_flags": ["Rapid widening of mediastinum on chest imaging", "Stridor, cyanosis, and acute hypoxemic respiratory collapse", "Hemorrhagic meningitis with blood-tinged CSF", "Refractory septic shock and lethal toxin-mediated capillary collapse"],
+            "clinical_pearl": "Painless black eschar with striking surrounding gelatinous edema is classic for cutaneous anthrax. Inhalation anthrax characteristically produces hemorrhagic mediastinitis (widened mediastinum) rather than classic alveolar pneumonia."
+        },
+        "pearl": "Category A biothreat spore-forming bacillus. Cutaneous: painless black eschar with marked edema. Inhalation: hemorrhagic mediastinitis with widened mediastinum. Triple therapy: Ciprofloxacin + Meropenem + Clindamycin + Antitoxin mAb."
+    },
+
+    "Kala-Azar (Visceral Leishmaniasis)": {
+        "icd10": "B55.0", "icd11": "1F54.0", "category": "Protozoan Parasitic Disease — Leishmania donovani", "triage": "URGENT",
+        "immediate_tests": [
+            "rK39 Immunochromatographic Rapid Diagnostic Test (Serum — sensitivity >98%, specificity >90% in Indian subcontinent)",
+            "Complete Blood Count (classic pancytopenia: severe normocytic anemia, marked leukopenia/neutropenia, thrombocytopenia)",
+            "Splenic Aspirate or Bone Marrow Examination (Giemsa stain for intracellular Leishman-Donovan [LD] amastigote bodies — gold standard confirmation)",
+            "Liver Function Tests (hypoalbuminemia, elevated serum alkaline phosphatase and transaminases)",
+            "Renal Function Tests (BUN, Serum Creatinine — baseline before antiparasitic therapy)"
+        ],
+        "recommended_investigations": [
+            "Serum Protein Electrophoresis (characteristic marked polyclonal hypergammaglobulinemia with reversed A:G ratio)",
+            "Direct Agglutination Test (DAT) / Leishmania PCR in peripheral blood",
+            "Abdominal Ultrasonography (massive smooth splenomegaly, moderate hepatomegaly, portal vein diameter)",
+            "HIV Rapid Test (visceral leishmaniasis is an opportunistic infection with frequent co-infection and relapses)",
+            "Malaria RDT and Blood Film (rule out co-endemic protozoan co-infection)"
+        ],
+        "recommended_medications": [
+            "First-Line (WHO / NVBDCP India Standard of Care): Liposomal Amphotericin B (AmBisome) 10 mg/kg IV single-dose infusion (cure rate >95%)",
+            "Alternative Combination Therapy: Liposomal Amphotericin B 5 mg/kg single infusion + Oral Miltefosine (50 mg BID for 7 days)",
+            "Secondary Oral Regimen: Oral Miltefosine 50 mg PO BID for 28 days (Strict Contraindication: Teratogenic — strictly contraindicated in pregnancy; negative pregnancy test and effective contraception required)",
+            "Parenteral Alternative: IM Paromomycin 11 mg/kg/day for 14 days",
+            "Supportive Care: Packed Red Blood Cell transfusion for severe symptomatic anemia (Hb < 7 g/dL), broad-spectrum antibiotics for neutropenic sepsis"
+        ],
+        "treatment_summary": "Single-dose Liposomal Amphotericin B (10 mg/kg IV) under strict medical supervision with pre-hydration. Monitor for infusion reactions, hypokalemia, and nephrotoxicity. Miltefosine is strictly teratogenic. Vector control via indoor residual spraying (IRS) with synthetic pyrethroids.",
+        "disease_intelligence": {
+            "disease_name": "Kala-Azar (Visceral Leishmaniasis)",
+            "species": "Leishmania donovani",
+            "genus": "Leishmania",
+            "family": "Trypanosomatidae",
+            "icd10_code": "B55.0",
+            "icd11_code": "1F54.0",
+            "transmission": "Bite of infected female Phlebotomine sandflies (Phlebotomus argentipes) breeding in damp organic soil, cracked mud walls, and cattle sheds.",
+            "incubation_period": "2 to 6 months (range 10 days to over 1 year)",
+            "epidemiology_context": "Endemic in the Gangetic plains of India (Bihar, Jharkhand, West Bengal, eastern Uttar Pradesh), Bangladesh, and East Africa (Sudan, South Sudan, Ethiopia). Untreated mortality >95% within 2 years.",
+            "cardinal_symptoms": ["Prolonged, irregular, undulating high fever with double daily spikes", "Massive non-tender splenomegaly (often extending to right iliac fossa)", "Profound progressive wasting, cachexia, and muscle loss", "Pancytopenia with severe pallor and recurrent secondary bacterial infections", "Hyperpigmentation of hands, feet, abdomen, and face ('Kala-Azar' / Black Fever)"],
+            "red_flags": ["Profound neutropenia with secondary septic shock / lobar pneumonia", "Severe bleeding diathesis from profound thrombocytopenia (platelets < 20,000/uL)", "Massive splenic enlargement with risk of acute splenic rupture", "Visceral leishmaniasis-HIV co-infection with atypical manifestations and poor response"],
+            "clinical_pearl": "The classic clinical pentad consists of prolonged undulating fever, massive splenomegaly, pancytopenia, marked hypergammaglobulinemia, and profound weight loss. Single-dose Liposomal Amphotericin B is curative in >95% of Indian subcontinent cases."
+        },
+        "pearl": "Protozoan parasite transmitted by Phlebotomus sandflies in Gangetic plains. Prolonged fever, massive splenomegaly, pancytopenia, dark skin ('black sickness'). Single-dose Liposomal Amphotericin B 10mg/kg is curative."
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -1421,6 +1751,31 @@ DISEASE_METADATA_ALIASES: Dict[str, str] = {
     "Pancreatitis": "Acute Pancreatitis",
     "Gout": "Gout (Acute Gouty Arthritis)",
     "Cellulitis": "Cellulitis",
+    # Outbreak and Endemic Aliases
+    "Kyasanur Forest Disease": "Kyasanur Forest Disease (KFD)",
+    "Kyasanur Forest Disease (Monkey Fever)": "Kyasanur Forest Disease (KFD)",
+    "KFD": "Kyasanur Forest Disease (KFD)",
+    "Monkey Fever": "Kyasanur Forest Disease (KFD)",
+    "Chandipura Encephalitis": "Chandipura Virus Encephalitis",
+    "Chandipura Vesiculovirus": "Chandipura Virus Encephalitis",
+    "CHPV": "Chandipura Virus Encephalitis",
+    "Scrub Typhus (Tsutsugamushi Disease)": "Scrub Typhus",
+    "Himalayan Scrub Typhus": "Scrub Typhus",
+    "Orientia tsutsugamushi": "Scrub Typhus",
+    "Japanese Encephalitis / Acute Encephalitis Syndrome (AES)": "Japanese Encephalitis",
+    "JEV": "Japanese Encephalitis",
+    "Nipah Virus Acute Encephalitis Syndrome (AES)": "Nipah Virus Encephalitis",
+    "Nipah Virus Disease": "Nipah Virus Encephalitis",
+    "Nipah": "Nipah Virus Encephalitis",
+    "Oropouche Fever": "Oropouche Virus Disease",
+    "Oropouche Virus Disease (Peru)": "Oropouche Virus Disease",
+    "Oropouche": "Oropouche Virus Disease",
+    "Inhalation Anthrax": "Anthrax",
+    "Cutaneous Anthrax": "Anthrax",
+    "Bacillus anthracis": "Anthrax",
+    "Visceral Leishmaniasis": "Kala-Azar (Visceral Leishmaniasis)",
+    "Leishmania donovani": "Kala-Azar (Visceral Leishmaniasis)",
+    "Kala-Azar": "Kala-Azar (Visceral Leishmaniasis)",
 }
 
 for alias, target in DISEASE_METADATA_ALIASES.items():
@@ -1583,6 +1938,26 @@ def get_disease_clinical_profile(disease_name: str) -> Dict[str, Any] | None:
         (["yellow fever"], "Yellow Fever"),
         (["leptospirosis", "weil"], "Leptospirosis"),
         (["mpox", "monkeypox"], "Mpox (Monkeypox)"),
+        (["diabetes", "t2dm", "t1dm", "hyperglycemia"], "Type 2 Diabetes Mellitus"),
+        (["hypertension", "elevated blood pressure", "htn"], "Essential Hypertension"),
+        (["anemia", "iron deficiency", "pallor", "ferritin"], "Iron Deficiency Anemia"),
+        (["osteoarthritis", "crepitus", "degenerative joint"], "Osteoarthritis"),
+        (["kidney disease", "ckd", "renal failure", "nephropathy"], "Chronic Kidney Disease (CKD)"),
+        (["epilepsy", "seizure", "convulsion"], "Epilepsy / Seizure Disorder"),
+        (["depression", "mdd", "depressive"], "Major Depressive Disorder (MDD)"),
+        (["anxiety", "gad", "panic"], "Generalized Anxiety Disorder"),
+        (["atopic dermatitis", "eczema"], "Atopic Dermatitis (Eczema)"),
+        (["psoriasis", "silvery scale"], "Psoriasis Vulgaris"),
+        (["otitis media", "ear infection", "otalgia"], "Acute Otitis Media"),
+        (["hypothyroidism", "myxedema", "underactive thyroid"], "Hypothyroidism / Myxedema Coma"),
+        (["kyasanur", "kfd", "monkey fever"], "Kyasanur Forest Disease (KFD)"),
+        (["chandipura", "chpv"], "Chandipura Virus Encephalitis"),
+        (["scrub typhus", "tsutsugamushi", "eschar"], "Scrub Typhus"),
+        (["japanese encephalitis", "jev"], "Japanese Encephalitis"),
+        (["nipah", "henipavirus"], "Nipah Virus Encephalitis"),
+        (["oropouche"], "Oropouche Virus Disease"),
+        (["anthrax", "anthracis"], "Anthrax"),
+        (["kala-azar", "kala azar", "leishmaniasis", "leishmania"], "Kala-Azar (Visceral Leishmaniasis)"),
     ]
 
     for keywords, target in syndromic_map:

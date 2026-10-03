@@ -146,10 +146,10 @@ def register_exception_handlers(app: FastAPI) -> None:
         only a generic message — no internal details are exposed.
         """
         _stdlib_logger.error(
-            "Unhandled exception on %s %s",
+            "Unhandled exception on %s %s: %s",
             request.method,
             request.url.path,
-            exc_info=exc,
+            str(exc) or type(exc).__name__,
         )
         return _make_error_response(
             status_code=500,

@@ -55,10 +55,13 @@ class _CircuitBreaker:
         self._tripped_at  = 0.0
         self._threshold   = threshold
         self._recovery    = recovery
+        self._force_open  = False
 
     @property
     def is_open(self) -> bool:
         """True = circuit is OPEN (tripped) — skip LLM calls."""
+        if self._force_open:
+            return True
         if self._tripped_at and (time.monotonic() - self._tripped_at) >= self._recovery:
             # Half-open: allow one probe
             log.info("circuit_breaker_half_open")
@@ -66,6 +69,12 @@ class _CircuitBreaker:
             self._tripped_at = 0.0
             return False
         return self._failures >= self._threshold
+
+    def set_force_open(self, force: bool):
+        """Allows administrator to manually force offline fallback mode or re-enable."""
+        self._force_open = force
+        if not force:
+            self.reset()
 
     def record_success(self):
         self._failures   = 0
@@ -83,6 +92,17 @@ class _CircuitBreaker:
         """Manually reset the circuit breaker."""
         self._failures   = 0
         self._tripped_at = 0.0
+        self._force_open = False
+
+    @property
+    def state_name(self) -> str:
+        if self._force_open:
+            return "FORCED_OFFLINE"
+        if self._tripped_at and (time.monotonic() - self._tripped_at) >= self._recovery:
+            return "HALF_OPEN"
+        if self._failures >= self._threshold:
+            return "OPEN"
+        return "CLOSED"
 
     @property
     def status(self) -> Dict[str, Any]:
@@ -90,6 +110,8 @@ class _CircuitBreaker:
             "failures": self._failures,
             "threshold": self._threshold,
             "is_open": self.is_open,
+            "state": self.state_name,
+            "forced_offline": self._force_open,
             "recovery_s": self._recovery,
             "tripped_at": self._tripped_at,
         }
@@ -459,6 +481,69 @@ class OllamaService:
     def circuit_status(self) -> Dict[str, Any]:
         """Return circuit breaker status for monitoring."""
         return _circuit_breaker.status
+
+    def set_system_model(self, model_name: str, fast_model: Optional[str] = None):
+        """Dynamically switches the active LLM model across the entire system."""
+        cleaned = model_name.strip()
+        if not cleaned:
+            raise ValueError("Model name cannot be empty")
+        self.default_model = cleaned
+        if fast_model and fast_model.strip():
+            self.fast_model = fast_model.strip()
+        
+        # Also update global AI Factory generation provider
+        try:
+            from app.infrastructure.ai.factory import set_system_ai_model
+            set_system_ai_model(cleaned)
+        except Exception as e:
+            log.warning("failed_to_update_ai_factory_provider", error=str(e))
+        
+        log.info("system_ai_model_switched", default_model=self.default_model, fast_model=self.fast_model)
+
+    async def get_detailed_status(self) -> Dict[str, Any]:
+        """Returns comprehensive real-time status of the AI engine and circuit breaker."""
+        start = time.perf_counter()
+        is_conn = False
+        installed_models = []
+        latency_ms = 0.0
+        error_msg = None
+
+        try:
+            async with self._client(3.0) as client:
+                r = await client.get("/api/tags")
+                latency_ms = round((time.perf_counter() - start) * 1000, 2)
+                if r.status_code == 200:
+                    is_conn = True
+                    raw_models = r.json().get("models", [])
+                    installed_models = [m.get("name") for m in raw_models if m.get("name")]
+        except Exception as ex:
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+            error_msg = str(ex)
+
+        cb_status = _circuit_breaker.status
+        is_open = cb_status["is_open"]
+        active_mode = "static_kb_fallback" if is_open or not is_conn else "llm_active"
+
+        return {
+            "active_model": self.default_model,
+            "fast_model": self.fast_model,
+            "base_url": self.base_url,
+            "provider_name": "Ollama / Local Medical LLM",
+            "is_connected": is_conn,
+            "latency_ms": latency_ms,
+            "installed_models": installed_models,
+            "circuit_breaker": cb_status,
+            "mode": active_mode,
+            "error": error_msg,
+            "recommended_models": [
+                {"id": "ii-medical:8b", "label": "II-Medical-8B (Clinical Specialist)", "type": "medical"},
+                {"id": "llama3.1:8b", "label": "Llama-3.1-8B (General Diagnostic)", "type": "general"},
+                {"id": "llama3.2:latest", "label": "Llama-3.2 (Fast Clinical Edge)", "type": "edge"},
+                {"id": "meditron:7b", "label": "Meditron-7B (Clinical Reasoning)", "type": "medical"},
+                {"id": "biomistral:7b", "label": "BioMistral-7B (Biomedical QA)", "type": "biomedical"},
+            ],
+            "safety_watermark": "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
+        }
 
 
 llm_service = OllamaService()

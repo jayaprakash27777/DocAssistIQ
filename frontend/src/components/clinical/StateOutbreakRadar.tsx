@@ -66,7 +66,7 @@ export default function StateOutbreakRadar({
   const [searchQuery, setSearchQuery] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
-  const fetchOutbreaks = useCallback(async () => {
+  const fetchOutbreaks = useCallback(async (isRefresh = false) => {
     setLoading(true);
     const stateParam =
       selectedState !== "All States & Union Territories" ? selectedState : undefined;
@@ -77,11 +77,17 @@ export default function StateOutbreakRadar({
       state: stateParam,
       alert_level: alertParam,
       query: queryParam,
+      refresh: isRefresh,
     });
 
     if (res.ok) {
       setData(res.data);
       setLastRefreshed(new Date());
+      if (isRefresh) {
+        toast.success("Real-time live feeds synchronized with CDC, ECDC, MoHFW & Disease.sh!", {
+          icon: "🌐",
+        });
+      }
     } else {
       toast.error("Could not fetch state outbreak surveillance data.");
     }
@@ -89,7 +95,7 @@ export default function StateOutbreakRadar({
   }, [selectedState, selectedAlertLevel, searchQuery]);
 
   useEffect(() => {
-    fetchOutbreaks();
+    fetchOutbreaks(false);
   }, [fetchOutbreaks]);
 
   // Filter combined alerts based on activeTab
@@ -148,24 +154,24 @@ export default function StateOutbreakRadar({
   return (
     <div className="space-y-5 text-left">
       {/* Live Surveillance Header Banner */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-500/30 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-teal-50/80 via-white to-indigo-50/70 text-slate-900 border border-teal-200/90 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center shadow-md shadow-teal-500/20">
               <Globe className="w-6 h-6 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-black text-white tracking-tight">
+                <h2 className="text-xl font-black text-slate-900 tracking-tight">
                   State-Wide &amp; Global Epidemic Surveillance Feed
                 </h2>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
                   Live Radar
                 </span>
               </div>
-              <p className="text-xs text-indigo-200/90 font-medium mt-0.5">
+              <p className="text-xs text-slate-600 font-medium mt-0.5">
                 Real-time outbreak tracking across all 28 Indian States, 8 Union Territories &amp; Global WHO/CDC feeds.
               </p>
             </div>
@@ -173,14 +179,14 @@ export default function StateOutbreakRadar({
 
           <div className="flex items-center gap-2 self-start md:self-auto">
             <button
-              onClick={() => fetchOutbreaks()}
+              onClick={() => fetchOutbreaks(true)}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-white border border-white/15 transition-colors disabled:opacity-60"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 shadow-2xs transition-colors disabled:opacity-60"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-teal-600 ${loading ? "animate-spin" : ""}`} />
               <span>Refresh Feeds</span>
             </button>
-            <span className="text-[11px] text-slate-400 font-medium">
+            <span className="text-[11px] text-slate-500 font-medium">
               Refreshed: {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
           </div>
@@ -188,49 +194,49 @@ export default function StateOutbreakRadar({
 
         {/* Live Metrics Row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
-          <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
+          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-2xs">
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-0.5">
               Active Alerts Monitored
             </span>
-            <div className="text-2xl font-black text-white flex items-center gap-2">
+            <div className="text-2xl font-black text-slate-900 flex items-center gap-2">
               <span>{data?.total_active_alerts ?? "—"}</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-md bg-rose-500/30 text-rose-200 border border-rose-500/40 font-bold">
+              <span className="text-[10px] px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-200 font-bold">
                 Real-Time
               </span>
             </div>
           </div>
 
-          <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
+          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-2xs">
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-0.5">
               Indian States &amp; UTs
             </span>
-            <div className="text-2xl font-black text-white flex items-center gap-2">
+            <div className="text-2xl font-black text-slate-900 flex items-center gap-2">
               <span>36 / 36</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/30 text-emerald-200 border border-emerald-500/40 font-bold">
+              <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold">
                 100% Covered
               </span>
             </div>
           </div>
 
-          <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
+          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-2xs">
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-0.5">
               Primary Surveillance
             </span>
-            <div className="text-sm font-extrabold text-indigo-200 truncate">
+            <div className="text-sm font-extrabold text-indigo-700 truncate">
               IDSP · NCDC · ICMR · NIV Pune
             </div>
-            <span className="text-[10px] text-slate-400">Integrated Lab Protocols</span>
+            <span className="text-[10px] text-slate-500">Integrated Lab Protocols</span>
           </div>
 
-          <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-0.5">
+          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-2xs">
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-0.5">
               Differential Integration
             </span>
-            <div className="text-sm font-extrabold text-emerald-300 flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <div className="text-sm font-extrabold text-emerald-700 flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               <span>Automated Symptom Rule-In</span>
             </div>
-            <span className="text-[10px] text-slate-400">Direct Diagnosis Badging</span>
+            <span className="text-[10px] text-slate-500">Direct Diagnosis Badging</span>
           </div>
         </div>
       </div>
@@ -287,7 +293,7 @@ export default function StateOutbreakRadar({
                       ? "bg-amber-500 text-slate-950 shadow-xs"
                       : lvl === "MONITORING"
                       ? "bg-sky-600 text-white shadow-xs"
-                      : "bg-slate-900 text-white shadow-xs"
+                      : "bg-teal-600 text-white shadow-xs"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >

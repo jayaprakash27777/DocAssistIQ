@@ -18,7 +18,7 @@ import {
   Bot, ChevronDown, ChevronUp, AlertTriangle, ShieldAlert, Globe, Clock, 
   Zap, Sparkles, Activity, CheckCircle2, Flame, Stethoscope, ArrowRight, ShieldCheck,
   Target, FlaskConical, Scale, FileText, Copy, Check, Table, HelpCircle, FileCheck, Pill,
-  Layers, Search, Brain, Lightbulb
+  Layers, Search, Brain, Lightbulb, Maximize2, Minimize2, X
 } from "lucide-react";
 import InvestigationPanel from "./InvestigationPanel";
 import MedicationPanel from "./MedicationPanel";
@@ -183,9 +183,25 @@ export default function DifferentialDiagnosis({
   const [showMdmModal, setShowMdmModal] = useState(false);
   const [copiedMdm, setCopiedMdm] = useState(false);
 
+  // Big Screen Full Viewport Studio state
+  const [isBigScreen, setIsBigScreen] = useState(false);
+
+  // Keyboard shortcut to close Big Screen (Escape)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isBigScreen) {
+        setIsBigScreen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isBigScreen]);
+
   // Preset filter state
   const [presetCategory, setPresetCategory] = useState<"all" | "emergency" | "complex" | "bedside" | "outbreak">("all");
   const [presetSearch, setPresetSearch] = useState("");
+  const [showBenchmarks, setShowBenchmarks] = useState(false);
+  const [activeDiagnosticTab, setActiveDiagnosticTab] = useState<"none" | "criteria" | "parser" | "biomarkers" | "questions">("none");
 
   const filteredPresets = React.useMemo(() => {
     return CLINICAL_PRESETS.filter(p => {
@@ -321,158 +337,237 @@ export default function DifferentialDiagnosis({
   }, [consultationId, trigger]);
   // ── Unified Render: Real-Time HUD always accessible + Deep Analysis below ──
   return (
-    <>
-      {/* ── Sub-30ms Real-Time Live Clinical Predictor HUD (Always Available) ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-6 rounded-3xl overflow-hidden border border-indigo-200/80 bg-gradient-to-br from-blue-50/70 via-white/90 to-indigo-50/70 shadow-[0_12px_36px_rgba(79,70,229,0.08),inset_0_1px_0_rgba(255,255,255,0.95)] backdrop-blur-2xl"
-      >
-        {/* Top Header */}
-        <div className="px-6 py-4 flex items-center justify-between bg-slate-900 border-b border-slate-800 text-white shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center backdrop-blur-md">
-              <Zap className="w-4 h-4 text-amber-400 animate-pulse" />
+    <div className={
+      isBigScreen 
+        ? "fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-md p-3 sm:p-6 lg:p-8 flex justify-center items-start animate-in fade-in duration-200" 
+        : "w-full"
+    }>
+      <div className={
+        isBigScreen 
+          ? "w-full max-w-[1780px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border-2 border-indigo-400 dark:border-indigo-600 overflow-hidden flex flex-col p-4 sm:p-6 space-y-6 my-auto" 
+          : "w-full"
+      }>
+        {/* Big Screen Dedicated Studio Bar (only in Big Screen mode) */}
+        {isBigScreen && (
+          <div className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 pb-3 mb-2 flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+                <Brain className="w-5 h-5 text-indigo-100" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-black font-heading text-slate-900 dark:text-white">
+                    Differential Diagnosis &amp; Clinical Decision Studio
+                  </h2>
+                  <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300">
+                    🖥️ Big Screen Mode
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  Expansive high-resolution clinical workspace — sub-10ms real-time probability ranking, rule-out verification &amp; medical literature
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-extrabold text-sm tracking-wider uppercase flex items-center gap-2 font-heading">
-                Real-Time Clinical Diagnostic Predictor
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                  ⚡ Sub-10ms Inference
+
+            <div className="flex items-center gap-2.5">
+              {realtimeResult && (
+                <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl shadow-2xs">
+                  <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                  {realtimeResult.latency_ms} ms Latency
                 </span>
-              </h3>
-              <p className="text-[11px] text-slate-400 font-medium text-left">
-                Universal Medical Diagnostic Engine — Evaluates 260+ Clinical Profiles &amp; Open Domain Knowledge
-              </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsBigScreen(false)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 shadow-md transition-all cursor-pointer"
+                title="Exit Big Screen Mode (Esc)"
+              >
+                <Minimize2 className="w-4 h-4" />
+                <span>Exit Big Screen</span>
+                <kbd className="hidden md:inline-block ml-1 text-[10px] bg-slate-700 text-slate-200 px-1.5 py-0.5 rounded font-mono">Esc</kbd>
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {realtimeResult && (
-              <span className="text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                {realtimeResult.latency_ms} ms Latency
-              </span>
-            )}
+        )}
+
+        {/* ── Sub-30ms Real-Time Live Clinical Predictor HUD (Always Available) ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 rounded-3xl overflow-hidden border border-indigo-200/80 bg-gradient-to-br from-blue-50/70 via-white/90 to-indigo-50/70 shadow-[0_12px_36px_rgba(79,70,229,0.08),inset_0_1px_0_rgba(255,255,255,0.95)] backdrop-blur-2xl"
+        >
+          {/* Top Header */}
+          <div className="px-6 py-4 flex items-center justify-between bg-gradient-to-r from-teal-50/90 via-white to-indigo-50/80 border-b border-slate-200/90 text-slate-900 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center shadow-xs">
+                <Zap className="w-4 h-4 text-teal-600 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm tracking-wider uppercase flex items-center gap-2 font-heading text-slate-900">
+                  Real-Time Clinical Diagnostic Predictor
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shadow-2xs">
+                    ⚡ Sub-10ms Inference
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium text-left">
+                  Universal Medical Diagnostic Engine — Evaluates 260+ Clinical Profiles &amp; Open Domain Knowledge
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {realtimeResult && (
+                <span className="text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
+                  <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                  {realtimeResult.latency_ms} ms Latency
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsBigScreen(prev => !prev)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/90 shadow-2xs transition-all cursor-pointer"
+                title={isBigScreen ? "Exit Big Screen Mode" : "Expand Differential Diagnosis to Big Screen Full Viewport"}
+              >
+                {isBigScreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                <span>{isBigScreen ? "Exit Big Screen" : "Big Screen View"}</span>
+              </button>
+            </div>
           </div>
-        </div>
 
         <div className="p-6 md:p-8 flex flex-col gap-6">
-          {/* Presets Bar (Categorized & Searchable) */}
-          <div className="bg-slate-50/90 rounded-2xl p-4 border border-slate-200/90 shadow-2xs">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          {/* Presets Bar (Categorized & Searchable - Compact Collapsible Drawer) */}
+          <div className="bg-slate-50/90 rounded-2xl p-3 sm:p-3.5 border border-slate-200/90 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-indigo-600" />
+                <Sparkles className="w-4 h-4 text-teal-600" />
                 <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider font-heading">
-                  Clinical Case Benchmarks (1-Click Instant Evaluation):
+                  Clinical Case Benchmarks ({CLINICAL_PRESETS.length} Validated Scenarios):
                 </span>
               </div>
 
-              {/* Quick Search */}
-              <div className="relative min-w-[220px]">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Filter cases (e.g. PE, Stroke, Lupus)..."
-                  value={presetSearch}
-                  onChange={(e) => setPresetSearch(e.target.value)}
-                  className="w-full text-xs pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 shadow-2xs"
-                />
+              <div className="flex items-center gap-2">
+                {/* Quick Search */}
+                <div className="relative min-w-[200px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Filter cases (e.g. PE, Stroke)..."
+                    value={presetSearch}
+                    onChange={(e) => {
+                      setPresetSearch(e.target.value);
+                      if (!showBenchmarks) setShowBenchmarks(true);
+                    }}
+                    className="w-full text-xs pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 shadow-2xs"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowBenchmarks(prev => !prev)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 shadow-2xs transition-colors flex items-center gap-1.5 shrink-0"
+                >
+                  <span>{showBenchmarks ? "Hide Benchmarks" : "Browse Benchmarks"}</span>
+                  {showBenchmarks ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
               </div>
             </div>
 
-            {/* Category Filter Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 mb-3 border-b border-slate-200/70 pb-2.5">
-              <button
-                type="button"
-                onClick={() => setPresetCategory("all")}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                  presetCategory === "all"
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                All Benchmarks ({CLINICAL_PRESETS.length})
-              </button>
+            {showBenchmarks && (
+              <div className="mt-3 pt-3 border-t border-slate-200/70 space-y-2.5">
+                {/* Category Filter Pills */}
+                <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200/70 pb-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setPresetCategory("all")}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                      presetCategory === "all"
+                        ? "bg-teal-600 text-white shadow-xs"
+                        : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    All Benchmarks ({CLINICAL_PRESETS.length})
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setPresetCategory("outbreak")}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                  presetCategory === "outbreak"
-                    ? "bg-amber-600 text-white shadow-xs"
-                    : "bg-white text-slate-600 hover:bg-amber-50 hover:text-amber-700 border border-slate-200"
-                }`}
-              >
-                <Globe className="w-3.5 h-3.5 text-amber-500" />
-                Live Outbreak Feeds ({CLINICAL_PRESETS.filter(p => p.category === "outbreak").length})
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setPresetCategory("outbreak")}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                      presetCategory === "outbreak"
+                        ? "bg-amber-600 text-white shadow-xs"
+                        : "bg-white text-slate-600 hover:bg-amber-50 hover:text-amber-700 border border-slate-200"
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5 text-amber-500" />
+                    Live Outbreak Feeds ({CLINICAL_PRESETS.filter(p => p.category === "outbreak").length})
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setPresetCategory("emergency")}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                  presetCategory === "emergency"
-                    ? "bg-rose-600 text-white shadow-xs"
-                    : "bg-white text-slate-600 hover:bg-rose-50 hover:text-rose-700 border border-slate-200"
-                }`}
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                Emergencies ({CLINICAL_PRESETS.filter(p => p.category === "emergency").length})
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setPresetCategory("emergency")}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                      presetCategory === "emergency"
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "bg-white text-slate-600 hover:bg-rose-50 hover:text-rose-700 border border-slate-200"
+                    }`}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                    Emergencies ({CLINICAL_PRESETS.filter(p => p.category === "emergency").length})
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setPresetCategory("complex")}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                  presetCategory === "complex"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "bg-white text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200"
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5 text-indigo-500" />
-                Complex EHR Notes ({CLINICAL_PRESETS.filter(p => p.category === "complex").length})
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setPresetCategory("complex")}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                      presetCategory === "complex"
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-white text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200"
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5 text-indigo-500" />
+                    Complex EHR Notes ({CLINICAL_PRESETS.filter(p => p.category === "complex").length})
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setPresetCategory("bedside")}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                  presetCategory === "bedside"
-                    ? "bg-teal-700 text-white shadow-xs"
-                    : "bg-white text-slate-600 hover:bg-teal-50 hover:text-teal-700 border border-slate-200"
-                }`}
-              >
-                <Stethoscope className="w-3.5 h-3.5 text-teal-600" />
-                Bedside Entities ({CLINICAL_PRESETS.filter(p => p.category === "bedside").length})
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setPresetCategory("bedside")}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                      presetCategory === "bedside"
+                        ? "bg-teal-700 text-white shadow-xs"
+                        : "bg-white text-slate-600 hover:bg-teal-50 hover:text-teal-700 border border-slate-200"
+                    }`}
+                  >
+                    <Stethoscope className="w-3.5 h-3.5 text-teal-600" />
+                    Bedside Entities ({CLINICAL_PRESETS.filter(p => p.category === "bedside").length})
+                  </button>
 
-              {presetSearch && (
-                <button
-                  type="button"
-                  onClick={() => setPresetSearch("")}
-                  className="text-[11px] text-slate-500 hover:text-slate-800 underline ml-2"
-                >
-                  Clear filter
-                </button>
-              )}
-            </div>
+                  {presetSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setPresetSearch("")}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 underline ml-2"
+                    >
+                      Clear filter
+                    </button>
+                  )}
+                </div>
 
-            {/* Presets List */}
-            <div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto pr-1">
-              {filteredPresets.map((preset, i) => (
-                <button
-                  key={i}
-                  onClick={() => handlePresetSelect(preset.query)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-700 border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/80 hover:text-indigo-800 shadow-2xs transition-all flex items-center gap-2"
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${
-                    preset.category === "outbreak" ? "bg-amber-500" : preset.category === "emergency" ? "bg-rose-500" : preset.category === "complex" ? "bg-indigo-500" : "bg-teal-500"
-                  }`} />
-                  {preset.label}
-                </button>
-              ))}
-            </div>
+                {/* Presets List */}
+                <div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto pr-1">
+                  {filteredPresets.map((preset, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handlePresetSelect(preset.query)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-700 border border-slate-200 hover:border-teal-400 hover:bg-teal-50/80 hover:text-teal-900 shadow-2xs transition-colors flex items-center gap-2"
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        preset.category === "outbreak" ? "bg-amber-500" : preset.category === "emergency" ? "bg-rose-500" : preset.category === "complex" ? "bg-indigo-500" : "bg-teal-500"
+                      }`} />
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Symptoms input area (Spacious & Ergonomic) */}
@@ -549,24 +644,24 @@ export default function DifferentialDiagnosis({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                className="p-4.5 rounded-2xl bg-slate-900 border-l-4 border-l-rose-500 border border-slate-800 text-white shadow-md flex flex-col md:flex-row items-start md:items-center gap-3.5 relative overflow-hidden"
+                className="p-4.5 rounded-2xl bg-gradient-to-r from-rose-50 via-white to-rose-50/50 border-l-4 border-l-rose-500 border border-rose-200 text-slate-900 shadow-xs flex flex-col md:flex-row items-start md:items-center gap-3.5 relative overflow-hidden"
               >
-                <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center flex-shrink-0 text-rose-400">
-                  <ShieldAlert className="w-5 h-5 text-rose-400" />
+                <div className="w-10 h-10 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center flex-shrink-0 text-rose-600 shadow-2xs">
+                  <ShieldAlert className="w-5 h-5 text-rose-600" />
                 </div>
                 <div className="flex-grow text-left">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <h4 className="text-sm font-black tracking-tight text-white">
+                    <h4 className="text-sm font-black tracking-tight text-rose-950">
                       {realtimeResult.emergency_alert.condition}
                     </h4>
-                    <span className="text-[10px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    <span className="text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200 px-2 py-0.5 rounded-full uppercase tracking-wider">
                       Priority Advisory
                     </span>
                   </div>
-                  <p className="text-xs text-slate-300 font-medium mb-1.5 leading-relaxed">
+                  <p className="text-xs text-slate-700 font-medium mb-1.5 leading-relaxed">
                     {realtimeResult.emergency_alert.warning}
                   </p>
-                  <p className="text-xs text-rose-200 font-bold bg-rose-950/60 px-3 py-1.5 rounded-lg border border-rose-800/40 inline-flex items-center gap-1.5">
+                  <p className="text-xs text-rose-800 font-bold bg-rose-100/90 px-3 py-1.5 rounded-lg border border-rose-200 inline-flex items-center gap-1.5 shadow-2xs">
                     <span>⚡ Immediate Action: {realtimeResult.emergency_alert.immediate_action}</span>
                   </p>
                 </div>
@@ -579,21 +674,21 @@ export default function DifferentialDiagnosis({
             <motion.div
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-5 rounded-2xl bg-gradient-to-r from-red-950/90 via-rose-950/90 to-slate-950 text-white shadow-lg border border-red-500/40 text-left"
+              className="p-5 rounded-2xl bg-gradient-to-r from-rose-50 via-white to-red-50/40 text-slate-900 shadow-xs border-2 border-rose-200 text-left"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-white/10">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-rose-100">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-red-600/30 border border-red-400/40 flex items-center justify-center">
-                    <ShieldAlert className="w-4 h-4 text-rose-400" />
+                  <div className="w-8 h-8 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center shadow-2xs">
+                    <ShieldAlert className="w-4 h-4 text-rose-600" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-red-200 flex items-center gap-2">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-rose-900 flex items-center gap-2">
                       Must-Not-Miss Critical Emergency Watchlist
-                      <span className="text-[10px] bg-red-500/30 text-red-200 border border-red-400/40 px-2 py-0.5 rounded-full font-bold">
+                      <span className="text-[10px] bg-rose-100 text-rose-800 border border-rose-200 px-2 py-0.5 rounded-full font-bold">
                         Cognitive Safety Net
                       </span>
                     </h4>
-                    <p className="text-[11px] text-red-200/80 font-medium">
+                    <p className="text-[11px] text-slate-600 font-medium">
                       High-acuity emergencies sharing features with current presentation — active bedside rule-out required:
                     </p>
                   </div>
@@ -604,26 +699,26 @@ export default function DifferentialDiagnosis({
                 {realtimeResult.must_not_miss_candidates.map((item, mi) => (
                   <div
                     key={mi}
-                    className="p-3.5 rounded-xl bg-white/5 border border-red-500/30 flex flex-col justify-between"
+                    className="p-3.5 rounded-xl bg-white border border-rose-200/90 shadow-2xs flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="font-extrabold text-sm text-white">{item.disease}</span>
+                        <span className="font-extrabold text-sm text-slate-900">{item.disease}</span>
                         <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
                           item.in_top_candidates
-                            ? "bg-red-500 text-white"
-                            : "bg-slate-800 text-slate-300 border border-slate-700"
+                            ? "bg-rose-600 text-white"
+                            : "bg-slate-100 text-slate-700 border border-slate-200"
                         }`}>
                           {item.in_top_candidates ? "IN DIFFERENTIAL" : "RULE-OUT TARGET"}
                         </span>
                       </div>
-                      <p className="text-[11px] text-red-100 font-medium mb-2 leading-relaxed">
-                        ⚡ <strong>Action:</strong> {item.immediate_action}
+                      <p className="text-[11px] text-slate-700 font-medium mb-2 leading-relaxed">
+                        ⚡ <strong className="text-rose-900">Action:</strong> {item.immediate_action}
                       </p>
                     </div>
                     {item.confirmatory_tests && item.confirmatory_tests.length > 0 && (
-                      <div className="text-[10px] text-slate-300 bg-black/40 px-2 py-1.5 rounded-lg border border-white/5">
-                        <strong className="text-red-300">Rule-Out Test:</strong> {item.confirmatory_tests.join(", ")}
+                      <div className="text-[10px] text-slate-700 bg-rose-50/70 px-2.5 py-1.5 rounded-lg border border-rose-100 font-medium">
+                        <strong className="text-rose-900">Rule-Out Test:</strong> {item.confirmatory_tests.join(", ")}
                       </div>
                     )}
                   </div>
@@ -632,354 +727,443 @@ export default function DifferentialDiagnosis({
             </motion.div>
           )}
 
-          {/* Unstructured Clinical Note Parser Transparency Card */}
-          {realtimeResult?.is_unstructured_note && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-md border border-indigo-500/30 text-left"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-white/10">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                  <h4 className="text-xs font-black uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
-                    <Brain className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
-                    <span>Real-Time Note Parser</span>
-                    <span className="text-[10px] bg-indigo-800/80 text-indigo-100 px-2 py-0.5 rounded-full border border-indigo-400/30">
-                      Clause-Level Scope &amp; Negation
-                    </span>
-                  </h4>
+          {/* Consensus Criteria Met Notification Ribbon (if any criteria met) */}
+          {realtimeResult?.criteria_evaluations && realtimeResult.criteria_evaluations.some(c => c.meets_criteria) && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50/90 border border-emerald-300 text-emerald-950 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <Check className="w-4 h-4" />
                 </div>
-                {realtimeResult.note_summary && (
-                  <span className="text-[11px] font-medium text-slate-300 italic">
-                    {realtimeResult.note_summary}
-                  </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                {/* Positive Extracted Findings */}
-                {realtimeResult.extracted_findings && realtimeResult.extracted_findings.length > 0 && (
-                  <div className="bg-white/5 rounded-xl p-3 border border-emerald-500/20">
-                    <div className="font-bold text-emerald-400 mb-1.5 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Extracted Clinical Findings ({realtimeResult.extracted_findings.length}):</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {realtimeResult.extracted_findings.map((f, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded-md bg-emerald-950/60 text-emerald-200 border border-emerald-500/30 text-[11px] font-medium">
-                          {f}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Negated Findings Scoped Out */}
-                {realtimeResult.extracted_negated && realtimeResult.extracted_negated.length > 0 && (
-                  <div className="bg-white/5 rounded-xl p-3 border border-rose-500/20">
-                    <div className="font-bold text-rose-400 mb-1.5 flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>Negated / Ruled Out Findings ({realtimeResult.extracted_negated.length}):</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {realtimeResult.extracted_negated.map((n, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded-md bg-rose-950/60 text-rose-200 border border-rose-500/30 text-[11px] font-medium line-through">
-                          {n}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Extracted Vitals */}
-                {realtimeResult.extracted_vitals && Object.keys(realtimeResult.extracted_vitals).length > 0 && (
-                  <div className="bg-white/5 rounded-xl p-3 border border-sky-500/20">
-                    <div className="font-bold text-sky-400 mb-1.5 flex items-center gap-1">
-                      <Activity className="w-3.5 h-3.5" />
-                      <span>Extracted Vital Signs:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-[11px] font-medium text-sky-200">
-                      {realtimeResult.extracted_vitals.blood_pressure && (
-                        <span className="px-2 py-0.5 rounded-md bg-sky-950/60 border border-sky-500/30">
-                          BP: <strong>{realtimeResult.extracted_vitals.blood_pressure}</strong>
-                        </span>
-                      )}
-                      {realtimeResult.extracted_vitals.heart_rate && (
-                        <span className="px-2 py-0.5 rounded-md bg-sky-950/60 border border-sky-500/30">
-                          HR: <strong>{realtimeResult.extracted_vitals.heart_rate} bpm</strong>
-                        </span>
-                      )}
-                      {realtimeResult.extracted_vitals.respiratory_rate && (
-                        <span className="px-2 py-0.5 rounded-md bg-sky-950/60 border border-sky-500/30">
-                          RR: <strong>{realtimeResult.extracted_vitals.respiratory_rate}/min</strong>
-                        </span>
-                      )}
-                      {realtimeResult.extracted_vitals.oxygen_saturation && (
-                        <span className="px-2 py-0.5 rounded-md bg-sky-950/60 border border-sky-500/30">
-                          SpO2: <strong>{realtimeResult.extracted_vitals.oxygen_saturation}%</strong>
-                        </span>
-                      )}
-                      {realtimeResult.extracted_vitals.temperature && (
-                        <span className="px-2 py-0.5 rounded-md bg-sky-950/60 border border-sky-500/30">
-                          Temp: <strong>{realtimeResult.extracted_vitals.temperature}°</strong>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Diagnostic Markers */}
-                {realtimeResult.diagnostic_markers && realtimeResult.diagnostic_markers.length > 0 && (
-                  <div className="bg-white/5 rounded-xl p-3 border border-amber-500/20">
-                    <div className="font-bold text-amber-400 mb-1.5 flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Pathognomonic Diagnostic Markers:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {realtimeResult.diagnostic_markers.map((d, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded-md bg-amber-950/60 text-amber-200 border border-amber-500/30 text-[11px] font-medium">
-                          {d}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* EHR Section Breakdown */}
-                {realtimeResult.section_breakdown && Object.keys(realtimeResult.section_breakdown).length > 0 && (
-                  <div className="bg-white/5 rounded-xl p-3 border border-indigo-500/20 col-span-1 md:col-span-2">
-                    <div className="font-bold text-indigo-300 mb-1.5 flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>EHR Document Section Breakdown:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {Object.keys(realtimeResult.section_breakdown).map((sec, si) => (
-                        <span key={si} className="px-2.5 py-1 rounded-md bg-indigo-950/70 text-indigo-200 border border-indigo-500/30 text-[11px] font-semibold flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                          {sec.replace(/_/g, ' ')}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Isolated Background Distractors */}
-                {realtimeResult.background_history && realtimeResult.background_history.length > 0 && (
-                  <div className="bg-white/5 rounded-xl p-3 border border-slate-600/30 col-span-1 md:col-span-2">
-                    <div className="font-bold text-slate-300 mb-1.5 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Isolated Past Medical &amp; Background Distractors ({realtimeResult.background_history.length}):</span>
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium italic">
-                        Isolated from acute diagnostic score weighting
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {realtimeResult.background_history.map((h, hi) => (
-                        <span key={hi} className="px-2 py-0.5 rounded-md bg-slate-800/80 text-slate-300 border border-slate-600/40 text-[11px] font-medium">
-                          {h}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Quantitative Biomarkers & Calculated Indices Card */}
-          {((realtimeResult?.calculated_indices && Object.keys(realtimeResult.calculated_indices).length > 0) ||
-            (realtimeResult?.quantitative_labs && Object.keys(realtimeResult.quantitative_labs).length > 0)) && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white shadow-lg border border-indigo-500/30 text-left"
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
-                <div className="flex items-center gap-2">
-                  <FlaskConical className="w-4 h-4 text-cyan-400" />
-                  <h4 className="text-xs font-black uppercase tracking-wider text-cyan-200">
-                    Quantitative Biomarkers &amp; Calculated Physiological Indices
-                  </h4>
-                </div>
-                <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-500/30 px-2.5 py-0.5 rounded-full font-bold">
-                  ⚡ Deterministic Calculation
-                </span>
-              </div>
-
-              {/* Calculated Indices */}
-              {realtimeResult.calculated_indices && Object.keys(realtimeResult.calculated_indices).length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 mb-3">
-                  {realtimeResult.calculated_indices.anion_gap !== undefined && (
-                    <div className="bg-white/5 rounded-xl p-3 border border-amber-500/30">
-                      <div className="text-[10px] uppercase font-extrabold text-amber-300 tracking-wider">Serum Anion Gap</div>
-                      <div className="text-lg font-black text-white mt-0.5">
-                        {realtimeResult.calculated_indices.anion_gap} <span className="text-xs font-semibold text-slate-300">mEq/L</span>
-                      </div>
-                      <div className="text-[11px] font-bold text-amber-200 mt-1">
-                        {realtimeResult.calculated_indices.anion_gap > 12 ? "⚠️ High Anion Gap Metabolic Acidosis (HAGMA)" : "✓ Normal Anion Gap (≤12)"}
-                      </div>
-                    </div>
-                  )}
-                  {realtimeResult.calculated_indices.bun_cr_ratio !== undefined && (
-                    <div className="bg-white/5 rounded-xl p-3 border border-sky-500/30">
-                      <div className="text-[10px] uppercase font-extrabold text-sky-300 tracking-wider">BUN / Creatinine Ratio</div>
-                      <div className="text-lg font-black text-white mt-0.5">
-                        {realtimeResult.calculated_indices.bun_cr_ratio}
-                      </div>
-                      <div className="text-[11px] font-bold text-sky-200 mt-1">
-                        {realtimeResult.calculated_indices.bun_cr_ratio > 20 ? "⚠️ Prerenal Azotemia Pattern (>20:1)" : "✓ Normal / Intrinsic Pattern"}
-                      </div>
-                    </div>
-                  )}
-                  {realtimeResult.calculated_indices.csf_serum_glucose_ratio !== undefined && (
-                    <div className="bg-white/5 rounded-xl p-3 border border-rose-500/30">
-                      <div className="text-[10px] uppercase font-extrabold text-rose-300 tracking-wider">CSF / Serum Glucose Ratio</div>
-                      <div className="text-lg font-black text-white mt-0.5">
-                        {realtimeResult.calculated_indices.csf_serum_glucose_ratio}
-                      </div>
-                      <div className="text-[11px] font-bold text-rose-200 mt-1">
-                        {realtimeResult.calculated_indices.csf_serum_glucose_ratio < 0.40 ? "Hypoglycorrhachia (Bacterial Meningitis)" : "Normal Ratio (≥0.60)"}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Extracted Quantitative Labs */}
-              {realtimeResult.quantitative_labs && Object.keys(realtimeResult.quantitative_labs).length > 0 && (
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Extracted Exact Lab Values &amp; Severity Tiers:
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(realtimeResult.quantitative_labs).map(([key, lab]: [string, any], li) => (
-                      <div key={li} className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs flex items-center gap-1.5">
-                        <span className="font-bold text-slate-300 uppercase">{key.replace(/_/g, ' ')}:</span>
-                        <span className="font-extrabold text-cyan-300">{lab.value} {lab.unit}</span>
-                        {lab.flag && (
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            lab.flag.includes('severe') || lab.flag.includes('critical') || lab.flag.includes('massive')
-                              ? 'bg-rose-900/60 text-rose-200 border border-rose-500/40'
-                              : 'bg-amber-900/60 text-amber-200 border border-amber-500/40'
-                          }`}>
-                            {lab.flag.replace(/_/g, ' ')}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-900 block font-heading">
+                    Consensus Clinical Diagnostic Criteria Fulfilled
+                  </span>
+                  <span className="text-xs font-semibold text-emerald-800">
+                    {realtimeResult.criteria_evaluations.filter(c => c.meets_criteria).map(c => c.criteria_name).join(" · ")}
+                  </span>
                 </div>
-              )}
-            </motion.div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveDiagnosticTab(prev => prev === "criteria" ? "none" : "criteria")}
+                className="text-xs font-bold text-emerald-800 hover:text-emerald-900 bg-white hover:bg-emerald-100/60 px-3 py-1.5 rounded-xl border border-emerald-300 shadow-2xs transition-colors flex items-center gap-1 shrink-0"
+              >
+                <span>{activeDiagnosticTab === "criteria" ? "Hide Formal Criteria" : "Review Criteria Evidence →"}</span>
+              </button>
+            </div>
           )}
 
-          {/* Consensus Clinical Diagnostic Criteria Evaluator */}
-          {realtimeResult?.criteria_evaluations && realtimeResult.criteria_evaluations.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-5 rounded-2xl bg-gradient-to-br from-indigo-950/95 via-slate-900 to-slate-950 text-white shadow-xl border border-indigo-500/40 text-left"
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-600/60 flex items-center justify-center border border-indigo-400/30">
-                    <Scale className="w-4 h-4 text-indigo-300" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-indigo-200 flex items-center gap-2">
-                      Consensus Clinical Diagnostic Criteria Evaluator
-                      <span className="text-[10px] bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 px-2 py-0.5 rounded-full font-bold">
-                        Formal Validated Scoring
+          {/* Specialized Clinical Diagnostic Toolset Toolbar */}
+          {(Boolean(realtimeResult?.criteria_evaluations?.length) || Boolean(realtimeResult?.is_unstructured_note) || Boolean(realtimeResult?.calculated_indices && Object.keys(realtimeResult.calculated_indices).length > 0) || Boolean(realtimeResult?.quantitative_labs && Object.keys(realtimeResult.quantitative_labs).length > 0)) && (
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-3 shadow-2xs space-y-3 text-left">
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-800 font-heading">
+                    Clinical Intelligence Suite:
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {realtimeResult?.criteria_evaluations && realtimeResult.criteria_evaluations.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveDiagnosticTab(prev => prev === "criteria" ? "none" : "criteria")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        activeDiagnosticTab === "criteria"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : realtimeResult.criteria_evaluations.some(c => c.meets_criteria)
+                            ? "bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100"
+                            : "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Scale className="w-3.5 h-3.5" />
+                      <span>Consensus Criteria</span>
+                      <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-md ${
+                        activeDiagnosticTab === "criteria"
+                          ? "bg-white/20 text-white"
+                          : realtimeResult.criteria_evaluations.some(c => c.meets_criteria)
+                            ? "bg-emerald-600 text-white"
+                            : "bg-slate-200 text-slate-700"
+                      }`}>
+                        {realtimeResult.criteria_evaluations.filter(c => c.meets_criteria).length > 0
+                          ? `${realtimeResult.criteria_evaluations.filter(c => c.meets_criteria).length} Met`
+                          : realtimeResult.criteria_evaluations.length}
                       </span>
-                    </h4>
-                    <p className="text-[11px] text-slate-400 font-medium">
-                      Automated evaluation of ACR/EULAR, Modified Duke, Wells PE &amp; PERC, Bohan &amp; Peter, Centor/McIsaac
-                    </p>
-                  </div>
+                      {activeDiagnosticTab === "criteria" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+                  )}
+
+                  {realtimeResult?.is_unstructured_note && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveDiagnosticTab(prev => prev === "parser" ? "none" : "parser")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        activeDiagnosticTab === "parser"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Note Parser</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                        activeDiagnosticTab === "parser" ? "bg-white/20 text-white" : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      }`}>
+                        {realtimeResult.extracted_findings?.length || 0} Findings
+                      </span>
+                      {activeDiagnosticTab === "parser" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+                  )}
+
+                  {((realtimeResult?.calculated_indices && Object.keys(realtimeResult.calculated_indices).length > 0) ||
+                    (realtimeResult?.quantitative_labs && Object.keys(realtimeResult.quantitative_labs).length > 0)) && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveDiagnosticTab(prev => prev === "biomarkers" ? "none" : "biomarkers")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        activeDiagnosticTab === "biomarkers"
+                          ? "bg-teal-600 text-white shadow-xs"
+                          : "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      <FlaskConical className="w-3.5 h-3.5 text-teal-600" />
+                      <span>Biomarkers &amp; Indices</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                        activeDiagnosticTab === "biomarkers" ? "bg-white/20 text-white" : "bg-teal-50 text-teal-700 border border-teal-200"
+                      }`}>
+                        {(realtimeResult?.calculated_indices ? Object.keys(realtimeResult.calculated_indices).length : 0) +
+                         (realtimeResult?.quantitative_labs ? Object.keys(realtimeResult.quantitative_labs).length : 0)}
+                      </span>
+                      {activeDiagnosticTab === "biomarkers" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {realtimeResult.criteria_evaluations.map((evalItem, ei) => (
-                  <div
-                    key={ei}
-                    className={`p-4 rounded-xl border transition-all ${
-                      evalItem.meets_criteria
-                        ? 'bg-emerald-950/40 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                        : 'bg-white/5 border-slate-700/60'
-                    }`}
+              {/* Collapsible Active Tool Drawer */}
+              <AnimatePresence>
+                {activeDiagnosticTab !== "none" && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="pt-3 border-t border-slate-100 overflow-hidden"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                      <span className="font-extrabold text-sm text-white flex items-center gap-2">
-                        {evalItem.criteria_name}
-                      </span>
-                      <span className={`text-xs font-black px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm ${
-                        evalItem.meets_criteria
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-slate-700 text-slate-300'
-                      }`}>
-                        {evalItem.meets_criteria ? '✓ CRITERIA FULFILLED' : 'SUBTHRESHOLD / RULE-OUT'}
-                      </span>
-                    </div>
-
-                    <div className="text-xs font-medium text-slate-300 mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                      {evalItem.total_score !== undefined && evalItem.total_score !== null && (
-                        <span>
-                          Calculated Score: <strong className="text-white text-sm">{evalItem.total_score}</strong>
-                          {evalItem.threshold !== undefined && evalItem.threshold !== null && (
-                            <span className="text-slate-400"> (Threshold: {evalItem.threshold})</span>
-                          )}
-                        </span>
-                      )}
-                      {evalItem.major_criteria_met !== undefined && (
-                        <span>
-                          Major Criteria: <strong className="text-emerald-400">{evalItem.major_criteria_met}</strong> | Minor Criteria: <strong className="text-amber-400">{evalItem.minor_criteria_met}</strong>
-                        </span>
-                      )}
-                      {evalItem.risk_category && (
-                        <span>
-                          Risk Stratification: <strong className="text-amber-300">{evalItem.risk_category}</strong>
-                        </span>
-                      )}
-                      {evalItem.clinical_interpretation && (
-                        <span className="text-slate-300 italic">
-                          — {evalItem.clinical_interpretation}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Fulfilled items */}
-                    {evalItem.fulfilled_items && evalItem.fulfilled_items.length > 0 && (
-                      <div className="bg-black/30 rounded-lg p-2.5 border border-white/5 mb-2">
-                        <span className="text-[10px] uppercase font-extrabold text-slate-400 block mb-1">
-                          Validated Criterion Elements Met:
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {evalItem.fulfilled_items.map((item, ii) => (
-                            <span key={ii} className="text-[11px] font-semibold bg-emerald-900/40 text-emerald-200 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-                              ✓ {item}
-                            </span>
+                    {activeDiagnosticTab === "criteria" && realtimeResult?.criteria_evaluations && (
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50/60 via-white to-blue-50/50 border border-indigo-200/90 text-left space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-indigo-100">
+                          <div className="flex items-center gap-2">
+                            <Scale className="w-4 h-4 text-indigo-700" />
+                            <h4 className="text-xs font-black uppercase tracking-wider text-indigo-900 font-heading">
+                              Consensus Clinical Diagnostic Criteria Evaluator
+                            </h4>
+                          </div>
+                          <span className="text-[10px] bg-indigo-100 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded-full font-bold">
+                            Formal Validated Scoring
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {realtimeResult.criteria_evaluations.map((evalItem, ei) => (
+                            <div
+                              key={ei}
+                              className={`p-3.5 rounded-xl border transition-all ${
+                                evalItem.meets_criteria
+                                  ? 'bg-emerald-50/90 border-emerald-300 shadow-xs'
+                                  : 'bg-white border-slate-200 shadow-2xs'
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                                <span className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                                  {evalItem.criteria_name}
+                                </span>
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-2xs ${
+                                  evalItem.meets_criteria
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}>
+                                  {evalItem.meets_criteria ? '✓ CRITERIA FULFILLED' : 'SUBTHRESHOLD / RULE-OUT'}
+                                </span>
+                              </div>
+                              <div className="text-xs font-medium text-slate-700 mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                {evalItem.total_score !== undefined && evalItem.total_score !== null && (
+                                  <span>
+                                    Calculated Score: <strong className="text-slate-900">{evalItem.total_score}</strong>
+                                    {evalItem.threshold !== undefined && evalItem.threshold !== null && (
+                                      <span className="text-slate-500"> (Threshold: {evalItem.threshold})</span>
+                                    )}
+                                  </span>
+                                )}
+                                {evalItem.major_criteria_met !== undefined && (
+                                  <span>
+                                    Major: <strong className="text-emerald-700">{evalItem.major_criteria_met}</strong> | Minor: <strong className="text-amber-700">{evalItem.minor_criteria_met}</strong>
+                                  </span>
+                                )}
+                                {evalItem.risk_category && (
+                                  <span>
+                                    Risk: <strong className="text-amber-800">{evalItem.risk_category}</strong>
+                                  </span>
+                                )}
+                                {evalItem.clinical_interpretation && (
+                                  <span className="text-slate-600 italic">
+                                    — {evalItem.clinical_interpretation}
+                                  </span>
+                                )}
+                              </div>
+                              {evalItem.fulfilled_items && evalItem.fulfilled_items.length > 0 && (
+                                <div className="bg-slate-50 rounded-lg p-2 border border-slate-200 mb-2">
+                                  <span className="text-[10px] uppercase font-extrabold text-slate-500 block mb-1">
+                                    Validated Criterion Elements Met:
+                                  </span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {evalItem.fulfilled_items.map((item, ii) => (
+                                      <span key={ii} className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                        ✓ {item}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {(evalItem.recommendation || evalItem.management_recommendation) && (
+                                <div className="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 flex items-start gap-2 shadow-2xs">
+                                  <Sparkles className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                  <span>
+                                    <strong>Clinical Action:</strong> {evalItem.recommendation || evalItem.management_recommendation}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Actionable Clinical Recommendation */}
-                    {(evalItem.recommendation || evalItem.management_recommendation) && (
-                      <div className="text-xs font-semibold text-amber-200 bg-amber-950/40 border border-amber-500/30 rounded-lg px-3 py-1.5 flex items-start gap-2">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                        <span>
-                          <strong>Clinical Action:</strong> {evalItem.recommendation || evalItem.management_recommendation}
-                        </span>
+                    {activeDiagnosticTab === "parser" && realtimeResult?.is_unstructured_note && (
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50/60 via-white to-blue-50/50 border border-indigo-200/90 text-left space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-indigo-100">
+                          <div className="flex items-center gap-2">
+                            <Brain className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                            <h4 className="text-xs font-black uppercase tracking-wider text-indigo-900 font-heading">
+                              Real-Time Note Parser Transparency
+                            </h4>
+                            <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full border border-indigo-200 font-bold">
+                              Clause-Level Scope &amp; Negation
+                            </span>
+                          </div>
+                          {realtimeResult.note_summary && (
+                            <span className="text-[11px] font-medium text-slate-600 italic">
+                              {realtimeResult.note_summary}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                          {realtimeResult.extracted_findings && realtimeResult.extracted_findings.length > 0 && (
+                            <div className="bg-white rounded-xl p-3 border border-emerald-200 shadow-2xs">
+                              <div className="font-bold text-emerald-800 mb-1.5 flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Extracted Clinical Findings ({realtimeResult.extracted_findings.length}):</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {realtimeResult.extracted_findings.map((f, i) => (
+                                  <span key={i} className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-medium">
+                                    {f}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {realtimeResult.extracted_negated && realtimeResult.extracted_negated.length > 0 && (
+                            <div className="bg-white rounded-xl p-3 border border-rose-200 shadow-2xs">
+                              <div className="font-bold text-rose-800 mb-1.5 flex items-center gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Negated / Ruled Out Findings ({realtimeResult.extracted_negated.length}):</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {realtimeResult.extracted_negated.map((n, i) => (
+                                  <span key={i} className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 border border-rose-200 text-[11px] font-medium line-through">
+                                    {n}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {realtimeResult.extracted_vitals && Object.keys(realtimeResult.extracted_vitals).length > 0 && (
+                            <div className="bg-white rounded-xl p-3 border border-sky-200 shadow-2xs">
+                              <div className="font-bold text-sky-800 mb-1.5 flex items-center gap-1">
+                                <Activity className="w-3.5 h-3.5 text-sky-600" />
+                                <span>Extracted Vital Signs:</span>
+                              </div>
+                              <div className="flex flex-wrap gap-2 text-[11px] font-medium text-slate-800">
+                                {realtimeResult.extracted_vitals.blood_pressure && (
+                                  <span className="px-2 py-0.5 rounded-md bg-sky-50 border border-sky-200">
+                                    BP: <strong className="text-sky-900">{realtimeResult.extracted_vitals.blood_pressure}</strong>
+                                  </span>
+                                )}
+                                {realtimeResult.extracted_vitals.heart_rate && (
+                                  <span className="px-2 py-0.5 rounded-md bg-sky-50 border border-sky-200">
+                                    HR: <strong className="text-sky-900">{realtimeResult.extracted_vitals.heart_rate} bpm</strong>
+                                  </span>
+                                )}
+                                {realtimeResult.extracted_vitals.respiratory_rate && (
+                                  <span className="px-2 py-0.5 rounded-md bg-sky-50 border border-sky-200">
+                                    RR: <strong className="text-sky-900">{realtimeResult.extracted_vitals.respiratory_rate}/min</strong>
+                                  </span>
+                                )}
+                                {realtimeResult.extracted_vitals.oxygen_saturation && (
+                                  <span className="px-2 py-0.5 rounded-md bg-sky-50 border border-sky-200">
+                                    SpO2: <strong className="text-sky-900">{realtimeResult.extracted_vitals.oxygen_saturation}%</strong>
+                                  </span>
+                                )}
+                                {realtimeResult.extracted_vitals.temperature && (
+                                  <span className="px-2 py-0.5 rounded-md bg-sky-50 border border-sky-200">
+                                    Temp: <strong className="text-sky-900">{realtimeResult.extracted_vitals.temperature}°</strong>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {realtimeResult.diagnostic_markers && realtimeResult.diagnostic_markers.length > 0 && (
+                            <div className="bg-white rounded-xl p-3 border border-amber-200 shadow-2xs">
+                              <div className="font-bold text-amber-800 mb-1.5 flex items-center gap-1">
+                                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Pathognomonic Diagnostic Markers:</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {realtimeResult.diagnostic_markers.map((d, i) => (
+                                  <span key={i} className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-medium">
+                                    {d}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {realtimeResult.section_breakdown && Object.keys(realtimeResult.section_breakdown).length > 0 && (
+                            <div className="bg-white rounded-xl p-3 border border-indigo-200 shadow-2xs col-span-1 md:col-span-2">
+                              <div className="font-bold text-indigo-900 mb-1.5 flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                                <span>EHR Document Section Breakdown:</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {Object.keys(realtimeResult.section_breakdown).map((sec, si) => (
+                                  <span key={si} className="px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200 text-[11px] font-semibold flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                    {sec.replace(/_/g, ' ')}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {realtimeResult.background_history && realtimeResult.background_history.length > 0 && (
+                            <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs col-span-1 md:col-span-2">
+                              <div className="font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                                <span className="flex items-center gap-1.5">
+                                  <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
+                                  <span>Isolated Past Medical &amp; Background Distractors ({realtimeResult.background_history.length}):</span>
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-medium italic">
+                                  Isolated from acute diagnostic score weighting
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {realtimeResult.background_history.map((h, hi) => (
+                                  <span key={hi} className="px-2 py-0.5 rounded-md bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-medium">
+                                    {h}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+
+                    {activeDiagnosticTab === "biomarkers" && (
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-teal-50/60 via-white to-cyan-50/50 border border-teal-200/90 text-left space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-teal-100">
+                          <div className="flex items-center gap-2">
+                            <FlaskConical className="w-4 h-4 text-teal-600" />
+                            <h4 className="text-xs font-black uppercase tracking-wider text-teal-900 font-heading">
+                              Quantitative Biomarkers &amp; Calculated Physiological Indices
+                            </h4>
+                          </div>
+                          <span className="text-[10px] bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full font-bold">
+                            Deterministic Calculation
+                          </span>
+                        </div>
+
+                        {realtimeResult?.calculated_indices && Object.keys(realtimeResult.calculated_indices).length > 0 && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                            {realtimeResult.calculated_indices.anion_gap !== undefined && (
+                              <div className="bg-white rounded-xl p-3 border border-amber-200 shadow-2xs">
+                                <div className="text-[10px] uppercase font-extrabold text-amber-800 tracking-wider">Serum Anion Gap</div>
+                                <div className="text-lg font-black text-slate-900 mt-0.5">
+                                  {realtimeResult.calculated_indices.anion_gap} <span className="text-xs font-semibold text-slate-500">mEq/L</span>
+                                </div>
+                                <div className="text-[11px] font-bold text-amber-700 mt-1">
+                                  {realtimeResult.calculated_indices.anion_gap > 12 ? "⚠️ High Anion Gap Metabolic Acidosis (HAGMA)" : "✓ Normal Anion Gap (≤12)"}
+                                </div>
+                              </div>
+                            )}
+                            {realtimeResult.calculated_indices.bun_cr_ratio !== undefined && (
+                              <div className="bg-white rounded-xl p-3 border border-sky-200 shadow-2xs">
+                                <div className="text-[10px] uppercase font-extrabold text-sky-800 tracking-wider">BUN / Creatinine Ratio</div>
+                                <div className="text-lg font-black text-slate-900 mt-0.5">
+                                  {realtimeResult.calculated_indices.bun_cr_ratio}
+                                </div>
+                                <div className="text-[11px] font-bold text-sky-700 mt-1">
+                                  {realtimeResult.calculated_indices.bun_cr_ratio > 20 ? "⚠️ Prerenal Azotemia Pattern (>20:1)" : "✓ Normal / Intrinsic Pattern"}
+                                </div>
+                              </div>
+                            )}
+                            {realtimeResult.calculated_indices.csf_serum_glucose_ratio !== undefined && (
+                              <div className="bg-white rounded-xl p-3 border border-rose-200 shadow-2xs">
+                                <div className="text-[10px] uppercase font-extrabold text-rose-800 tracking-wider">CSF / Serum Glucose Ratio</div>
+                                <div className="text-lg font-black text-slate-900 mt-0.5">
+                                  {realtimeResult.calculated_indices.csf_serum_glucose_ratio}
+                                </div>
+                                <div className="text-[11px] font-bold text-rose-700 mt-1">
+                                  {realtimeResult.calculated_indices.csf_serum_glucose_ratio < 0.40 ? "Hypoglycorrhachia (Bacterial Meningitis)" : "Normal Ratio (≥0.60)"}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {realtimeResult?.quantitative_labs && Object.keys(realtimeResult.quantitative_labs).length > 0 && (
+                          <div>
+                            <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-600 mb-1.5">
+                              Extracted Exact Lab Values &amp; Severity Tiers:
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(realtimeResult.quantitative_labs).map(([key, lab]: [string, any], li) => (
+                                <div key={li} className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs flex items-center gap-1.5 shadow-2xs">
+                                  <span className="font-bold text-slate-600 uppercase">{key.replace(/_/g, ' ')}:</span>
+                                  <span className="font-extrabold text-teal-700">{lab.value} {lab.unit}</span>
+                                  {lab.flag && (
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                      lab.flag.includes('severe') || lab.flag.includes('critical') || lab.flag.includes('massive')
+                                        ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                        : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                    }`}>
+                                      {lab.flag.replace(/_/g, ' ')}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           )}
 
           {/* Live Real-Time Prediction Results */}
@@ -991,30 +1175,30 @@ export default function DifferentialDiagnosis({
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                  className="p-5 rounded-2xl bg-slate-900 text-white shadow-lg border-l-4 border-l-rose-500 border border-slate-800 text-left relative overflow-hidden"
+                  className="p-5 rounded-2xl bg-gradient-to-r from-rose-50 via-white to-rose-50/50 text-slate-900 shadow-xs border-l-4 border-l-rose-500 border border-rose-200 text-left relative overflow-hidden"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10 mb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-rose-100 mb-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center flex-shrink-0">
-                        <ShieldAlert className="w-5 h-5 text-rose-400" />
+                      <div className="w-9 h-9 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                        <ShieldAlert className="w-5 h-5 text-rose-600" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-black uppercase tracking-wider text-white">
+                          <h4 className="text-sm font-black uppercase tracking-wider text-rose-950">
                             Active Epidemic &amp; State Outbreak Advisory
                           </h4>
-                          <span className="inline-flex items-center gap-1.5 text-[10px] bg-rose-950 text-rose-300 px-2.5 py-0.5 rounded-full font-bold border border-rose-800/60">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                          <span className="inline-flex items-center gap-1.5 text-[10px] bg-rose-100 text-rose-800 px-2.5 py-0.5 rounded-full font-bold border border-rose-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
                             LIVE SURVEILLANCE MATCH
                           </span>
                         </div>
-                        <p className="text-xs text-slate-300 font-medium mt-0.5">
+                        <p className="text-xs text-slate-600 font-medium mt-0.5">
                           {realtimeResult.outbreak_summary || "Patient clinical presentation matches active epidemic outbreak pathogen profiles."}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold bg-slate-800/90 px-3 py-1 rounded-xl text-rose-200 border border-white/10">
+                      <span className="text-[11px] font-bold bg-white px-3 py-1 rounded-xl text-rose-800 border border-rose-200 shadow-2xs">
                         Reporting: {realtimeResult.outbreak_matches[0]?.reporting_agency || "NCDC / IDSP"}
                       </span>
                     </div>
@@ -1022,23 +1206,23 @@ export default function DifferentialDiagnosis({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {realtimeResult.outbreak_matches.map((ob: any, obi: number) => (
-                      <div key={obi} className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
+                      <div key={obi} className="p-3.5 rounded-xl bg-white border border-rose-200 text-xs shadow-2xs">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <span className="font-extrabold text-sm text-white">
+                          <span className="font-extrabold text-sm text-slate-900">
                             {ob.disease_name} — {ob.state_or_country}
                           </span>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                            ob.alert_level === 'CRITICAL' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            ob.alert_level === 'CRITICAL' ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
                           }`}>
                             {ob.alert_level}
                           </span>
                         </div>
-                        <div className="space-y-1 text-slate-300">
-                          <div><strong className="text-rose-300">Pathogen:</strong> {ob.pathogen}</div>
-                          <div><strong className="text-rose-300">Isolation Directive:</strong> {ob.isolation_protocol}</div>
-                          <div><strong className="text-rose-300">Confirmatory Lab:</strong> {ob.confirmatory_test}</div>
+                        <div className="space-y-1 text-slate-700 font-medium">
+                          <div><strong className="text-rose-900">Pathogen:</strong> {ob.pathogen}</div>
+                          <div><strong className="text-rose-900">Isolation Directive:</strong> {ob.isolation_protocol}</div>
+                          <div><strong className="text-rose-900">Confirmatory Lab:</strong> {ob.confirmatory_test}</div>
                           {ob.districts && ob.districts.length > 0 && (
-                            <div><strong className="text-rose-300">Hotspot Districts:</strong> {ob.districts.join(", ")}</div>
+                            <div><strong className="text-rose-900">Hotspot Districts:</strong> {ob.districts.join(", ")}</div>
                           )}
                         </div>
                       </div>
@@ -1076,9 +1260,9 @@ export default function DifferentialDiagnosis({
                     <button
                       type="button"
                       onClick={handleCopyMdm}
-                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white border border-slate-700 shadow-xs transition-colors flex items-center gap-1.5"
+                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white border border-teal-700 shadow-xs transition-colors flex items-center gap-1.5"
                     >
-                      {copiedMdm ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-300" />}
+                      {copiedMdm ? <Check className="w-3.5 h-3.5 text-emerald-200" /> : <Copy className="w-3.5 h-3.5 text-teal-100" />}
                       <span>{copiedMdm ? "Copied MDM!" : "Copy EMR MDM Note"}</span>
                     </button>
                   )}
@@ -1103,12 +1287,12 @@ export default function DifferentialDiagnosis({
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden rounded-2xl border border-indigo-200 bg-slate-900 text-white shadow-xl text-left"
+                    className="overflow-hidden rounded-2xl border border-indigo-200 bg-white text-slate-900 shadow-lg text-left"
                   >
-                    <div className="p-4 bg-slate-950 border-b border-white/10 flex items-center justify-between">
+                    <div className="p-4 bg-indigo-50/80 border-b border-indigo-100 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-indigo-400" />
-                        <h4 className="text-xs font-black uppercase tracking-wider text-indigo-200">
+                        <FileText className="w-4 h-4 text-indigo-700" />
+                        <h4 className="text-xs font-black uppercase tracking-wider text-indigo-900">
                           EMR Medical Decision Making (MDM) Note Preview
                         </h4>
                       </div>
@@ -1116,22 +1300,22 @@ export default function DifferentialDiagnosis({
                         <button
                           type="button"
                           onClick={handleCopyMdm}
-                          className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1"
+                          className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 shadow-xs"
                         >
-                          {copiedMdm ? <Check className="w-3 h-3 text-emerald-300" /> : <Copy className="w-3 h-3" />}
+                          {copiedMdm ? <Check className="w-3 h-3 text-emerald-200" /> : <Copy className="w-3 h-3" />}
                           <span>{copiedMdm ? "Copied!" : "Copy Note"}</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowMdmModal(false)}
-                          className="text-xs text-slate-400 hover:text-white"
+                          className="text-xs text-slate-500 hover:text-slate-800 font-bold"
                         >
                           Close
                         </button>
                       </div>
                     </div>
                     <div className="p-4">
-                      <pre className="text-xs font-mono text-slate-200 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto bg-black/40 p-3.5 rounded-xl border border-white/5">
+                      <pre className="text-xs font-mono text-slate-800 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                         {realtimeResult.clinical_mdm_summary}
                       </pre>
                     </div>
@@ -1148,16 +1332,16 @@ export default function DifferentialDiagnosis({
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden rounded-2xl border border-purple-200/80 bg-white/95 shadow-md text-left"
                   >
-                    <div className="p-4 bg-gradient-to-r from-purple-900 to-indigo-950 text-white flex items-center justify-between">
+                    <div className="p-4 bg-gradient-to-r from-purple-50 via-white to-indigo-50 border-b border-purple-200 text-purple-950 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Table className="w-4 h-4 text-purple-300" />
-                        <h4 className="text-xs font-black uppercase tracking-wider text-purple-200">
+                        <Table className="w-4 h-4 text-purple-700" />
+                        <h4 className="text-xs font-black uppercase tracking-wider text-purple-900">
                           Multi-Candidate Diagnostic Comparison Matrix
                         </h4>
                       </div>
                       <button
                         onClick={() => setShowComparisonMatrix(false)}
-                        className="text-xs text-purple-200 hover:text-white underline font-semibold"
+                        className="text-xs text-purple-700 hover:text-purple-900 underline font-semibold"
                       >
                         Close Table
                       </button>
@@ -1223,39 +1407,39 @@ export default function DifferentialDiagnosis({
                 <motion.div
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-5 rounded-2xl bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-950 text-white shadow-xl border border-purple-500/40 text-left"
+                  className="p-5 rounded-2xl bg-gradient-to-r from-purple-50 via-white to-indigo-50/60 text-slate-900 shadow-xs border border-purple-200 text-left"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-white/10">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-purple-100">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center">
-                        <Target className="w-4 h-4 text-purple-300" />
+                      <div className="w-8 h-8 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center shadow-2xs">
+                        <Target className="w-4 h-4 text-purple-700" />
                       </div>
                       <div>
-                        <h4 className="text-xs font-black uppercase tracking-wider text-purple-200 flex items-center gap-2">
+                        <h4 className="text-xs font-black uppercase tracking-wider text-purple-900 flex items-center gap-2">
                           Discriminative "Next Best Test" (Maximum Information Gain)
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider border ${
                             realtimeResult.differentiating_recommendation.urgency === 'IMMEDIATE'
-                              ? 'bg-rose-500/20 text-rose-200 border-rose-400/30 font-bold'
-                              : 'bg-amber-500/20 text-amber-200 border-amber-400/30 font-bold'
+                              ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold'
+                              : 'bg-amber-100 text-amber-800 border-amber-300 font-bold'
                           }`}>
                             ⚡ {realtimeResult.differentiating_recommendation.urgency}
                           </span>
                         </h4>
-                        <p className="text-[11px] text-purple-100/80 font-medium">
+                        <p className="text-[11px] text-slate-600 font-medium">
                           Single decisive investigation to separate #{1} <strong>{realtimeResult.differentiating_recommendation.candidate_1}</strong> from #{2} <strong>{realtimeResult.differentiating_recommendation.candidate_2}</strong>
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-white/10 border border-purple-400/30">
-                    <div className="text-xs font-black text-white flex items-center gap-2 mb-1">
-                      <FlaskConical className="w-4 h-4 text-purple-300 flex-shrink-0" />
-                      <span className="text-sm text-purple-100 font-extrabold">
+                  <div className="p-3.5 rounded-xl bg-white border border-purple-200 shadow-2xs">
+                    <div className="text-xs font-black text-purple-950 flex items-center gap-2 mb-1">
+                      <FlaskConical className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                      <span className="text-sm text-purple-900 font-extrabold">
                         {realtimeResult.differentiating_recommendation.differentiating_investigation}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-300 font-medium pl-6 leading-relaxed">
+                    <p className="text-xs text-slate-700 font-medium pl-6 leading-relaxed">
                       {realtimeResult.differentiating_recommendation.clinical_rationale}
                     </p>
                   </div>
@@ -1267,21 +1451,21 @@ export default function DifferentialDiagnosis({
                 <motion.div
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-5 rounded-2xl bg-gradient-to-r from-teal-950 via-slate-900 to-indigo-950 text-white shadow-xl border border-teal-500/40 text-left"
+                  className="p-5 rounded-2xl bg-gradient-to-r from-teal-50/70 via-white to-emerald-50/50 text-slate-900 shadow-xs border border-teal-200 text-left"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-white/10">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-teal-100">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center">
-                        <HelpCircle className="w-4 h-4 text-teal-300" />
+                      <div className="w-8 h-8 rounded-xl bg-teal-100 border border-teal-200 flex items-center justify-center shadow-2xs">
+                        <HelpCircle className="w-4 h-4 text-teal-700" />
                       </div>
                       <div>
-                        <h4 className="text-xs font-black uppercase tracking-wider text-teal-200 flex items-center gap-2">
+                        <h4 className="text-xs font-black uppercase tracking-wider text-teal-900 flex items-center gap-2">
                           Bedside Clarifying Examination Prompter ($0 Cost, 30-Second Rule-In/Out)
-                          <span className="text-[10px] bg-teal-500/30 text-teal-200 border border-teal-400/30 px-2 py-0.5 rounded-full font-bold">
+                          <span className="text-[10px] bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full font-bold">
                             Interactive Socratic Aid
                           </span>
                         </h4>
-                        <p className="text-[11px] text-teal-100/80 font-medium">
+                        <p className="text-[11px] text-slate-600 font-medium">
                           Targeted bedside exam maneuvers and questions to decisively separate top competing diagnoses. Click to update differential:
                         </p>
                       </div>
@@ -1292,18 +1476,18 @@ export default function DifferentialDiagnosis({
                     {realtimeResult.bedside_clarifying_questions.map((q, qi) => (
                       <div
                         key={qi}
-                        className="p-3.5 rounded-xl bg-white/5 border border-teal-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-3"
+                        className="p-3.5 rounded-xl bg-white border border-teal-200 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3"
                       >
                         <div className="flex-grow">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-teal-900/60 text-teal-200 border border-teal-500/30">
+                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-teal-100 text-teal-800 border border-teal-200">
                               {q.maneuver}
                             </span>
-                            <span className="text-[10px] font-semibold text-slate-400">
-                              Separates: <strong>{q.differentiates}</strong>
+                            <span className="text-[10px] font-semibold text-slate-500">
+                              Separates: <strong className="text-slate-700">{q.differentiates}</strong>
                             </span>
                           </div>
-                          <p className="text-xs font-semibold text-white leading-relaxed">
+                          <p className="text-xs font-semibold text-slate-900 leading-relaxed">
                             {q.question}
                           </p>
                         </div>
@@ -1312,7 +1496,7 @@ export default function DifferentialDiagnosis({
                           <button
                             type="button"
                             onClick={() => handleBedsideAnswer(q.positive_token)}
-                            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 active:opacity-90 text-white shadow-sm transition-all flex items-center gap-1"
+                            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 active:opacity-90 text-white shadow-2xs transition-all flex items-center gap-1"
                           >
                             <Check className="w-3.5 h-3.5" />
                             <span>{q.positive_label}</span>
@@ -1320,13 +1504,41 @@ export default function DifferentialDiagnosis({
                           <button
                             type="button"
                             onClick={() => handleBedsideAnswer(q.negative_token)}
-                            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-950/80 hover:bg-rose-900 active:opacity-90 text-rose-200 border border-rose-500/40 shadow-sm transition-all flex items-center gap-1"
+                            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 active:opacity-90 text-rose-700 border border-rose-200 shadow-2xs transition-all flex items-center gap-1"
                           >
                             <span>{q.negative_label}</span>
                           </button>
                         </div>
                       </div>
                     ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Live Outbreak Surveillance Alert Banner */}
+              {realtimeResult.outbreak_detected && realtimeResult.outbreak_summary && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-rose-500/10 border-2 border-rose-400/80 shadow-md backdrop-blur-md"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-xl bg-rose-600 text-white shadow-sm shrink-0 mt-0.5">
+                      <ShieldAlert className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-black uppercase tracking-wider text-rose-800 bg-rose-100 px-2.5 py-0.5 rounded-full border border-rose-300">
+                          Active Epidemic Outbreak Surveillance Alert
+                        </span>
+                        <span className="text-[10px] text-rose-700 font-bold">
+                          Live WHO / CDC / MoHFW Surveillance Match
+                        </span>
+                      </div>
+                      <p className="text-sm font-black text-rose-950 leading-snug">
+                        {realtimeResult.outbreak_summary}
+                      </p>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -1396,31 +1608,31 @@ export default function DifferentialDiagnosis({
 
                       {/* Live Outbreak Match Alert Banner on Card */}
                       {cand.is_outbreak_match && (
-                        <div className="mb-3.5 p-3 rounded-2xl bg-slate-900 text-white border-l-4 border-l-rose-500 border border-slate-800 shadow-xs">
+                        <div className="mb-3.5 p-3 rounded-2xl bg-rose-50 text-slate-900 border-l-4 border-l-rose-500 border border-rose-200 shadow-2xs">
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <div className="flex items-center gap-2">
-                              <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
-                              <span className="text-xs font-black uppercase tracking-wider text-rose-200">
+                              <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                              <span className="text-xs font-black uppercase tracking-wider text-rose-900">
                                 {cand.outbreak_badge || "LIVE EPIDEMIC SURVEILLANCE MATCH"}
                               </span>
                             </div>
                             {cand.outbreak_details?.alert_level && (
                               <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                                 cand.outbreak_details.alert_level === 'CRITICAL'
-                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-300'
                               }`}>
                                 {cand.outbreak_details.alert_level}
                               </span>
                             )}
                           </div>
                           {cand.outbreak_details?.isolation_protocol && (
-                            <p className="text-[11px] text-slate-200 font-semibold mb-1 leading-relaxed">
-                              <strong className="text-rose-300">Isolation Protocol:</strong> {cand.outbreak_details.isolation_protocol}
+                            <p className="text-[11px] text-slate-700 font-semibold mb-1 leading-relaxed">
+                              <strong className="text-rose-900">Isolation Protocol:</strong> {cand.outbreak_details.isolation_protocol}
                             </p>
                           )}
                           {cand.outbreak_details?.reporting_agency && (
-                            <div className="text-[10px] text-slate-400 flex flex-wrap items-center gap-2">
+                            <div className="text-[10px] text-slate-600 flex flex-wrap items-center gap-2 font-medium">
                               <span><strong>Agency:</strong> {cand.outbreak_details.reporting_agency}</span>
                               {cand.outbreak_details?.confirmatory_test && (
                                 <span>• <strong>Lab Protocol:</strong> {cand.outbreak_details.confirmatory_test}</span>
@@ -1467,37 +1679,43 @@ export default function DifferentialDiagnosis({
                         </div>
                       )}
 
-                      {/* Immediate Tests */}
+                      {/* Priority Bedside / Confirmatory Tests */}
                       {cand.immediate_tests.length > 0 && (
-                        <div className="text-left bg-purple-50/70 p-3 rounded-2xl border border-purple-200/80 mb-3">
-                          <span className="text-[11px] font-extrabold text-purple-800 uppercase tracking-wider flex items-center gap-1.5 mb-1.5 font-heading">
-                            <FlaskConical className="w-3.5 h-3.5 text-purple-600" /> Priority Bedside / Confirmatory Tests:
+                        <div className="text-left bg-purple-50/70 p-3.5 rounded-2xl border border-purple-200/80 mb-3">
+                          <span className="text-[11px] font-extrabold text-purple-900 uppercase tracking-wider flex items-center gap-1.5 mb-2 font-heading">
+                            <FlaskConical className="w-3.5 h-3.5 text-purple-600" /> Priority Bedside &amp; Confirmatory Tests ({cand.immediate_tests.length}):
                           </span>
-                          <ul className="text-xs font-medium text-slate-700 space-y-1 list-disc pl-5">
-                            {cand.immediate_tests.slice(0, 3).map((test, ti) => (
-                              <li key={ti}>{test}</li>
+                          <div className="flex flex-wrap gap-1.5">
+                            {cand.immediate_tests.map((test, ti) => (
+                              <span key={ti} className="text-xs font-semibold bg-white text-purple-950 px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                                <span>{test}</span>
+                              </span>
                             ))}
-                          </ul>
+                          </div>
                         </div>
                       )}
 
                       {/* Pharmacotherapy / Recommended Medications */}
                       {((cand.recommended_medications && cand.recommended_medications.length > 0) || cand.treatment_summary) && (
-                        <div className="text-left bg-emerald-50/70 p-3 rounded-2xl border border-emerald-200/80 mb-3">
-                          <span className="text-[11px] font-extrabold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5 mb-1.5 font-heading">
+                        <div className="text-left bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200/80 mb-3">
+                          <span className="text-[11px] font-extrabold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5 mb-1.5 font-heading">
                             <Pill className="w-3.5 h-3.5 text-emerald-600" /> First-Line Pharmacotherapy / Rx:
                           </span>
                           {cand.treatment_summary && (
-                            <div className="text-xs font-bold text-emerald-950 mb-1">
+                            <div className="text-xs font-bold text-emerald-950 mb-1.5">
                               {cand.treatment_summary}
                             </div>
                           )}
                           {cand.recommended_medications && cand.recommended_medications.length > 0 && (
-                            <ul className="text-xs font-medium text-emerald-900 space-y-1 list-disc pl-5">
-                              {cand.recommended_medications.slice(0, 3).map((med, mi) => (
-                                <li key={mi}>{med}</li>
+                            <div className="flex flex-wrap gap-1.5">
+                              {cand.recommended_medications.map((med, mi) => (
+                                <span key={mi} className="text-xs font-semibold bg-white text-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  <span>{med}</span>
+                                </span>
                               ))}
-                            </ul>
+                            </div>
                           )}
                         </div>
                       )}
@@ -1512,7 +1730,7 @@ export default function DifferentialDiagnosis({
                     </div>
 
                     {/* Quick Action Toolbar for Real-Time Candidate */}
-                    <div className="flex flex-wrap items-center gap-2 mt-3.5 pt-3 border-t border-slate-100">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3.5 pt-3 border-t border-slate-100">
                       <button
                         type="button"
                         onClick={() => {
@@ -1522,7 +1740,7 @@ export default function DifferentialDiagnosis({
                               : { disease: cand.disease, tab: "investigations" }
                           );
                         }}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs active:opacity-90 ${
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs ${
                           realtimePanelFor?.disease === cand.disease && realtimePanelFor?.tab === "investigations"
                             ? "bg-indigo-600 text-white shadow-indigo-200"
                             : "bg-indigo-50/90 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
@@ -1546,7 +1764,7 @@ export default function DifferentialDiagnosis({
                               : { disease: cand.disease, tab: "medications" }
                           );
                         }}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs active:opacity-90 ${
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs ${
                           realtimePanelFor?.disease === cand.disease && realtimePanelFor?.tab === "medications"
                             ? "bg-emerald-600 text-white shadow-emerald-200"
                             : "bg-emerald-50/90 text-emerald-800 hover:bg-emerald-100 border border-emerald-200"
@@ -1570,7 +1788,7 @@ export default function DifferentialDiagnosis({
                               : { disease: cand.disease, tab: "intelligence" }
                           );
                         }}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs active:opacity-90 ${
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs ${
                           realtimePanelFor?.disease === cand.disease && realtimePanelFor?.tab === "intelligence"
                             ? "bg-purple-600 text-white shadow-purple-200"
                             : "bg-purple-50/90 text-purple-700 hover:bg-purple-100 border border-purple-200"
@@ -1738,6 +1956,15 @@ export default function DifferentialDiagnosis({
             </div>
             <div className="flex items-center gap-2">
               <button
+                type="button"
+                onClick={() => setIsBigScreen(prev => !prev)}
+                className="text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full font-bold shadow-2xs border border-indigo-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                title={isBigScreen ? "Exit Big Screen Mode" : "Expand Differential Diagnosis to Big Screen"}
+              >
+                {isBigScreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                <span>{isBigScreen ? "Exit Big Screen" : "Big Screen"}</span>
+              </button>
+              <button
                 onClick={() => runAnalysis()}
                 className="text-xs text-blue-700 bg-white/90 hover:bg-white px-3.5 py-1.5 rounded-full font-bold shadow-sm border border-blue-200/70 hover:shadow hover:brightness-105 active:opacity-90 transition-all flex items-center gap-1.5"
               >
@@ -1782,22 +2009,22 @@ export default function DifferentialDiagnosis({
       <div className="space-y-4 px-6 pb-8">
         {/* Outbreak Advisory in Deep Synthesis */}
         {data.outbreak_detected && data.outbreak_matches && data.outbreak_matches.length > 0 && (
-          <div className="p-4.5 rounded-2xl bg-slate-900 text-white border-l-4 border-l-rose-500 border border-slate-800 shadow-sm text-left mb-4">
+          <div className="p-4.5 rounded-2xl bg-rose-50 text-slate-900 border-l-4 border-l-rose-500 border border-rose-200 shadow-2xs text-left mb-4">
             <div className="flex items-center gap-2 mb-1.5">
-              <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
-              <span className="text-xs font-black uppercase tracking-wider text-rose-200">
+              <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+              <span className="text-xs font-black uppercase tracking-wider text-rose-900">
                 ACTIVE STATE &amp; GLOBAL EPIDEMIC SURVEILLANCE MATCH
               </span>
             </div>
-            <p className="text-xs text-slate-300 font-semibold mb-2">
+            <p className="text-xs text-slate-700 font-semibold mb-2">
               {data.outbreak_summary}
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-slate-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-slate-700">
               {data.outbreak_matches.slice(0, 2).map((ob: any, i: number) => (
-                <div key={i} className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800">
-                  <div className="font-bold text-white mb-0.5">{ob.disease_name} ({ob.state_or_country})</div>
-                  <div><strong className="text-rose-300">Protocol:</strong> {ob.isolation_protocol}</div>
-                  <div><strong className="text-rose-300">Confirmatory:</strong> {ob.confirmatory_test}</div>
+                <div key={i} className="p-2.5 rounded-xl bg-white border border-rose-200 shadow-2xs">
+                  <div className="font-bold text-slate-900 mb-0.5">{ob.disease_name} ({ob.state_or_country})</div>
+                  <div><strong className="text-rose-900">Protocol:</strong> {ob.isolation_protocol}</div>
+                  <div><strong className="text-rose-900">Confirmatory:</strong> {ob.confirmatory_test}</div>
                 </div>
               ))}
             </div>
@@ -1922,19 +2149,18 @@ export default function DifferentialDiagnosis({
                       </>
                     )}
                   </div>
-
                   {((candidate.immediate_tests && candidate.immediate_tests.length > 0) || (candidate.recommended_medications && candidate.recommended_medications.length > 0) || candidate.first_line_treatment) && (
                     <div className="w-full mt-2.5 flex flex-wrap items-center gap-2">
                       {candidate.immediate_tests && candidate.immediate_tests.length > 0 && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-purple-50 text-purple-700 px-2.5 py-0.5 rounded-lg border border-purple-200 shadow-xs">
                           <FlaskConical className="w-3 h-3 text-purple-600" />
-                          <span>Stat Tests: <strong>{candidate.immediate_tests.slice(0, 2).join(", ")}</strong></span>
+                          <span>Stat Tests: <strong>{candidate.immediate_tests.join(", ")}</strong></span>
                         </span>
                       )}
                       {(candidate.first_line_treatment || (candidate.recommended_medications && candidate.recommended_medications.length > 0)) && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-lg border border-emerald-200 shadow-xs">
                           <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                          <span>First-Line Rx: <strong>{candidate.first_line_treatment || candidate.recommended_medications?.[0]}</strong></span>
+                          <span>First-Line Rx: <strong>{candidate.first_line_treatment || candidate.recommended_medications?.join(", ")}</strong></span>
                         </span>
                       )}
                     </div>
@@ -2020,29 +2246,33 @@ export default function DifferentialDiagnosis({
 
                        {candidate.immediate_tests && candidate.immediate_tests.length > 0 && (
                          <div className="p-3 bg-purple-50/80 rounded-xl border border-purple-200/70 text-xs">
-                           <div className="font-extrabold text-purple-900 mb-1 flex items-center gap-1">
+                           <div className="font-extrabold text-purple-900 mb-1.5 flex items-center gap-1">
                              <FlaskConical className="w-3.5 h-3.5 text-purple-600" />
-                             <span>Immediate / Confirmatory Tests:</span>
+                             <span>Immediate / Confirmatory Tests ({candidate.immediate_tests.length}):</span>
                            </div>
-                           <ul className="list-disc pl-4 space-y-0.5 text-purple-950 font-medium">
-                             {candidate.immediate_tests.slice(0, 3).map((t, tidx) => (
-                               <li key={tidx}>{t}</li>
+                           <div className="flex flex-wrap gap-1.5">
+                             {candidate.immediate_tests.map((t, tidx) => (
+                               <span key={tidx} className="text-xs bg-white text-purple-950 px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs font-semibold">
+                                 {t}
+                               </span>
                              ))}
-                           </ul>
+                           </div>
                          </div>
                        )}
 
                        {candidate.recommended_medications && candidate.recommended_medications.length > 0 && (
                          <div className="p-3 bg-emerald-50/80 rounded-xl border border-emerald-200/70 text-xs">
-                           <div className="font-extrabold text-emerald-900 mb-1 flex items-center gap-1">
+                           <div className="font-extrabold text-emerald-900 mb-1.5 flex items-center gap-1">
                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                             <span>Guideline Pharmacotherapy:</span>
+                             <span>Guideline Pharmacotherapy ({candidate.recommended_medications.length}):</span>
                            </div>
-                           <ul className="list-disc pl-4 space-y-0.5 text-emerald-950 font-medium">
-                             {candidate.recommended_medications.slice(0, 3).map((m, midx) => (
-                               <li key={midx}>{m}</li>
+                           <div className="flex flex-wrap gap-1.5">
+                             {candidate.recommended_medications.map((m, midx) => (
+                               <span key={midx} className="text-xs bg-white text-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs font-semibold">
+                                 {m}
+                               </span>
                              ))}
-                           </ul>
+                           </div>
                          </div>
                        )}
                        <Button 
@@ -2052,9 +2282,10 @@ export default function DifferentialDiagnosis({
                              setShowInvestigationsFor(showInvestigationsFor === candidate.disease ? null : candidate.disease);
                              setShowMedicationsFor(null);
                          }}
-                         className="w-full justify-start rounded-xl font-medium shadow-sm h-11"
+                         className="w-full justify-start rounded-xl font-semibold shadow-2xs h-10 gap-2 border-purple-200 text-purple-900 hover:bg-purple-50"
                        >
-                         {showInvestigationsFor === candidate.disease ? 'Hide' : 'View'} Investigations
+                         <FlaskConical className="w-4 h-4 text-purple-600" />
+                         <span>{showInvestigationsFor === candidate.disease ? 'Hide' : 'View'} Investigations</span>
                        </Button>
                        <Button 
                          variant={showMedicationsFor === candidate.disease ? "primary" : "outline"}
@@ -2063,9 +2294,10 @@ export default function DifferentialDiagnosis({
                              setShowMedicationsFor(showMedicationsFor === candidate.disease ? null : candidate.disease);
                              setShowInvestigationsFor(null);
                          }}
-                         className="w-full justify-start rounded-xl font-medium shadow-sm h-11"
+                         className="w-full justify-start rounded-xl font-semibold shadow-2xs h-10 gap-2 border-emerald-200 text-emerald-900 hover:bg-emerald-50"
                        >
-                         {showMedicationsFor === candidate.disease ? 'Hide' : 'View'} Safe Medications
+                         <Pill className="w-4 h-4 text-emerald-600" />
+                         <span>{showMedicationsFor === candidate.disease ? 'Hide' : 'View'} Safe Medications</span>
                        </Button>
                        <Button 
                          variant={showInvestigationsFor === `${candidate.disease}_intel` ? "primary" : "outline"}
@@ -2074,9 +2306,10 @@ export default function DifferentialDiagnosis({
                              setShowInvestigationsFor(showInvestigationsFor === `${candidate.disease}_intel` ? null : `${candidate.disease}_intel`);
                              setShowMedicationsFor(null);
                          }}
-                         className="w-full justify-start rounded-xl font-medium shadow-sm h-11 border-[var(--color-primary-300)] text-[var(--color-primary-700)] bg-[var(--color-primary-50)] hover:bg-[var(--color-primary-100)]"
+                         className="w-full justify-start rounded-xl font-semibold shadow-2xs h-10 gap-2 border-indigo-200 text-indigo-900 bg-indigo-50/50 hover:bg-indigo-50"
                        >
-                         {showInvestigationsFor === `${candidate.disease}_intel` ? 'Hide' : 'View'} Disease Intelligence
+                         <Brain className="w-4 h-4 text-indigo-600" />
+                         <span>{showInvestigationsFor === `${candidate.disease}_intel` ? 'Hide' : 'View'} Disease Intelligence</span>
                        </Button>
                     </div>
                   </div>
@@ -2120,6 +2353,7 @@ export default function DifferentialDiagnosis({
     </motion.div>
     </>
   )}
-  </>
+      </div>
+    </div>
   );
 }

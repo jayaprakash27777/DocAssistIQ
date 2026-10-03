@@ -15,37 +15,51 @@ import {
   Sparkles, Send, Loader2, ChevronDown, ChevronUp,
   Copy, Check, BookOpen, AlertTriangle, Zap
 } from "lucide-react";
-import { ragQuery, type RAGResponse } from "@/lib/api";
+import { ragQuery, getStoredToken, askConsultationNotes, askDoctorNotesGeneral } from "@/lib/api";
 import { useToast } from "@/components/shell/ToastProvider";
 
 const CONSULTATION_QUICK_ASKS = [
-  "What are the red flag symptoms for this presentation?",
+  "Summarize all findings & vitals from this note",
+  "Generate official e-prescription with digital signature",
+  "Generate certified discharge summary with digital signature",
+  "What are the red flags and contraindications in this note?",
+  "Check current medications, allergies & interactions",
+  "What is the differential diagnosis for this presentation?",
   "Suggest first-line investigations for these symptoms",
-  "What is the differential diagnosis for fever with rash?",
-  "Recommended initial management for acute chest pain?",
 ];
 
 interface InlineAIChatProps {
   consultationId: string;
+  notes?: string;
 }
 
 interface ChatMessage {
   id: string;
   role: "user" | "assistant" | "error";
   content: string;
-  citations?: number;
+  citations?: any[];
   confidence?: number;
   fallback?: boolean;
+  note_grounded?: boolean;
+  model_used?: string;
+  structured_entities?: {
+    symptoms?: string[];
+    vitals?: Record<string, any>;
+    medications?: string[];
+    allergies?: string[];
+    diagnoses?: string[];
+    red_flags?: string[];
+  };
 }
 
 const LOADING_STEPS = [
-  "Analyzing medical knowledge base…",
-  "Scanning clinical guidelines & trials…",
-  "Synthesizing evidence…",
-  "Local AI compiling comprehensive response…",
+  "Reading & grounding in doctor notes…",
+  "Analyzing medical knowledge base & guidelines…",
+  "Evaluating differential reasoning & red flags…",
+  "Compiling evidence-grounded clinical response…",
 ];
 
-export default function InlineAIChat({ consultationId }: InlineAIChatProps) {
+export default function InlineAIChat({ consultationId, notes }: InlineAIChatProps) {
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -62,9 +76,9 @@ export default function InlineAIChat({ consultationId }: InlineAIChatProps) {
       setLoadingStep(0);
       return;
     }
-    const t1 = setTimeout(() => setLoadingStep(1), 3000);
-    const t2 = setTimeout(() => setLoadingStep(2), 8000);
-    const t3 = setTimeout(() => setLoadingStep(3), 16000);
+    const t1 = setTimeout(() => setLoadingStep(1), 2000);
+    const t2 = setTimeout(() => setLoadingStep(2), 6000);
+    const t3 = setTimeout(() => setLoadingStep(3), 12000);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
@@ -98,32 +112,31 @@ export default function InlineAIChat({ consultationId }: InlineAIChatProps) {
     setLoading(true);
 
     try {
-      // Primary: use the public /ai/ask endpoint (no auth issues, works always)
-      const rawUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const rootUrl = rawUrl.replace(/\/api\/v1\/?$/, "");
-      const askUrl = `${rootUrl}/ai/ask`;
-      const resp = await fetch(askUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: trimmed, consultation_id: consultationId, top_k: 5 }),
-        signal: AbortSignal.timeout(90000),
-      });
+      // 1. Try authenticated consultation grounded notes Q&A
+      const token = getStoredToken();
+      let d: any = null;
 
-      if (resp.ok) {
-        const d = await resp.json();
-        setMessages(prev => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant" as const,
-            content: d.answer || "No answer returned.",
-            citations: d.citations?.length ?? 0,
-            confidence: d.confidence_score ?? 0,
-            fallback: d.fallback_used ?? false,
-          },
-        ]);
-      } else {
-        // Fallback: authenticated RAG query
+      if (consultationId) {
+        const qaRes = await askConsultationNotes(consultationId, {
+          query: trimmed,
+          notes: notes,
+          top_k: 5,
+        });
+        if (qaRes.ok) {
+          d = qaRes.data;
+        }
+      }
+
+      // 2. If not answered yet, try direct doctor notes endpoint
+      if (!d) {
+        const generalRes = await askDoctorNotesGeneral(trimmed, notes, consultationId);
+        if (generalRes.ok) {
+          d = generalRes.data;
+        }
+      }
+
+      // 3. Fallback to standard RAG query
+      if (!d) {
         const ragRes = await ragQuery({
           query: trimmed,
           top_k: 5,
@@ -131,28 +144,35 @@ export default function InlineAIChat({ consultationId }: InlineAIChatProps) {
           consultation_id: consultationId,
         });
         if (ragRes.ok) {
-          const d = ragRes.data;
-          setMessages(prev => [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              role: "assistant" as const,
-              content: d.answer || "No answer returned.",
-              citations: d.citations?.length ?? 0,
-              confidence: d.confidence_score ?? 0,
-              fallback: d.fallback_used ?? false,
-            },
-          ]);
+          d = ragRes.data;
         } else {
           setMessages(prev => [
             ...prev,
             {
               id: crypto.randomUUID(),
               role: "error" as const,
-              content: ragRes.error?.message || "AI query failed. Please try again.",
+              content: ragRes.error?.message || "AI query failed. Please check connection.",
             },
           ]);
+          return;
         }
+      }
+
+      if (d) {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant" as const,
+            content: d.answer || "No answer returned.",
+            citations: d.citations || [],
+            confidence: d.confidence_score ?? d.confidence ?? 0.85,
+            fallback: d.fallback_used ?? false,
+            note_grounded: d.note_grounded ?? true,
+            model_used: d.model_used,
+            structured_entities: d.structured_entities,
+          },
+        ]);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unexpected error. Please try again.";
@@ -163,7 +183,7 @@ export default function InlineAIChat({ consultationId }: InlineAIChatProps) {
     } finally {
       setLoading(false);
     }
-  }, [loading, consultationId]);
+  }, [loading, consultationId, notes]);
 
 
   const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -254,7 +274,12 @@ export default function InlineAIChat({ consultationId }: InlineAIChatProps) {
                       >
                         {/* Meta row */}
                         {msg.role === "assistant" && (
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            {msg.note_grounded && (
+                              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                                <Check className="w-2.5 h-2.5" /> Note-Grounded
+                              </span>
+                            )}
                             {msg.confidence !== undefined && msg.confidence > 0 && (() => {
                               const badge = confBadge(msg.confidence!);
                               return (
@@ -271,10 +296,10 @@ export default function InlineAIChat({ consultationId }: InlineAIChatProps) {
                                 Static KB
                               </span>
                             )}
-                            {(msg.citations ?? 0) > 0 && (
-                              <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                                <BookOpen className="w-3 h-3" />
-                                {msg.citations} source{msg.citations !== 1 ? "s" : ""}
+                            {(Array.isArray(msg.citations) ? msg.citations.length : (msg.citations ?? 0)) > 0 && (
+                              <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                                <BookOpen className="w-3 h-3 text-indigo-500" />
+                                {Array.isArray(msg.citations) ? msg.citations.length : msg.citations} source{(Array.isArray(msg.citations) ? msg.citations.length : msg.citations) !== 1 ? "s" : ""}
                               </span>
                             )}
                             <button
@@ -291,6 +316,47 @@ export default function InlineAIChat({ consultationId }: InlineAIChatProps) {
                         <p className={`text-sm leading-relaxed ${msg.role === "error" ? "text-red-700" : "text-slate-800"}`}>
                           {msg.content}
                         </p>
+
+                        {/* Extracted Structured Entities Pills */}
+                        {msg.structured_entities && (
+                          <div className="flex flex-wrap gap-1 mt-2.5 pt-2 border-t border-slate-100">
+                            {msg.structured_entities.red_flags?.map((rf, i) => (
+                              <span key={`rf-${i}`} className="text-[9px] px-2 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-200 font-bold">
+                                🚨 {rf}
+                              </span>
+                            ))}
+                            {msg.structured_entities.symptoms?.slice(0, 5).map((s, i) => (
+                              <span key={`sym-${i}`} className="text-[9px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-medium">
+                                {s}
+                              </span>
+                            ))}
+                            {msg.structured_entities.medications?.slice(0, 4).map((m, i) => (
+                              <span key={`med-${i}`} className="text-[9px] px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 font-medium">
+                                💊 {m}
+                              </span>
+                            ))}
+                            {msg.structured_entities.vitals && Object.keys(msg.structured_entities.vitals).length > 0 && (
+                              <span className="text-[9px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-medium">
+                                🩺 {Object.entries(msg.structured_entities.vitals).map(([k, v]) => `${k.toUpperCase()}: ${v}`).join(" | ")}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Verifiable Citations */}
+                        {Array.isArray(msg.citations) && msg.citations.length > 0 && (
+                          <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap gap-1.5">
+                            {msg.citations.map((c, i) => (
+                              <span
+                                key={i}
+                                className="text-[9px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-semibold"
+                                title={c.excerpt || c.label}
+                              >
+                                📌 {c.label || c.source_type}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -337,7 +403,7 @@ export default function InlineAIChat({ consultationId }: InlineAIChatProps) {
                 key={i}
                 onClick={() => handleAsk(q)}
                 disabled={loading}
-                className="text-xs px-3.5 py-1.5 rounded-full font-bold transition-all hover:scale-105 active:scale-95 shadow-xs border border-indigo-200/70 bg-indigo-50/80 hover:bg-indigo-100/80 text-indigo-800"
+                className="text-xs px-3.5 py-1.5 rounded-full font-bold transition-colors shadow-2xs border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-800"
               >
                 {q}
               </button>
@@ -362,12 +428,11 @@ export default function InlineAIChat({ consultationId }: InlineAIChatProps) {
             placeholder="Ask a clinical question… (e.g. Red flags for this presentation?)"
             className="flex-1 text-sm font-medium text-slate-800 placeholder-slate-400 bg-transparent outline-none"
           />
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            whileHover={{ scale: 1.02 }}
+          <button
+            type="button"
             onClick={() => handleAsk(query)}
             disabled={!query.trim() || loading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white shrink-0 transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white shrink-0 transition-colors shadow-sm disabled:opacity-50"
             style={{
               background: !query.trim() || loading
                 ? "#94a3b8"
@@ -376,7 +441,7 @@ export default function InlineAIChat({ consultationId }: InlineAIChatProps) {
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
             {loading ? "Thinking…" : "Ask"}
-          </motion.button>
+          </button>
         </div>
         <p className="text-[11px] font-medium text-slate-400 mt-2 text-center">
           ⚕️ AI suggestions require clinician review — decision-support only

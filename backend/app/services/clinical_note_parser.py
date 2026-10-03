@@ -161,6 +161,31 @@ CLINICAL_SIGNS_MAP: Dict[str, str] = {
     "ataxia": "ataxia",
     "altered mental status": "altered consciousness",
     "confusion": "confusion",
+    "difficulty walking": "gait ataxia",
+    "gait ataxia": "gait ataxia",
+    "absent ankle reflexes": "absent ankle reflexes",
+    "absent reflexes": "absent ankle reflexes",
+    "loss of smell": "loss of smell",
+    "anosmia": "loss of smell",
+    "night blindness": "night blindness",
+    "night vision has deteriorated": "night blindness",
+    "night vision": "night blindness",
+    "pigmentary retinal degeneration": "pigmentary retinal degeneration",
+    "retinal degeneration": "pigmentary retinal degeneration",
+    "retinitis pigmentosa": "pigmentary retinal degeneration",
+    "reduced rod responses": "pigmentary retinal degeneration",
+    "phytanic acid": "elevated plasma phytanic acid",
+    "elevated plasma phytanic acid": "elevated plasma phytanic acid",
+    "elevated phytanic acid": "elevated plasma phytanic acid",
+    "dry, scaly skin": "ichthyosis",
+    "scaly skin": "ichthyosis",
+    "dry scaly skin": "ichthyosis",
+    "ichthyosis": "ichthyosis",
+    "atrial arrhythmia": "intermittent atrial arrhythmia",
+    "intermittent atrial arrhythmia": "intermittent atrial arrhythmia",
+    "difficulty hearing conversations in noisy environments": "sensorineural hearing loss",
+    "sensorineural hearing loss": "sensorineural hearing loss",
+    "peroxisomal metabolic disorder": "peroxisomal disorder",
 
     # Surgery & GI
     "periumbilical pain migrating": "right lower quadrant pain",
@@ -503,6 +528,32 @@ CLINICAL_SIGNS_MAP: Dict[str, str] = {
     "dehydration": "dehydration",
     "tachycardia": "tachycardia",
     "tachycardic": "tachycardia",
+
+    # ── Outbreak Hallmarks (Leptospirosis, Scrub Typhus, Nipah, KFD, Chandipura) ──
+    "conjunctival suffusion": "conjunctival suffusion",
+    "bilateral conjunctival suffusion": "conjunctival suffusion",
+    "suffused conjunctiva": "conjunctival suffusion",
+    "severe calf tenderness": "calf tenderness",
+    "calf muscle tenderness": "calf tenderness",
+    "tender calves": "calf tenderness",
+    "black eschar": "eschar",
+    "eschar lesion": "eschar",
+    "necrotic eschar": "eschar",
+    "altered sensorium": "altered sensorium",
+    "encephalopathy": "altered sensorium",
+    "autonomic storm": "autonomic storm",
+    "autonomic instability": "autonomic storm",
+    "segmental myoclonus": "myoclonus",
+    "myoclonus": "myoclonus",
+    "raw date palm sap": "date palm sap exposure",
+    "date palm sap": "date palm sap exposure",
+    "monkey fever": "monkey exposure",
+    "dead monkey": "monkey exposure",
+    "chigger bite": "chigger bite",
+    "sandfly bite": "sandfly exposure",
+    "sandfly": "sandfly exposure",
+    "flooded paddy field": "flood water exposure",
+    "paddy flood water": "flood water exposure",
 
     # -----------------------------------------------------------------------
     # Hallmark signs for Cases 26-48 & Arboviral / Yellow Fever
@@ -1100,58 +1151,207 @@ class ClinicalNoteParser:
         }
 
     def _extract_travel_history(self, text: str) -> List[str]:
-        """Extracts visited countries, endemic territories, and outbreak contexts."""
+        """Extracts visited countries, endemic territories, Indian states/districts, and outbreak contexts."""
         text_lower = text.lower()
         found_destinations: List[str] = []
 
-        # Canonical travel and outbreak entities
+        # Comprehensive travel, state, district, and outbreak entities
         travel_targets = [
+            # ── Indian States & Union Territories (All 36) ───────────────────
+            ("kerala", "Kerala"),
+            ("gujarat", "Gujarat"),
+            ("karnataka", "Karnataka"),
+            ("maharashtra", "Maharashtra"),
+            ("tamil nadu", "Tamil Nadu"),
+            ("west bengal", "West Bengal"),
+            ("rajasthan", "Rajasthan"),
+            ("uttar pradesh", "Uttar Pradesh"),
+            ("delhi", "Delhi"),
+            ("odisha", "Odisha"),
+            ("andhra pradesh", "Andhra Pradesh"),
+            ("telangana", "Telangana"),
+            ("assam", "Assam"),
+            ("punjab", "Punjab"),
+            ("haryana", "Haryana"),
+            ("bihar", "Bihar"),
+            ("madhya pradesh", "Madhya Pradesh"),
+            ("jammu and kashmir", "Jammu and Kashmir"),
+            ("jammu & kashmir", "Jammu and Kashmir"),
+            ("j&k", "Jammu and Kashmir"),
+            ("goa", "Goa"),
+            ("himachal pradesh", "Himachal Pradesh"),
+            ("uttarakhand", "Uttarakhand"),
+            ("tripura", "Tripura"),
+            ("manipur", "Manipur"),
+            ("meghalaya", "Meghalaya"),
+            ("nagaland", "Nagaland"),
+            ("mizoram", "Mizoram"),
+            ("sikkim", "Sikkim"),
+            ("arunachal pradesh", "Arunachal Pradesh"),
+            ("jharkhand", "Jharkhand"),
+            ("chhattisgarh", "Chhattisgarh"),
+            ("andaman and nicobar", "Andaman and Nicobar"),
+            ("chandigarh", "Chandigarh"),
+            ("dadra and nagar haveli", "Dadra and Nagar Haveli"),
+            ("daman and diu", "Daman and Diu"),
+            ("lakshadweep", "Lakshadweep"),
+            ("puducherry", "Puducherry"),
+            ("ladakh", "Ladakh"),
+
+            # ── Key Indian Outbreak & Endemic Districts ─────────────────────
+            # Kerala (Nipah, Leptospirosis, West Nile, Dengue)
+            ("kozhikode", "Kerala"),
+            ("malappuram", "Kerala"),
+            ("wayanad", "Kerala"),
+            ("kannur", "Kerala"),
+            ("thrissur", "Kerala"),
+            ("ernakulam", "Kerala"),
+            ("kasaragod", "Kerala"),
+            ("palakkad", "Kerala"),
+            ("alappuzha", "Kerala"),
+            ("kottayam", "Kerala"),
+            # Gujarat (Chandipura, CCHF, Zika)
+            ("sabarkantha", "Gujarat"),
+            ("aravalli", "Gujarat"),
+            ("kutch", "Gujarat"),
+            ("jamnagar", "Gujarat"),
+            ("surendranagar", "Gujarat"),
+            ("mehsana", "Gujarat"),
+            ("ahmedabad", "Gujarat"),
+            ("surat", "Gujarat"),
+            ("rajkot", "Gujarat"),
+            # Karnataka (Kyasanur Forest Disease / KFD, Dengue)
+            ("shivamogga", "Karnataka"),
+            ("shimoga", "Karnataka"),
+            ("chikkamagaluru", "Karnataka"),
+            ("uttara kannada", "Karnataka"),
+            ("udupi", "Karnataka"),
+            ("dakshina kannada", "Karnataka"),
+            ("mangalore", "Karnataka"),
+            ("belagavi", "Karnataka"),
+            ("mysuru", "Karnataka"),
+            # Maharashtra (CCHF, Leptospirosis, Scrub Typhus)
+            ("pune", "Maharashtra"),
+            ("mumbai", "Maharashtra"),
+            ("nagpur", "Maharashtra"),
+            ("gadchiroli", "Maharashtra"),
+            ("chandrapur", "Maharashtra"),
+            ("kolhapur", "Maharashtra"),
+            ("ratnagiri", "Maharashtra"),
+            ("sindhudurg", "Maharashtra"),
+            # Tamil Nadu & Andhra Pradesh
+            ("chennai", "Tamil Nadu"),
+            ("coimbatore", "Tamil Nadu"),
+            ("madurai", "Tamil Nadu"),
+            ("tirunelveli", "Tamil Nadu"),
+            ("visakhapatnam", "Andhra Pradesh"),
+            ("guntur", "Andhra Pradesh"),
+            ("chittoor", "Andhra Pradesh"),
+            # Uttar Pradesh & Bihar (JE, AES, Kala-Azar)
+            ("gorakhpur", "Uttar Pradesh"),
+            ("basti", "Uttar Pradesh"),
+            ("deoria", "Uttar Pradesh"),
+            ("kushinagar", "Uttar Pradesh"),
+            ("lucknow", "Uttar Pradesh"),
+            ("kanpur", "Uttar Pradesh"),
+            ("muzaffarpur", "Bihar"),
+            ("patna", "Bihar"),
+            ("gaya", "Bihar"),
+            ("bhagalpur", "Bihar"),
+            ("vaishali", "Bihar"),
+            # Himalayan Foothills & Alpine (Scrub Typhus)
+            ("dehradun", "Uttarakhand"),
+            ("nainital", "Uttarakhand"),
+            ("haridwar", "Uttarakhand"),
+            ("rishikesh", "Uttarakhand"),
+            ("shimla", "Himachal Pradesh"),
+            ("kangra", "Himachal Pradesh"),
+            ("mandi", "Himachal Pradesh"),
+            ("srinagar", "Jammu and Kashmir"),
+            ("jammu", "Jammu and Kashmir"),
+            ("anantnag", "Jammu and Kashmir"),
+            ("baramulla", "Jammu and Kashmir"),
+            # North-East & Central
+            ("guwahati", "Assam"),
+            ("kamrup", "Assam"),
+            ("dibrugarh", "Assam"),
+            ("jabalpur", "Madhya Pradesh"),
+            ("chhindwara", "Madhya Pradesh"),
+            ("bhopal", "Madhya Pradesh"),
+            ("ludhiana", "Punjab"),
+            ("gurugram", "Haryana"),
+            ("faridabad", "Haryana"),
+
+            # ── High-Consequence Global Hotspots & Endemic Regions ──────────
             ("democratic republic of the congo", "Democratic Republic of the Congo"),
             ("drc", "Democratic Republic of the Congo"),
             ("congo", "Democratic Republic of the Congo"),
             ("central africa", "Central Africa"),
-            ("nicaragua", "Nicaragua"),
-            ("bali", "Bali"),
-            ("indonesia", "Indonesia"),
+            ("peru", "Peru"),
+            ("peruvian amazon", "Peru"),
+            ("amazon", "Peru"),
+            ("amazon basin", "Peru"),
+            ("loreto", "Peru"),
+            ("iquitos", "Peru"),
+            ("ucayali", "Peru"),
+            ("madre de dios", "Peru"),
+            ("brazil", "Brazil"),
             ("colombia", "Colombia"),
-            ("yemen", "Yemen"),
-            ("west africa", "West Africa"),
-            ("east africa", "East Africa"),
-            ("sub-saharan africa", "Sub-Saharan Africa"),
+            ("ecuador", "Ecuador"),
+            ("bolivia", "Bolivia"),
+            ("venezuela", "Venezuela"),
+            ("argentina", "Argentina"),
+            ("patagonia", "Argentina"),
+            ("chile", "Chile"),
+            ("uruguay", "Uruguay"),
+            ("paraguay", "Paraguay"),
+            ("cuba", "Cuba"),
+            ("caribbean", "Cuba"),
+            ("haiti", "Haiti"),
+            ("dominican republic", "Dominican Republic"),
+            ("costa rica", "Costa Rica"),
+            ("nicaragua", "Nicaragua"),
+            ("panama", "Panama"),
+            ("honduras", "Honduras"),
+            ("guatemala", "Guatemala"),
+            ("mexico", "Mexico"),
             ("uganda", "Uganda"),
             ("rwanda", "Rwanda"),
             ("kenya", "Kenya"),
+            ("tanzania", "Tanzania"),
             ("angola", "Angola"),
             ("nigeria", "Nigeria"),
             ("sierra leone", "Sierra Leone"),
             ("guinea", "Guinea"),
             ("ghana", "Ghana"),
             ("cameroon", "Cameroon"),
+            ("gabon", "Gabon"),
             ("sudan", "Sudan"),
-            ("brazil", "Brazil"),
-            ("peru", "Peru"),
-            ("ecuador", "Ecuador"),
-            ("venezuela", "Venezuela"),
-            ("bolivia", "Bolivia"),
-            ("argentina", "Argentina"),
-            ("chile", "Chile"),
-            ("uruguay", "Uruguay"),
-            ("paraguay", "Paraguay"),
-            ("costa rica", "Costa Rica"),
-            ("mauritius", "Mauritius"),
+            ("south sudan", "South Sudan"),
+            ("ethiopia", "Ethiopia"),
+            ("madagascar", "Madagascar"),
+            ("mozambique", "Mozambique"),
+            ("saudi arabia", "Saudi Arabia"),
+            ("riyadh", "Saudi Arabia"),
+            ("jeddah", "Saudi Arabia"),
+            ("yemen", "Yemen"),
+            ("oman", "Oman"),
+            ("jordan", "Jordan"),
+            ("middle east", "Middle East"),
             ("thailand", "Thailand"),
             ("vietnam", "Vietnam"),
             ("philippines", "Philippines"),
             ("malaysia", "Malaysia"),
+            ("indonesia", "Indonesia"),
+            ("bali", "Bali"),
             ("cambodia", "Cambodia"),
             ("myanmar", "Myanmar"),
             ("bangladesh", "Bangladesh"),
             ("pakistan", "Pakistan"),
-            ("saudi arabia", "Saudi Arabia"),
-            ("jordan", "Jordan"),
-            ("middle east", "Middle East"),
-            ("africa", "Africa"),
-            # Outbreak & transmission contexts
+            ("nepal", "Nepal"),
+            ("sri lanka", "Sri Lanka"),
+
+            # ── Epidemiological Exposure Contexts ───────────────────────────
             ("active transmission", "active transmission"),
             ("ongoing infectious disease outbreak", "ongoing outbreak"),
             ("ongoing outbreak", "ongoing outbreak"),
@@ -1166,6 +1366,15 @@ class ClinicalNoteParser:
             ("forested areas", "rural area"),
             ("rural and forested", "rural area"),
             ("rural area", "rural area"),
+            ("palm sap", "date palm sap exposure"),
+            ("date palm sap", "date palm sap exposure"),
+            ("bat contact", "bat exposure"),
+            ("fruit bat", "bat exposure"),
+            ("dead monkey", "monkey exposure"),
+            ("monkey fever", "monkey exposure"),
+            ("chigger bite", "mite exposure"),
+            ("tick bite", "tick exposure"),
+            ("paddy field", "flood water exposure"),
         ]
 
         for trigger, canonical in travel_targets:
@@ -1174,7 +1383,22 @@ class ClinicalNoteParser:
                 if canonical not in found_destinations:
                     found_destinations.append(canonical)
 
+        # Regex heuristic: extract any destination mentioned with travel prepositions
+        travel_pattern = re.compile(
+            r"(?:travel(?:led|ed)?\s+to|trip\s+to|returned\s+from|arrived\s+from|visited|visiting|stayed\s+in|resident\s+of|lives\s+in|native\s+of|journey\s+to)\s+([A-Z][a-zA-Z\s]{2,25}?)(?:[.,;\n]|\s+(?:with|who|and|where|after|reporting|experiencing|for|on))"
+        )
+        for m in travel_pattern.finditer(text):
+            candidate = m.group(1).strip()
+            # Exclude clinical sign words
+            if len(candidate) > 2 and candidate.lower() not in ["fever", "hospital", "clinic", "icu", "ward", "doctor", "emergency", "home"]:
+                if candidate not in found_destinations and not any(candidate.lower() == d.lower() for d in found_destinations):
+                    found_destinations.append(candidate)
+
         return found_destinations
+
+    def extract_travel_history(self, text: str) -> List[str]:
+        """Public alias for _extract_travel_history."""
+        return self._extract_travel_history(text)
 
     def _extract_incubation_days(self, text: str) -> Optional[int]:
         """Extracts incubation interval (days between travel return/exposure and symptom onset)."""
@@ -1335,6 +1559,14 @@ class ClinicalNoteParser:
                     # Clause is negated from neg_start onwards
                     pos_part = cl_clean[:neg_start].strip()
                     neg_part = cl_clean[neg_start:].strip()
+                    resumed_pos = ""
+
+                    # Prepositional negation boundary: "without X, Y, Z" only negates X; Y and Z resume positive
+                    is_prep_neg = bool(re.search(r"\b(?:without|absence of|lack of|free of)\b", cl_clean[neg_start:neg_start + 25], re.I))
+                    if is_prep_neg and "," in neg_part:
+                        parts = neg_part.split(",", 1)
+                        neg_part = parts[0]
+                        resumed_pos = parts[1].strip()
 
                     # Positive matches before negation
                     if pos_part:
@@ -1346,6 +1578,12 @@ class ClinicalNoteParser:
                     for sign_phrase, canonical in CLINICAL_SIGNS_MAP.items():
                         if sign_phrase in neg_part:
                             negated_set.add(canonical)
+
+                    # Positive matches after prepositional negation boundary
+                    if resumed_pos:
+                        for sign_phrase, canonical in CLINICAL_SIGNS_MAP.items():
+                            if sign_phrase in resumed_pos:
+                                positive_set.add(canonical)
                 else:
                     # Purely positive clause
                     for sign_phrase, canonical in CLINICAL_SIGNS_MAP.items():

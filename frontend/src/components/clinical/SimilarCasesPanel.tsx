@@ -89,33 +89,31 @@ export function SimilarCasesPanel({ consultationId }: SimilarCasesPanelProps) {
   }
 
   return (
-    <div className="glass-panel-4k gpu-accelerated rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] border border-slate-200/90 bg-white/80 backdrop-blur-2xl">
-      <div className="px-6 py-4 border-b border-slate-200/80 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between relative overflow-hidden shadow-md">
-        <div className="absolute inset-0 bg-gradient-to-r from-teal-500/10 via-indigo-500/10 to-purple-500/10 pointer-events-none" />
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="w-9 h-9 bg-gradient-to-br from-teal-400 to-indigo-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-teal-500/30 ring-1 ring-white/30">
+    <div className="rounded-3xl overflow-hidden shadow-xs border border-slate-200/90 bg-white">
+      <div className="px-6 py-4 border-b border-slate-200/90 bg-white text-slate-900 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-teal-50 border border-teal-200 rounded-xl flex items-center justify-center text-teal-700 shadow-2xs">
             <Activity className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="font-bold text-white text-base tracking-tight m-0">Similar Historical Cases</h3>
-            <p className="text-xs text-slate-300 m-0">Vector matched against historical case repository</p>
+            <h3 className="font-extrabold text-slate-900 text-sm tracking-tight m-0 font-heading">Similar Historical Cases</h3>
+            <p className="text-[11px] text-slate-500 m-0 font-medium">Vector matched against historical case repository</p>
           </div>
         </div>
-        <span className="relative z-10 text-xs font-bold px-3 py-1 bg-teal-500/20 text-teal-300 rounded-full border border-teal-400/40 shadow-sm backdrop-blur-md">
+        <span className="text-xs font-bold px-3 py-1 bg-teal-50 text-teal-700 rounded-full border border-teal-200">
           {cases.length} Match{cases.length !== 1 ? 'es' : ''} Found
         </span>
       </div>
 
-      <div className="p-5 space-y-4 relative z-10 bg-slate-50/50">
+      <div className="p-5 space-y-3.5 bg-slate-50/60">
         <AnimatePresence>
           {cases.map((c, index) => (
             <motion.div
               key={c.id}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              whileHover={{ y: -2 }}
-              transition={{ delay: index * 0.08 }}
-              className="bg-white/95 rounded-2xl p-5 border border-slate-200/80 hover:border-indigo-300 transition-all shadow-sm hover:shadow-lg ring-1 ring-black/5"
+              transition={{ delay: index * 0.04 }}
+              className="bg-white rounded-2xl p-4.5 border border-slate-200/90 hover:border-indigo-300 transition-colors shadow-2xs"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex flex-wrap gap-2">

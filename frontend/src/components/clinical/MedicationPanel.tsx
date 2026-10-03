@@ -89,7 +89,7 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
         <div className="shrink-0 flex items-center gap-2 pt-1 pr-1">
           <button 
             onClick={() => setShowSimulator(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-extrabold rounded-xl shadow-sm hover:scale-105 active:scale-95 transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-extrabold rounded-xl shadow-sm transition-all"
           >
             <Dna className="w-4 h-4" />
             Polypharmacy Simulator
@@ -116,17 +116,17 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }} 
           animate={{ opacity: 1, scale: 1 }}
-          className="mb-6 bg-[var(--color-danger-500)] text-white p-4 rounded-xl shadow-lg border-2 border-[var(--color-danger-700)] overflow-hidden relative"
+          className="mb-6 bg-rose-50 text-slate-900 p-4 rounded-xl shadow-xs border-2 border-rose-300 overflow-hidden relative"
         >
-          <div className="absolute top-0 left-0 w-full h-1 bg-[var(--color-danger-300)] animate-pulse"></div>
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-6 h-6 animate-bounce" />
+          <div className="absolute top-0 left-0 w-full h-1 bg-rose-500 animate-pulse"></div>
+          <div className="flex items-center gap-2 mb-2 text-rose-900">
+            <AlertTriangle className="w-6 h-6 text-rose-600 animate-bounce" />
             <h4 className="font-black uppercase tracking-wider text-sm">NIH RxNav Safety Alert: Severe Drug Interaction</h4>
           </div>
-          <p className="text-xs mb-3 font-medium opacity-90">
+          <p className="text-xs mb-3 font-medium text-slate-700">
             The AI has generated a medication regimen containing contraindicated generic combinations based on live NIH data.
           </p>
-          <ul className="list-disc pl-5 text-xs font-bold space-y-1 bg-black/20 p-3 rounded-lg">
+          <ul className="list-disc pl-5 text-xs font-bold space-y-1 bg-white border border-rose-200 text-rose-900 p-3 rounded-lg shadow-2xs">
             {data.ddi_warnings.map((warning, wIdx) => (
               <li key={wIdx}>{warning}</li>
             ))}

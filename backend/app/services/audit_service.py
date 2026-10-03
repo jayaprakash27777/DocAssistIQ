@@ -66,6 +66,28 @@ async def log_event(
     )
     
     session.add(log_entry)
-    # Note: We rely on the caller's session commit to flush this.
-    # If the caller rolls back, the audit log rolls back too, which is generally 
-    # correct for transactional state changes (we don't want to audit a creation that failed).
+    
+    # Broadcast to live WebSocket clients for instant administrative audit feed
+    try:
+        import asyncio
+        from datetime import datetime, timezone
+        from app.api.v1.endpoints.ws import manager
+
+        event_payload = {
+            "id": str(log_entry.id),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "actor_id": str(actor_id) if actor_id else None,
+            "action": action,
+            "entity_type": entity_type,
+            "entity_id": str(entity_id) if entity_id else None,
+            "ip_address": ip_address,
+            "severity": severity,
+            "diff": diff,
+        }
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(manager.broadcast("audit.event", event_payload))
+        except RuntimeError:
+            pass
+    except Exception:
+        pass

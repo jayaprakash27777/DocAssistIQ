@@ -162,7 +162,7 @@ export default function NewPatientProfile() {
           <button
             type="submit"
             disabled={loading || !patientRef.trim()}
-            className="bg-gradient-to-r from-teal-500 to-indigo-600 hover:brightness-110 text-white px-6 py-2.5 rounded-xl transition-all font-bold text-sm shadow-md shadow-teal-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-teal-500 to-indigo-600 hover:brightness-110 text-white px-6 py-2.5 rounded-xl transition-all font-bold text-sm shadow-md shadow-teal-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Creating..." : "Create Record"}
           </button>

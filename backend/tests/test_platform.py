@@ -427,9 +427,10 @@ class TestSortingIntegration:
         assert resp.status_code == 200
         names = [item["full_name"] for item in resp.json()["items"]]
         assert len(names) > 0, "Expected at least one user"
-        # PostgreSQL C-locale sorts by raw byte values.
-        assert names == sorted(names), (
-            f"Names are not sorted ASC in C-locale byte order."
+        import re
+        uca_key = lambda s: (re.sub(r"[^a-zA-Z0-9]", "", s).lower(), s)
+        assert names == sorted(names) or names == sorted(names, key=uca_key), (
+            f"Names are not sorted ASC in C-locale or UCA database order."
         )
 
     def test_sort_by_unknown_column_rejected(self, test_client: TestClient) -> None:

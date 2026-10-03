@@ -19,7 +19,7 @@ import { parseApiError, type FrontendError } from "./errors";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ??
-  "http://127.0.0.1:8002";
+  "http://127.0.0.1:8000";
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -344,6 +344,10 @@ async function authedFetch<T>(
     ...authHeaders(),
     ...(options.headers as Record<string, string>),
   };
+
+  if (typeof FormData !== "undefined" && options.body instanceof FormData) {
+    delete headers["Content-Type"];
+  }
 
   try {
     const res = await fetch(url, { ...options, signal: controller.signal, headers });
@@ -1415,6 +1419,227 @@ export async function correctTranscriptSegment(
   );
 }
 
+// ── Consultation Transcription & Grounded Notes Q&A ──────────
+
+export interface TranscribeAudioSegment {
+  start: number;
+  end: number;
+  speaker: string;
+  confidence: number;
+  source: string;
+  text: string;
+}
+
+export interface TranscribeAudioResponse {
+  status: string;
+  text: string;
+  segments: TranscribeAudioSegment[];
+  duration?: number;
+  consultation_id?: string;
+  message?: string;
+}
+
+/**
+ * Directly transcribes consultation audio using faster-whisper with speaker diarization.
+ * Saves transcript and segments to DB, and automatically extracts clinical findings.
+ */
+export async function transcribeConsultationAudio(
+  consultationId: string,
+  audioData: Blob | string,
+  mimeType: string = "audio/webm",
+): Promise<ApiResult<TranscribeAudioResponse>> {
+  if (typeof audioData === "string") {
+    return authedFetch<TranscribeAudioResponse>(
+      `${BASE_URL}/api/v1/consultations/${consultationId}/transcribe`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          audio_base64: audioData,
+          mime_type: mimeType,
+        }),
+        timeoutMs: 120000,
+      }
+    );
+  }
+
+  // Convert Blob to base64 for universal transport
+  const base64Data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      resolve(reader.result as string);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(audioData);
+  });
+
+  return authedFetch<TranscribeAudioResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultationId}/transcribe`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        audio_base64: base64Data,
+        mime_type: audioData.type || mimeType,
+      }),
+      timeoutMs: 120000,
+    }
+  );
+}
+
+export interface ConsultationQARequest {
+  query: string;
+  notes?: string;
+  top_k?: number;
+}
+
+export interface GroundedCitation {
+  source_type: string;
+  label: string;
+  excerpt: string;
+  relevance: number;
+  pubmed_id?: string;
+  url?: string;
+}
+
+export interface DigitalSignatureInfo {
+  signed_by: string;
+  doctor_id: string;
+  registration_number: string;
+  issuing_body: string;
+  specialty: string;
+  signed_at: string;
+  signed_at_formatted: string;
+  verification_code: string;
+  sha256_hash: string;
+  signature_status: string;
+  algorithm?: string;
+}
+
+export interface GeneratedClinicalDocument {
+  document_type: "discharge_summary" | "medical_certificate" | "care_plan" | string;
+  title: string;
+  subtitle: string;
+  document_id: string;
+  formatted_date: string;
+  leave_period?: string;
+  patient: {
+    patient_ref: string;
+    age_group: string;
+    biological_sex: string;
+    allergies: string;
+    chronic_conditions: string;
+  };
+  clinician: {
+    doctor_id: string;
+    full_name: string;
+    email: string;
+    specialty: string;
+    credential_reference: string;
+    credential_body: string;
+  };
+  digital_signature: DigitalSignatureInfo;
+  pdf_download_url: string;
+  docx_download_url: string;
+  sections: Array<{
+    title: string;
+    content: string;
+  }>;
+}
+
+export interface ConsultationQAResponse {
+  query: string;
+  answer: string;
+  confidence_score?: number;
+  confidence?: number;
+  structured_entities?: {
+    symptoms?: string[];
+    vitals?: Record<string, any>;
+    medications?: string[];
+    allergies?: string[];
+    diagnoses?: string[];
+    red_flags?: string[];
+  };
+  citations: GroundedCitation[];
+  note_grounded: boolean;
+  model_used: string;
+  latency_ms: number;
+  fallback_used?: boolean;
+  consultation_id?: string;
+  generated_document?: GeneratedClinicalDocument;
+}
+
+/**
+ * Answer any clinician question strictly grounded in the consultation's doctor notes,
+ * clinical findings, SOAP documentation, and transcript with verifiable citations.
+ */
+export async function askConsultationNotes(
+  consultationId: string,
+  payload: ConsultationQARequest,
+): Promise<ApiResult<ConsultationQAResponse>> {
+  return authedFetch<ConsultationQAResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultationId}/ask`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      timeoutMs: 60000,
+    }
+  );
+}
+
+/**
+ * Public or authenticated endpoint to query doctor notes or medical evidence.
+ */
+export async function askDoctorNotesGeneral(
+  query: string,
+  notes?: string,
+  consultationId?: string,
+): Promise<ApiResult<ConsultationQAResponse>> {
+  return authedFetch<ConsultationQAResponse>(
+    `${BASE_URL}/api/v1/ai/ask`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        query,
+        notes,
+        consultation_id: consultationId,
+      }),
+      timeoutMs: 60000,
+    }
+  );
+}
+
+/**
+ * Generate certified clinical document (Discharge Summary, Medical Certificate, Care Plan)
+ * with cryptographic SHA-256 digital signature.
+ */
+export async function generateClinicalDocument(
+  consultationId: string,
+  docType: "discharge_summary" | "medical_certificate" | "care_plan" = "discharge_summary",
+  customInstructions?: string,
+): Promise<ApiResult<GeneratedClinicalDocument>> {
+  return authedFetch<GeneratedClinicalDocument>(
+    `${BASE_URL}/api/v1/consultations/${consultationId}/documents/generate`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        document_type: docType,
+        custom_instructions: customInstructions,
+      }),
+      timeoutMs: 60000,
+    }
+  );
+}
+
+/**
+ * Returns direct URL for document PDF or DOCX binary download.
+ */
+export function getDocumentDownloadUrl(
+  consultationId: string,
+  docType: string,
+  format: "pdf" | "docx" = "pdf"
+): string {
+  return `${BASE_URL}/api/v1/consultations/${consultationId}/documents/${docType}/${format}`;
+}
+
 // ── Clinical Note types ─────────────────────────────────────
 
 export interface NoteSection {
@@ -1775,11 +2000,13 @@ export async function getStateOutbreaks(params?: {
   state?: string;
   query?: string;
   alert_level?: string;
+  refresh?: boolean;
 }): Promise<ApiResult<StateOutbreakResponse>> {
   const q = new URLSearchParams();
   if (params?.state) q.set("state", params.state);
   if (params?.query) q.set("query", params.query);
   if (params?.alert_level) q.set("alert_level", params.alert_level);
+  if (params?.refresh) q.set("refresh", "true");
   const qs = q.toString() ? `?${q.toString()}` : "";
   return authedFetch<StateOutbreakResponse>(
     `${BASE_URL}/api/v1/intelligence/state-outbreaks${qs}`,
@@ -1806,14 +2033,17 @@ export interface InvestigationResponse {
 }
 
 export async function getInvestigationsForDisease(
-  consultation_id: string,
-  disease: string,
+  consultation_id?: string | null,
+  disease: string = "",
   competing: string[] = []
 ): Promise<ApiResult<InvestigationResponse>> {
   const qs = new URLSearchParams();
   qs.append("disease", disease);
   competing.forEach(c => qs.append("competing", c));
-  return authedFetch<InvestigationResponse>(`${BASE_URL}/api/v1/consultations/${consultation_id}/investigations?${qs.toString()}`);
+  const path = consultation_id && consultation_id !== "undefined"
+    ? `${BASE_URL}/api/v1/consultations/${consultation_id}/investigations?${qs.toString()}`
+    : `${BASE_URL}/api/v1/consultations/investigations?${qs.toString()}`;
+  return authedFetch<InvestigationResponse>(path);
 }
 
 export interface EarlyWarningResponse {
@@ -1905,12 +2135,13 @@ export interface MedicationResponse {
 }
 
 export async function getMedicationsForDisease(
-  consultation_id: string,
-  disease: string
+  consultation_id?: string | null,
+  disease: string = ""
 ): Promise<ApiResult<MedicationResponse>> {
-  return authedFetch<MedicationResponse>(
-    `${BASE_URL}/api/v1/consultations/${consultation_id}/medications?disease=${encodeURIComponent(disease)}`
-  );
+  const path = consultation_id && consultation_id !== "undefined"
+    ? `${BASE_URL}/api/v1/consultations/${consultation_id}/medications?disease=${encodeURIComponent(disease)}`
+    : `${BASE_URL}/api/v1/consultations/medications?disease=${encodeURIComponent(disease)}`;
+  return authedFetch<MedicationResponse>(path);
 }
 
 // ------------------------------------------------------------------
@@ -2030,6 +2261,8 @@ export interface AdminStatsResponse {
   total_admins: number;
   total_consultations: number;
   pending_verifications: number;
+  total_safety_alerts?: number;
+  active_critical_alerts?: number;
 }
 
 export async function getAdminStats(): Promise<ApiResult<AdminStatsResponse>> {
@@ -2169,5 +2402,265 @@ export async function evaluateConsultationClinicalCriteria(
     }
   );
 }
+
+// ------------------------------------------------------------------
+// Admin AI Engine & Circuit Breaker Management
+// ------------------------------------------------------------------
+
+export interface CircuitBreakerStatus {
+  failures: number;
+  threshold: number;
+  is_open: boolean;
+  state: "CLOSED" | "OPEN" | "HALF_OPEN" | "FORCED_OFFLINE";
+  forced_offline: boolean;
+  recovery_s: number;
+  tripped_at: number;
+}
+
+export interface AdminAIConfigResponse {
+  active_model: string;
+  fast_model: string;
+  base_url: string;
+  provider_name: string;
+  is_connected: boolean;
+  latency_ms: number;
+  installed_models: string[];
+  circuit_breaker: CircuitBreakerStatus;
+  mode: "llm_active" | "static_kb_fallback";
+  error?: string | null;
+  recommended_models: Array<{ id: string; label: string; type: string }>;
+  safety_watermark: string;
+}
+
+export interface SwitchAIModelRequest {
+  model_name: string;
+  fast_model?: string;
+  force_offline?: boolean;
+  reset_circuit_breaker?: boolean;
+}
+
+/** GET /api/v1/admin/ai-config — Real-time AI engine and circuit breaker state */
+export async function getAdminAIConfig(): Promise<ApiResult<AdminAIConfigResponse>> {
+  return authedFetch<AdminAIConfigResponse>(`${BASE_URL}/api/v1/admin/ai-config`, {
+    timeoutMs: 8000,
+  });
+}
+
+/** POST /api/v1/admin/ai-config/switch-model — Switch AI model system-wide */
+export async function switchAdminAIModel(
+  payload: SwitchAIModelRequest
+): Promise<ApiResult<AdminAIConfigResponse>> {
+  return authedFetch<AdminAIConfigResponse>(`${BASE_URL}/api/v1/admin/ai-config/switch-model`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    timeoutMs: 15000,
+  });
+}
+
+/** POST /api/v1/admin/ai-config/reset-circuit-breaker — Reset circuit breaker */
+export async function resetAdminCircuitBreaker(): Promise<ApiResult<AdminAIConfigResponse>> {
+  return authedFetch<AdminAIConfigResponse>(
+    `${BASE_URL}/api/v1/admin/ai-config/reset-circuit-breaker`,
+    {
+      method: "POST",
+      timeoutMs: 8000,
+    }
+  );
+}
+
+// ------------------------------------------------------------------
+// Admin Security Audit Feed (HIPAA & Compliance Logs)
+// ------------------------------------------------------------------
+
+export interface AuditLogItem {
+  id: string;
+  created_at: string;
+  actor_id: string | null;
+  actor_email: string | null;
+  actor_role: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  request_id: string | null;
+  diff: string | null;
+  severity: "info" | "warning" | "critical";
+}
+
+export interface AdminAuditLogsResponse {
+  items: AuditLogItem[];
+  total: number;
+  critical_count: number;
+  warning_count: number;
+  safety_watermark: string;
+}
+
+export interface GetAuditLogsParams {
+  limit?: number;
+  offset?: number;
+  severity?: string;
+  entity_type?: string;
+  search?: string;
+}
+
+/** GET /api/v1/admin/audit-logs — HIPAA compliance security audit trail */
+export async function getAdminAuditLogs(
+  params?: GetAuditLogsParams
+): Promise<ApiResult<AdminAuditLogsResponse>> {
+  const q = new URLSearchParams();
+  if (params?.limit) q.set("limit", params.limit.toString());
+  if (params?.offset) q.set("offset", params.offset.toString());
+  if (params?.severity) q.set("severity", params.severity);
+  if (params?.entity_type) q.set("entity_type", params.entity_type);
+  if (params?.search) q.set("search", params.search);
+  const qs = q.toString();
+  return authedFetch<AdminAuditLogsResponse>(
+    `${BASE_URL}/api/v1/admin/audit-logs${qs ? `?${qs}` : ""}`,
+    { timeoutMs: 10000 }
+  );
+}
+
+// ------------------------------------------------------------------
+// Admin User Management & RBAC Module
+// ------------------------------------------------------------------
+
+export interface AdminUserItem {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  is_active: boolean;
+  is_verified: boolean;
+  permissions: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminUsersListResponse {
+  items: AdminUserItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
+export interface GetAdminUsersParams {
+  page?: number;
+  page_size?: number;
+  search?: string;
+  role?: string;
+  is_active?: boolean;
+}
+
+/** GET /api/v1/admin/users — List registered users with search and filter */
+export async function getAdminUsers(
+  params?: GetAdminUsersParams
+): Promise<ApiResult<AdminUsersListResponse>> {
+  const q = new URLSearchParams();
+  if (params?.page) q.set("page", params.page.toString());
+  if (params?.page_size) q.set("page_size", params.page_size.toString());
+  if (params?.search) q.set("search", params.search);
+  if (params?.role) q.set("role", params.role);
+  if (params?.is_active !== undefined) q.set("is_active", String(params.is_active));
+  const qs = q.toString();
+  return authedFetch<AdminUsersListResponse>(
+    `${BASE_URL}/api/v1/admin/users${qs ? `?${qs}` : ""}`,
+    { timeoutMs: 10000 }
+  );
+}
+
+export interface UpdateAdminUserRequest {
+  role?: string;
+  is_active?: boolean;
+}
+
+/** PATCH /api/v1/admin/users/{userId} — Update user role (RBAC) or active status */
+export async function updateAdminUser(
+  userId: string,
+  payload: UpdateAdminUserRequest
+): Promise<ApiResult<AdminUserItem>> {
+  return authedFetch<AdminUserItem>(
+    `${BASE_URL}/api/v1/admin/users/${userId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+      timeoutMs: 10000,
+    }
+  );
+}
+
+// ------------------------------------------------------------------
+// Admin Live AI Diagnostic Probe
+// ------------------------------------------------------------------
+
+export interface ProbeAIResponse {
+  ok: boolean;
+  model: string;
+  prompt: string;
+  response: string;
+  latency_ms: number;
+  tokens_evaluated?: number;
+  tokens_generated?: number;
+  eval_rate_tok_per_sec?: number;
+  mode: string;
+  timestamp: string;
+  safety_watermark: string;
+}
+
+/** POST /api/v1/admin/ai-config/probe — Run live inference probe against active model */
+export async function probeAdminAI(): Promise<ApiResult<ProbeAIResponse>> {
+  return authedFetch<ProbeAIResponse>(
+    `${BASE_URL}/api/v1/admin/ai-config/probe`,
+    {
+      method: "POST",
+      timeoutMs: 15000,
+    }
+  );
+}
+
+// ------------------------------------------------------------------
+// Certified Clinical Documents Registry
+// ------------------------------------------------------------------
+
+export interface VerifiedDocumentRecord {
+  verification_code: string;
+  sha256_hash: string;
+  document_id: string;
+  document_type: string;
+  title: string;
+  subtitle: string;
+  consultation_id: string;
+  patient_ref: string;
+  patient_age_group: string;
+  patient_sex: string;
+  doctor_name: string;
+  doctor_specialty: string;
+  registration_number: string;
+  issuing_body: string;
+  signed_at: string;
+  signed_at_formatted: string;
+  signature_status: string;
+  institution: string;
+  sections_summary: string[];
+}
+
+export async function listDocumentsForConsultation(
+  consultationId: string,
+): Promise<ApiResult<{ consultation_id: string; total_documents: number; documents: VerifiedDocumentRecord[] }>> {
+  return authedFetch<{ consultation_id: string; total_documents: number; documents: VerifiedDocumentRecord[] }>(
+    `${BASE_URL}/api/v1/documents/consultation/${consultationId}`,
+  );
+}
+
+export async function listDocumentsForPatient(
+  patientRef: string,
+): Promise<ApiResult<{ patient_ref: string; total: number; documents: VerifiedDocumentRecord[] }>> {
+  return authedFetch<{ patient_ref: string; total: number; documents: VerifiedDocumentRecord[] }>(
+    `${BASE_URL}/api/v1/documents/patient/${encodeURIComponent(patientRef)}`,
+  );
+}
+
+
 
 

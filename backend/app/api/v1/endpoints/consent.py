@@ -47,7 +47,7 @@ async def create_consent_record(
         purpose=payload.purpose,
         status="granted",
         recording_permitted=payload.recording_permitted,
-        recorded_by_id=doctor.id,
+        recorded_by_id=doctor.user_id,
     )
     db.add(consent)
     await db.commit()
@@ -90,7 +90,7 @@ async def revoke_consent(
         purpose=last_consent.purpose,
         status="revoked",
         recording_permitted=False,
-        recorded_by_id=doctor.id,
+        recorded_by_id=doctor.user_id,
     )
     
     db.add(revocation)

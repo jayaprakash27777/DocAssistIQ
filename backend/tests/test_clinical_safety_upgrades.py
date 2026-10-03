@@ -197,3 +197,192 @@ def test_clinical_criteria_evaluator_named():
     assert curb_res["risk_tier"] == "High"
     assert "hospital admission" in curb_res["recommendation"].lower() or "inpatient" in curb_res["recommendation"].lower()
 
+
+def test_dynamic_model_switching_system_wide():
+    """Verify that an administrator can switch the active AI model across the entire system."""
+    from app.services.llm_service import llm_service
+    from app.infrastructure.ai.factory import get_generation_provider
+
+    original_model = llm_service.default_model
+
+    try:
+        # Switch to medical 8B
+        llm_service.set_system_model("ii-medical:8b", fast_model="llama3.2:latest")
+        assert llm_service.default_model == "ii-medical:8b"
+        assert llm_service.fast_model == "llama3.2:latest"
+
+        # Verify AI Factory provider reflects new model
+        provider = get_generation_provider()
+        assert provider.metadata.model_name == "ii-medical:8b"
+
+        # Switch to Llama 3.1 8B
+        llm_service.set_system_model("llama3.1:8b")
+        assert llm_service.default_model == "llama3.1:8b"
+        provider2 = get_generation_provider()
+        assert provider2.metadata.model_name == "llama3.1:8b"
+    finally:
+        # Restore original model
+        llm_service.set_system_model(original_model)
+
+
+def test_circuit_breaker_force_offline_and_reset():
+    """Verify that circuit breaker force offline mode and reset work deterministically."""
+    from app.services.llm_service import _circuit_breaker
+
+    try:
+        _circuit_breaker.reset()
+        assert _circuit_breaker.is_open is False
+        assert _circuit_breaker.status["state"] == "CLOSED"
+
+        # Force offline
+        _circuit_breaker.set_force_open(True)
+        assert _circuit_breaker.is_open is True
+        assert _circuit_breaker.status["state"] == "FORCED_OFFLINE"
+        assert _circuit_breaker.status["forced_offline"] is True
+
+        # Reset back to healthy
+        _circuit_breaker.reset()
+        assert _circuit_breaker.is_open is False
+        assert _circuit_breaker.status["state"] == "CLOSED"
+        assert _circuit_breaker.status["forced_offline"] is False
+    finally:
+        _circuit_breaker.reset()
+
+
+def test_admin_stats_schema_with_safety_alerts():
+    """Verify that AdminStatsResponse correctly validates real-time safety alert counters."""
+    from app.api.v1.endpoints.admin import AdminStatsResponse
+
+    stats = AdminStatsResponse(
+        total_users=42,
+        total_doctors=30,
+        total_admins=5,
+        total_consultations=128,
+        pending_verifications=3,
+        total_safety_alerts=7,
+        active_critical_alerts=1,
+    )
+    assert stats.total_consultations == 128
+    assert stats.total_safety_alerts == 7
+    assert stats.active_critical_alerts == 1
+
+
+def test_admin_audit_logs_response_schema():
+    """Verify AdminAuditLogsResponse schema and HIPAA compliance watermark."""
+    import uuid
+    from datetime import datetime, timezone
+    from app.api.v1.endpoints.admin import AdminAuditLogsResponse, AuditLogItemResponse
+
+    item = AuditLogItemResponse(
+        id=uuid.uuid4(),
+        created_at=datetime.now(timezone.utc),
+        actor_id=uuid.uuid4(),
+        actor_email="admin@hospital.org",
+        actor_role="admin",
+        action="admin.ai_model_switched",
+        entity_type="ai_engine",
+        severity="warning",
+        diff='{"model": {"old": "llama3.1:8b", "new": "ii-medical:8b"}}',
+    )
+    res = AdminAuditLogsResponse(
+        items=[item],
+        total=1,
+        critical_count=0,
+        warning_count=1,
+    )
+    assert len(res.items) == 1
+    assert res.items[0].action == "admin.ai_model_switched"
+    assert res.items[0].severity == "warning"
+    assert res.safety_watermark == "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED"
+
+
+@pytest.mark.asyncio
+async def test_admin_user_update_self_guard():
+    """Verify that administrators cannot demote or suspend themselves (safety guard)."""
+    import uuid
+    from unittest.mock import AsyncMock, MagicMock
+    from fastapi import HTTPException
+    from app.api.v1.endpoints.admin import update_user, UpdateUserRequest
+    from app.models.user import User
+
+    admin_id = uuid.uuid4()
+    admin_user = MagicMock(spec=User)
+    admin_user.id = admin_id
+    admin_user.email = "admin@example.com"
+    admin_user.role = "admin"
+    admin_user.is_active = True
+
+    mock_db = AsyncMock()
+    mock_db.get.return_value = admin_user
+
+    # Attempting to suspend own account
+    with pytest.raises(HTTPException) as exc_info:
+        await update_user(
+            user_id=admin_id,
+            payload=UpdateUserRequest(is_active=False),
+            db=mock_db,
+            _current_admin=admin_user,
+        )
+    assert exc_info.value.status_code == 400
+    assert "suspend their own account" in exc_info.value.detail
+
+    # Attempting to change own role
+    with pytest.raises(HTTPException) as exc_info2:
+        await update_user(
+            user_id=admin_id,
+            payload=UpdateUserRequest(role="doctor"),
+            db=mock_db,
+            _current_admin=admin_user,
+        )
+    assert exc_info2.value.status_code == 400
+    assert "cannot modify their own" in exc_info2.value.detail
+
+
+@pytest.mark.asyncio
+async def test_probe_ai_engine_when_circuit_breaker_open():
+    """Verify that probe_ai_engine immediately returns fallback when circuit breaker is tripped."""
+    from unittest.mock import MagicMock
+    from app.api.v1.endpoints.admin import probe_ai_engine, ProbeAIResponse
+    from app.services.llm_service import _circuit_breaker
+    from app.models.user import User
+
+    admin_user = MagicMock(spec=User)
+
+    try:
+        # Trip the circuit breaker
+        _circuit_breaker.set_force_open(True)
+
+        res = await probe_ai_engine(_current_admin=admin_user)
+        assert isinstance(res, ProbeAIResponse)
+        assert res.ok is False
+        assert res.mode == "static_kb_fallback"
+        assert "CIRCUIT BREAKER OPEN" in res.response
+        assert res.latency_ms >= 0
+    finally:
+        _circuit_breaker.reset()
+
+
+def test_probe_ai_response_schema():
+    """Verify ProbeAIResponse schema validation with token speed calculations."""
+    from app.api.v1.endpoints.admin import ProbeAIResponse
+
+    probe = ProbeAIResponse(
+        ok=True,
+        model="ii-medical:8b",
+        prompt="Clinical Probe Test",
+        response="SYSTEM OPERATIONAL ii-medical:8b",
+        latency_ms=124.5,
+        tokens_evaluated=12,
+        tokens_generated=8,
+        eval_rate_tok_per_sec=38.4,
+        mode="llm_active",
+        timestamp="2026-09-30T16:00:00Z",
+    )
+    assert probe.ok is True
+    assert probe.model == "ii-medical:8b"
+    assert probe.latency_ms == 124.5
+    assert probe.eval_rate_tok_per_sec == 38.4
+    assert probe.safety_watermark == "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED"
+
+
+

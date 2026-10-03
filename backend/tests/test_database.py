@@ -438,12 +438,20 @@ class TestAlembicMigration:
 
         get_settings.cache_clear()
 
+    def _get_alembic_config(self):
+        from pathlib import Path
+        from alembic.config import Config
+        backend_dir = Path(__file__).resolve().parent.parent
+        ini_path = backend_dir / "alembic.ini"
+        cfg = Config(str(ini_path))
+        cfg.set_main_option("script_location", str(backend_dir / "migrations"))
+        return cfg
+
     def test_alembic_upgrade_to_head(self) -> None:
         """Migration upgrade must complete without error."""
         from alembic import command
-        from alembic.config import Config
 
-        command.upgrade(Config("alembic.ini"), "head")
+        command.upgrade(self._get_alembic_config(), "head")
 
     def test_alembic_current_reports_head(self) -> None:
         """After upgrade, alembic current must reference revision 0001."""
@@ -452,7 +460,7 @@ class TestAlembicMigration:
         from alembic import command
         from alembic.config import Config
 
-        cfg = Config("alembic.ini")
+        cfg = self._get_alembic_config()
         buf = StringIO()
         cfg.stdout = buf
         command.current(cfg)
@@ -464,11 +472,11 @@ class TestAlembicMigration:
         from alembic import command
         from alembic.config import Config
 
-        command.downgrade(Config("alembic.ini"), "base")
+        command.downgrade(self._get_alembic_config(), "-1")
 
     def test_alembic_reupgrade_after_downgrade(self) -> None:
         """Re-upgrade after downgrade must succeed (idempotent IF NOT EXISTS)."""
         from alembic import command
         from alembic.config import Config
 
-        command.upgrade(Config("alembic.ini"), "head")
+        command.upgrade(self._get_alembic_config(), "head")

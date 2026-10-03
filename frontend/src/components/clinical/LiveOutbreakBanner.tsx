@@ -251,7 +251,7 @@ export function LiveOutbreakBanner() {
           </span>
           <button
             onClick={() => setExpanded(e => !e)}
-            className="text-[10px] font-extrabold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl transition-all shadow-xs hover:shadow hover:scale-105 active:scale-95"
+            className="text-[10px] font-extrabold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl transition-all shadow-xs hover:shadow"
           >
             {expanded ? "▲ Close" : "▼ Details"}
           </button>
@@ -270,14 +270,14 @@ export function LiveOutbreakBanner() {
           >
             <div className="mt-2 bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
               {/* Panel header */}
-              <div className="px-5 py-3 bg-gradient-to-r from-slate-900 to-slate-800 flex items-center justify-between">
+              <div className="px-5 py-3.5 bg-white border-b border-slate-200/90 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Globe className="w-5 h-5 text-blue-400 shrink-0" />
+                  <Globe className="w-5 h-5 text-blue-600 shrink-0" />
                   <div>
-                    <h3 className="text-white font-black text-sm tracking-tight leading-none">
+                    <h3 className="text-slate-900 font-black text-sm tracking-tight leading-none font-heading">
                       Live Disease Intelligence
                     </h3>
-                    <p className="text-slate-400 text-[10px] mt-0.5 font-medium">
+                    <p className="text-slate-500 text-[10px] mt-0.5 font-medium">
                       Auto-updating from WHO · CDC · ProMED-mail · ECDC · ReliefWeb
                     </p>
                   </div>

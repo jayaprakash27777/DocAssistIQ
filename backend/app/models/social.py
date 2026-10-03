@@ -29,6 +29,9 @@ class DoctorPost(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     poll_question: Mapped[str | None] = mapped_column(Text, nullable=True)
     poll_options: Mapped[list] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=False, server_default="[]")
     is_urgent: Mapped[bool] = mapped_column(default=False, server_default="false")
+    patient_outcome: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_solved: Mapped[bool] = mapped_column(default=False, server_default="false")
+    outcome_reported_at: Mapped[str | None] = mapped_column(String(50), nullable=True)
     quoted_post_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("doctor_posts.id", ondelete="SET NULL"),
@@ -36,11 +39,14 @@ class DoctorPost(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         index=True
     )
 
-    # Relationships
     attachments: Mapped[list["PostAttachment"]] = relationship("PostAttachment", back_populates="post", cascade="all, delete-orphan")
     likes: Mapped[list["PostLike"]] = relationship("PostLike", back_populates="post", cascade="all, delete-orphan")
     comments: Mapped[list["PostComment"]] = relationship("PostComment", back_populates="post", cascade="all, delete-orphan", order_by="PostComment.created_at")
     bookmarks: Mapped[list["PostBookmark"]] = relationship("PostBookmark", back_populates="post", cascade="all, delete-orphan")
+    treatment_suggestions: Mapped[list["PostTreatmentSuggestion"]] = relationship(
+        "PostTreatmentSuggestion", back_populates="post", cascade="all, delete-orphan", order_by="PostTreatmentSuggestion.created_at"
+    )
+
 
 class PostAttachment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """File attachments (e.g., X-rays, CT Scans) linked to a doctor post."""
@@ -135,6 +141,31 @@ class PostComment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     post: Mapped["DoctorPost"] = relationship("DoctorPost", back_populates="comments")
 
+class PostTreatmentSuggestion(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Structured clinical treatment suggestions submitted by peer verified doctors."""
+    __tablename__ = "post_treatment_suggestions"
+
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctor_posts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    author_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctors.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    drug_or_intervention: Mapped[str] = mapped_column(String(255), nullable=False)
+    dosage_and_route: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    clinical_rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_grade: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    endorsements_count: Mapped[int] = mapped_column(default=0, server_default="0")
+    is_adopted: Mapped[bool] = mapped_column(default=False, server_default="false")
+
+    post: Mapped["DoctorPost"] = relationship("DoctorPost", back_populates="treatment_suggestions")
+
 class PostBookmark(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Bookmarks on a doctor post by other verified doctors for later review."""
     __tablename__ = "post_bookmarks"
@@ -152,6 +183,7 @@ class PostBookmark(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         index=True
     )
+    folder_name: Mapped[str] = mapped_column(String(100), default="General", server_default="General")
 
     post: Mapped["DoctorPost"] = relationship("DoctorPost", back_populates="bookmarks")
 
@@ -172,4 +204,30 @@ class DoctorFollow(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         index=True
     )
+
+class CurbsideMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Secure doctor-to-doctor curbside direct consultation linked to a clinical case."""
+    __tablename__ = "curbside_messages"
+
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctor_posts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    sender_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctors.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    receiver_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("doctors.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    is_read: Mapped[bool] = mapped_column(default=False, server_default="false")
+
 

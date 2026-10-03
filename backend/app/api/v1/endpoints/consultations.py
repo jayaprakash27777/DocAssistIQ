@@ -6,7 +6,7 @@ Provides a validated state machine for the consultation lifecycle.
 import uuid
 from typing import Any, Dict, List, Optional, Union
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +28,9 @@ from app.services.audit_service import log_event
 from app.services.export_service import export_service
 from app.schemas.note import ClinicalNoteResponse, ClinicalNoteUpdate
 from app.schemas.consultation import ConsultationEventCreate, ConsultationEventResponse
+from app.schemas.investigation import InvestigationResponse
+from app.schemas.medication import MedicationResponse
+from app.schemas.pubmed import PubMedScannerResponse
 
 router = APIRouter(prefix="/consultations", tags=["Consultations"])
 
@@ -176,6 +179,105 @@ async def list_consultations(
             db, doctor.id, limit=eff_limit, offset=eff_offset
         )
         return consultations
+
+
+# ------------------------------------------------------------------
+# Reference Intelligence Routes (Static paths must precede /{consultation_id})
+# ------------------------------------------------------------------
+
+@router.get("/investigations", response_model=InvestigationResponse)
+@router.get("/{consultation_id}/investigations", response_model=InvestigationResponse)
+async def get_investigations_for_disease(
+    disease: str,
+    consultation_id: Optional[str] = None,
+    competing: list[str] = Query(default=[]),
+    doctor: Optional[Doctor] = Depends(get_optional_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Phase 44: Returns reference intelligence for investigations."""
+    from app.services.investigation_service import investigation_provider
+    from app.services.representation_service import build_clinical_representation
+    
+    rep = None
+    if consultation_id:
+        try:
+            cid = uuid.UUID(consultation_id)
+            consultation = await db.scalar(select(Consultation).where(Consultation.id == cid))
+            if consultation and doctor and consultation.doctor_id != doctor.id:
+                raise HTTPException(status_code=403, detail="Unauthorized")
+            if consultation:
+                rep = await build_clinical_representation(db, cid)
+        except (ValueError, TypeError):
+            pass
+        
+    return await investigation_provider.get_investigations(db, disease, rep, competing)
+
+
+@router.get("/medications", response_model=MedicationResponse)
+@router.get("/{consultation_id}/medications", response_model=MedicationResponse)
+async def get_medications_for_disease(
+    disease: str,
+    consultation_id: Optional[str] = None,
+    doctor: Optional[Doctor] = Depends(get_optional_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Phase 45: Returns reference intelligence for medications."""
+    from app.services.medication_service import medication_provider
+    from app.services.representation_service import build_clinical_representation
+    from app.services.safety_engine import safety_engine
+    from app.models.patient_profile import PatientProfile
+    from app.models.patient import PatientSession
+    
+    rep = None
+    patient_profile = None
+    if consultation_id:
+        try:
+            cid = uuid.UUID(consultation_id)
+            consultation = await db.scalar(select(Consultation).where(Consultation.id == cid))
+            if consultation and doctor and consultation.doctor_id != doctor.id:
+                raise HTTPException(status_code=403, detail="Unauthorized")
+            if consultation:
+                rep = await build_clinical_representation(db, cid)
+                if consultation.patient_session_id:
+                    stmt = (
+                        select(PatientProfile)
+                        .join(PatientSession, PatientProfile.id == PatientSession.patient_profile_id)
+                        .where(PatientSession.id == consultation.patient_session_id)
+                    )
+                    patient_profile = await db.scalar(stmt)
+        except (ValueError, TypeError):
+            pass
+        
+    response = await medication_provider.get_medications(db, disease)
+    if rep:
+        for item in response.suggestions:
+            safety_decision = await safety_engine.evaluate_medication(item, rep, patient_profile)
+            item.safety_decision = safety_decision
+            
+    return response
+
+
+@router.get("/pubmed-scanner", response_model=PubMedScannerResponse)
+@router.get("/{consultation_id}/pubmed-scanner", response_model=PubMedScannerResponse)
+async def get_pubmed_controversies(
+    disease: str,
+    consultation_id: Optional[str] = None,
+    doctor: Optional[Doctor] = Depends(get_optional_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """PubMed Bleeding-Edge Controversy Scanner"""
+    from app.services.pubmed_scanner_service import pubmed_scanner_service
+    
+    if consultation_id:
+        try:
+            cid = uuid.UUID(consultation_id)
+            consultation = await db.scalar(select(Consultation).where(Consultation.id == cid))
+            if consultation and doctor and consultation.doctor_id != doctor.id:
+                raise HTTPException(status_code=403, detail="Unauthorized")
+        except (ValueError, TypeError):
+            pass
+        
+    return await pubmed_scanner_service.scan_for_controversies(disease)
 
 
 @router.get("/{consultation_id}", response_model=ConsultationResponse)
@@ -434,15 +536,14 @@ async def get_differential_diagnosis(
             for f in parsed["positive_findings"]:
                 if not any(item.value.lower() == f.lower() for item in rep.symptoms):
                     rep.symptoms.append(
-                        RepresentationItem(value=f, concept=None, status=None, provenances=[prov])
+                        RepresentationItem(value=f, concept="symptom", status="confirmed", provenances=[prov])
                     )
-        elif not rep.symptoms:
-            user_symptoms = [s.strip() for s in notes_to_parse.split(",") if s.strip()]
-            for sym in user_symptoms:
-                if not any(item.value.lower() == sym.lower() for item in rep.symptoms):
-                    rep.symptoms.append(
-                        RepresentationItem(value=sym, concept=None, status=None, provenances=[prov])
-                    )
+        user_symptoms = [s.strip() for s in notes_to_parse.split(",") if s.strip()]
+        for sym in user_symptoms:
+            if not any(item.value.lower() == sym.lower() for item in rep.symptoms):
+                rep.symptoms.append(
+                    RepresentationItem(value=sym, concept="symptom", status="confirmed", provenances=[prov])
+                )
 
         if parsed.get("negated_findings"):
             for nf in parsed["negated_findings"]:
@@ -472,11 +573,11 @@ async def get_differential_diagnosis(
     try:
         response = await asyncio.wait_for(
             provider.generate_differential(db, rep),
-            timeout=10.0,  # real-time budget: deterministic instant + fast LLM narrative
+            timeout=12.0,  # real-time budget: deterministic instant + fast LLM narrative
         )
     except asyncio.TimeoutError:
-        # Absolute fallback: very fast deterministic only
-        from app.services.diagnosis_provider import _extract_fields
+        # Fast deterministic fallback enriched with open-domain medical intelligence
+        from app.services.diagnosis_provider import _extract_fields, _deterministic_explanation, _enrich_candidate_actions
         from app.services.clinical_reasoning_engine import clinical_reasoning_engine
         from app.schemas.diagnosis import DifferentialDiagnosisItem
 
@@ -489,14 +590,13 @@ async def get_differential_diagnosis(
                 days_since_return=fields["days_since_return"],
                 top_n=5,
             )
-            from app.services.diagnosis_provider import _deterministic_explanation, _enrich_candidate_actions
             candidates = []
             for sc in scored:
                 actions = _enrich_candidate_actions(sc.disease)
                 candidates.append(
                     DifferentialDiagnosisItem(
                         disease=sc.disease,
-                        score=round(sc.score, 3),
+                        score=round(min(sc.score, 0.99), 3),
                         supporting_findings=sc.supporting_findings,
                         missing_expected_findings=sc.missing_expected_findings,
                         contradicting_information=sc.contradicting_information,
@@ -508,6 +608,44 @@ async def get_differential_diagnosis(
                         first_line_treatment=actions["first_line_treatment"],
                     )
                 )
+
+            # Enrich fallback with universal open-domain medical engine
+            try:
+                from app.services.open_domain_medical_engine import open_domain_engine
+                open_matches = open_domain_engine.find_open_domain_matches(
+                    patient_symptoms=fields["patient_symptoms"],
+                    raw_text=" ".join(fields["patient_symptoms"]) + " " + fields["history_str"],
+                    top_k=3,
+                )
+                for om in open_matches:
+                    d_name = om["disease"]
+                    if not any(c.disease.lower() == d_name.lower() for c in candidates):
+                        om_score = float(om.get("score", 0.80))
+                        if om_score >= 0.70 or len(candidates) < 4:
+                            actions = _enrich_candidate_actions(d_name)
+                            candidates.append(
+                                DifferentialDiagnosisItem(
+                                    disease=d_name,
+                                    score=round(min(om_score, 0.96), 3),
+                                    supporting_findings=om.get("supporting_findings", [])[:6],
+                                    missing_expected_findings=om.get("missing_findings", [])[:3],
+                                    contradicting_information=[],
+                                    uncertainty="Moderate" if om_score >= 0.75 else "High",
+                                    explanation_reference=f"[Universal Medical Engine] {om.get('clinical_rationale', '')}",
+                                    geographic_match=False,
+                                    incubation_fit=None,
+                                    immediate_tests=actions["immediate_tests"] or om.get("immediate_tests", [])[:4],
+                                    recommended_investigations=actions["recommended_investigations"] or om.get("recommended_investigations", [])[:6],
+                                    recommended_medications=actions["recommended_medications"] or om.get("recommended_medications", [])[:4],
+                                    first_line_treatment=actions["first_line_treatment"] or om.get("first_line_treatment") or "Guideline-directed medical therapy",
+                                )
+                            )
+            except Exception:
+                pass
+
+            candidates.sort(key=lambda x: x.score, reverse=True)
+            candidates = candidates[:5]
+
             from app.schemas.diagnosis import DifferentialDiagnosisResponse
             response = DifferentialDiagnosisResponse(
                 consultation_id=str(consultation_id),
@@ -657,24 +795,36 @@ async def predict_realtime_consultation_endpoint(
     if not consultation or consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=403, detail="Unauthorized")
 
-    sym_input: str | list[str] = []
-    neg_list = []
-    countries = []
+    rep = await build_clinical_representation(db, consultation_id)
+    sym_list = [item.value for item in rep.symptoms if not getattr(item, "negated", False)]
+    neg_list = [item.value for item in rep.negations] if rep.negations else []
+    countries = [item.value for item in rep.travel_history if item.value.lower() != "none"] if rep.travel_history else []
 
-    # If symptoms query param is provided, pass directly so clinical note parser can analyze it
     if symptoms.strip():
-        sym_input = symptoms
+        from app.services.clinical_note_parser import clinical_note_parser
+        parsed = clinical_note_parser.parse(symptoms.strip())
+        for f in parsed.get("positive_findings", []):
+            if f.lower() not in [s.lower() for s in sym_list]:
+                sym_list.append(f)
+        for s in symptoms.split(","):
+            s_clean = s.strip()
+            if s_clean and s_clean.lower() not in [x.lower() for x in sym_list]:
+                sym_list.append(s_clean)
+        for nf in parsed.get("negated_findings", []):
+            if nf.lower() not in [n.lower() for n in neg_list]:
+                neg_list.append(nf)
+        for th in parsed.get("travel_history", []):
+            if th not in countries:
+                countries.append(th)
     elif consultation.input_text and consultation.input_text.strip():
-        sym_input = consultation.input_text
-    else:
-        rep = await build_clinical_representation(db, consultation_id)
-        sym_input = [item.value for item in rep.symptoms if not getattr(item, "negated", False)]
-        neg_list = [item.value for item in rep.negations] if rep.negations else []
-        if rep.travel_history:
-            countries = [item.value for item in rep.travel_history if item.value.lower() != "none"]
+        from app.services.clinical_note_parser import clinical_note_parser
+        parsed = clinical_note_parser.parse(consultation.input_text.strip())
+        for f in parsed.get("positive_findings", []):
+            if f.lower() not in [s.lower() for s in sym_list]:
+                sym_list.append(f)
 
     res = realtime_prediction_service.predict(
-        symptoms=sym_input,
+        symptoms=sym_list,
         negated_symptoms=neg_list,
         travel_history=countries,
         consultation_id=str(consultation_id),
@@ -684,47 +834,8 @@ async def predict_realtime_consultation_endpoint(
 
 
 
-from app.schemas.investigation import InvestigationResponse
-
-@router.get("/{consultation_id}/investigations", response_model=InvestigationResponse)
-async def get_investigations_for_disease(
-    consultation_id: uuid.UUID,
-    disease: str,
-    competing: list[str] = Query(default=[]),
-    doctor: Doctor = Depends(get_current_doctor_profile),
-    db: AsyncSession = Depends(get_db),
-):
-    """Phase 44: Returns reference intelligence for investigations."""
-    from app.services.investigation_service import investigation_provider
-    from app.services.representation_service import build_clinical_representation
-    
-    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
-    if consultation and consultation.doctor_id != doctor.id:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-        
-    rep = await build_clinical_representation(db, consultation_id) if consultation else None
-    return await investigation_provider.get_investigations(db, disease, rep, competing)
-
-from app.schemas.medication import MedicationResponse
 from app.schemas.early_warning import EarlyWarningResponse
 from app.schemas.epidemiology import EpiRadarResponse
-from app.schemas.pubmed import PubMedScannerResponse
-
-@router.get("/{consultation_id}/pubmed-scanner", response_model=PubMedScannerResponse)
-async def get_pubmed_controversies(
-    consultation_id: uuid.UUID,
-    disease: str,
-    doctor: Doctor = Depends(get_current_doctor_profile),
-    db: AsyncSession = Depends(get_db),
-):
-    """PubMed Bleeding-Edge Controversy Scanner"""
-    from app.services.pubmed_scanner_service import pubmed_scanner_service
-    
-    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
-    if consultation and consultation.doctor_id != doctor.id:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-        
-    return await pubmed_scanner_service.scan_for_controversies(disease)
 
 @router.get("/{consultation_id}/epi-radar", response_model=EpiRadarResponse)
 async def get_epi_radar_surveillance(
@@ -759,43 +870,6 @@ async def get_early_warning_evaluation(
         
     rep = await build_clinical_representation(db, consultation_id)
     return await early_warning_service.evaluate_deterioration_risk(db, consultation_id, rep)
-
-@router.get("/{consultation_id}/medications", response_model=MedicationResponse)
-async def get_medications_for_disease(
-    consultation_id: uuid.UUID,
-    disease: str,
-    doctor: Doctor = Depends(get_current_doctor_profile),
-    db: AsyncSession = Depends(get_db),
-):
-    """Phase 45: Returns reference intelligence for medications."""
-    from app.services.medication_service import medication_provider
-    from app.services.representation_service import build_clinical_representation
-    from app.services.safety_engine import safety_engine
-    from app.models.patient_profile import PatientProfile
-    from app.models.patient import PatientSession
-    
-    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
-    if consultation and consultation.doctor_id != doctor.id:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-        
-    response = await medication_provider.get_medications(db, disease)
-    if consultation:
-        rep = await build_clinical_representation(db, consultation_id)
-        patient_profile = None
-        if consultation.patient_session_id:
-            stmt = (
-                select(PatientProfile)
-                .join(PatientSession, PatientProfile.id == PatientSession.patient_profile_id)
-                .where(PatientSession.id == consultation.patient_session_id)
-            )
-            patient_profile = await db.scalar(stmt)
-        
-        # Phase 46: Evaluate safety for each medication candidate
-        for item in response.suggestions:
-            safety_decision = await safety_engine.evaluate_medication(item, rep, patient_profile)
-            item.safety_decision = safety_decision
-            
-    return response
 
 @router.get("/{consultation_id}/export")
 async def export_consultation(
@@ -1055,3 +1129,298 @@ async def evaluate_clinical_criteria_custom(
         criteria_results=items,
         safety_disclaimer="REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
     )
+
+
+# ---------------------------------------------------------------------------
+# Grounded Doctor Notes Q&A Endpoint
+# ---------------------------------------------------------------------------
+
+class ConsultationQARequest(BaseModel):
+    query: str
+    notes: Optional[str] = None
+    top_k: int = 5
+
+
+@router.post("/{consultation_id}/ask")
+async def ask_consultation_notes(
+    consultation_id: uuid.UUID,
+    payload: ConsultationQARequest,
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Answer any clinician question specifically grounded in the consultation's doctor notes,
+    SOAP documentation, clinical findings, and transcript with verifiable citations.
+    """
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    from app.services.doctor_notes_qa_service import doctor_notes_qa_service
+    res = await doctor_notes_qa_service.answer_question(
+        query=payload.query,
+        consultation_id=str(consultation_id),
+        notes_text=payload.notes or consultation.input_text,
+        db=db,
+        top_k=payload.top_k,
+    )
+    return res
+
+
+# ---------------------------------------------------------------------------
+# Direct Consultation Audio Transcription Endpoint (100% Fail-Safe)
+# ---------------------------------------------------------------------------
+
+class AudioBase64Payload(BaseModel):
+    audio_base64: str
+    mime_type: Optional[str] = "audio/webm"
+
+
+@router.post("/{consultation_id}/transcribe")
+async def transcribe_consultation_audio(
+    consultation_id: uuid.UUID,
+    audio_file: Optional[UploadFile] = File(None),
+    payload: Optional[AudioBase64Payload] = None,
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Directly transcribe consultation audio (WebM, WAV, MP4, MP3).
+    Transcribes audio with faster-whisper, performs speaker diarization,
+    saves transcript and segments to database, and extracts clinical findings.
+    """
+    import base64
+    from app.services.asr_service import asr_service
+    from app.models.transcript import Transcript, TranscriptSegment
+    from app.models.clinical import ClinicalFinding
+    from app.services.representation_service import _extract_from_text
+
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation or consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    raw_audio_bytes: bytes = b""
+    if audio_file:
+        raw_audio_bytes = await audio_file.read()
+    elif payload and payload.audio_base64:
+        clean_b64 = payload.audio_base64.split(",")[-1].strip()
+        raw_audio_bytes = base64.b64decode(clean_b64)
+
+    if not raw_audio_bytes:
+        raise HTTPException(status_code=400, detail="No audio data received. Provide audio_file or audio_base64.")
+
+    # Run ASR + Diarization
+    result = await asr_service.transcribe_audio_bytes(raw_audio_bytes)
+    full_text = result.get("text", "").strip()
+    segments = result.get("segments", [])
+
+    if not full_text and not segments:
+        return {
+            "status": "ready",
+            "text": "",
+            "segments": [],
+            "message": "No audible speech recognized in the recording.",
+        }
+
+    # Overwrite / update transcript in DB
+    existing = await db.scalar(select(Transcript).where(Transcript.consultation_id == consultation_id))
+    if existing:
+        await db.delete(existing)
+
+    transcript_record = Transcript(
+        consultation_id=consultation_id,
+        status="ready",
+    )
+    db.add(transcript_record)
+    await db.flush()
+
+    for seg in segments:
+        s_rec = TranscriptSegment(
+            transcript_id=transcript_record.id,
+            start_time=float(seg.get("start", 0.0)),
+            end_time=float(seg.get("end", 0.0)),
+            speaker_label=seg.get("speaker") or "Speaker",
+            speaker_confidence=float(seg.get("confidence", 0.85)),
+            speaker_source=seg.get("source", "acoustic+heuristic"),
+            raw_text=seg.get("text", ""),
+            processed_text=seg.get("text", ""),
+        )
+        db.add(s_rec)
+
+    # Automatically extract clinical findings from speech
+    if full_text:
+        consultation.input_text = (consultation.input_text + "\n" + full_text).strip() if consultation.input_text else full_text
+        extracted = _extract_from_text(full_text)
+        for s in extracted.get("symptoms", []):
+            name = s.get("name", "") if isinstance(s, dict) else str(s)
+            if name:
+                db.add(ClinicalFinding(
+                    consultation_id=consultation_id,
+                    finding_type="symptom",
+                    finding_text=name,
+                    value=name,
+                    is_ai_suggested=True,
+                    is_clinician_confirmed=False,
+                    status="pending",
+                    confidence_score=0.90,
+                ))
+
+    await db.commit()
+
+    return {
+        "status": "ready",
+        "text": full_text,
+        "segments": segments,
+        "duration": result.get("duration", 0),
+        "consultation_id": str(consultation_id),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Certified Clinical Documents & Digital Signature Endpoints
+# ---------------------------------------------------------------------------
+
+class DocumentGenerateRequest(BaseModel):
+    document_type: str = "discharge_summary"  # discharge_summary | medical_certificate | care_plan
+    custom_instructions: Optional[str] = None
+
+
+@router.post("/{consultation_id}/documents/generate")
+async def generate_certified_clinical_document(
+    consultation_id: uuid.UUID,
+    payload: Optional[DocumentGenerateRequest] = None,
+    doctor: Optional[Doctor] = Depends(get_optional_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate certified clinical documents (Discharge Summary, Medical Certificate, Care Plan)
+    with cryptographic SHA-256 digital signature and live EHR context.
+    """
+    from app.services.clinical_document_service import clinical_document_service
+
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation:
+        raise HTTPException(status_code=404, detail="Consultation not found")
+    if doctor and consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    doc_type = (payload.document_type if payload else "discharge_summary") or "discharge_summary"
+    custom_inst = payload.custom_instructions if payload else None
+
+    doc_data = await clinical_document_service.build_document_data(
+        db, consultation_id, doc_type, custom_instructions=custom_inst
+    )
+    sig = doc_data.get("digital_signature", {})
+
+    pdf_url = f"/api/v1/consultations/{consultation_id}/documents/{doc_type}/pdf"
+    docx_url = f"/api/v1/consultations/{consultation_id}/documents/{doc_type}/docx"
+
+    return {
+        "status": "success",
+        "document_type": doc_type,
+        "title": doc_data["title"],
+        "subtitle": doc_data["subtitle"],
+        "document_id": doc_data["document_id"],
+        "formatted_date": doc_data["formatted_date"],
+        "leave_period": doc_data.get("leave_period"),
+        "patient": doc_data["patient"],
+        "clinician": doc_data["clinician"],
+        "digital_signature": sig,
+        "pdf_download_url": pdf_url,
+        "docx_download_url": docx_url,
+        "sections": doc_data["sections"],
+    }
+
+
+@router.get("/{consultation_id}/documents/{doc_type}/pdf")
+async def download_clinical_document_pdf(
+    consultation_id: uuid.UUID,
+    doc_type: str,
+    doctor: Optional[Doctor] = Depends(get_optional_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Download certified clinical document as a digitally signed, high-grade hospital PDF.
+    """
+    from app.services.clinical_document_service import clinical_document_service
+    from fastapi import Response
+
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation:
+        raise HTTPException(status_code=404, detail="Consultation not found")
+    if doctor and consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    doc_data = await clinical_document_service.build_document_data(db, consultation_id, doc_type)
+    pdf_bytes = clinical_document_service.generate_pdf(doc_data)
+
+    clean_name = doc_type.replace('_', '-').title()
+    filename = f"{clean_name}_{str(consultation_id)[:8]}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{consultation_id}/documents/{doc_type}/docx")
+async def download_clinical_document_docx(
+    consultation_id: uuid.UUID,
+    doc_type: str,
+    doctor: Optional[Doctor] = Depends(get_optional_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Download certified clinical document as an executive Microsoft Word (.docx) file with digital signature.
+    """
+    from app.services.clinical_document_service import clinical_document_service
+    from fastapi import Response
+
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation:
+        raise HTTPException(status_code=404, detail="Consultation not found")
+    if doctor and consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    doc_data = await clinical_document_service.build_document_data(db, consultation_id, doc_type)
+    docx_bytes = clinical_document_service.generate_docx(doc_data)
+
+    clean_name = doc_type.replace('_', '-').title()
+    filename = f"{clean_name}_{str(consultation_id)[:8]}.docx"
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{consultation_id}/timeline/summary")
+async def get_consultation_timeline_summary(
+    consultation_id: uuid.UUID,
+    doctor: Optional[Doctor] = Depends(get_optional_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Return chronological consultation timeline events, audits, and consent history.
+    """
+    from app.services.clinical_document_service import clinical_document_service
+
+    consultation = await db.scalar(select(Consultation).where(Consultation.id == consultation_id))
+    if not consultation:
+        raise HTTPException(status_code=404, detail="Consultation not found")
+    if doctor and consultation.doctor_id != doctor.id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    ctx = await clinical_document_service.get_document_context(db, consultation_id)
+    return {
+        "consultation_id": str(consultation_id),
+        "status": consultation.status,
+        "admission_date": ctx.get("admission_date_str"),
+        "patient": ctx.get("patient"),
+        "doctor": ctx.get("doctor"),
+        "audit_events": ctx.get("audit_events", []),
+        "consent_records": ctx.get("consent_records", []),
+    }
+
+
+

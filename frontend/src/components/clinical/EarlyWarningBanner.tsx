@@ -104,21 +104,21 @@ export default function EarlyWarningBanner({ consultationId, trigger }: { consul
               <div>
                 <h4 className="text-xs font-black uppercase tracking-wider mb-3 text-slate-700">Deterministic Clinical Scores</h4>
                 <div className="grid grid-cols-4 gap-2.5 mb-5">
-                  <div className="bg-slate-900 text-white p-3 rounded-2xl text-center shadow-md">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">NEWS2</span>
-                    <span className={`text-2xl font-black ${data.news2_score >= 5 ? "text-rose-400" : "text-teal-300"}`}>{data.news2_score}</span>
+                  <div className="bg-white border border-slate-200/90 text-slate-900 p-3 rounded-2xl text-center shadow-xs">
+                    <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">NEWS2</span>
+                    <span className={`text-2xl font-black ${data.news2_score >= 5 ? "text-rose-600" : "text-teal-700"}`}>{data.news2_score}</span>
                   </div>
-                  <div className="bg-slate-900 text-white p-3 rounded-2xl text-center shadow-md">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">SIRS</span>
-                    <span className={`text-2xl font-black ${data.sirs_score >= 2 ? "text-rose-400" : "text-teal-300"}`}>{data.sirs_score}/4</span>
+                  <div className="bg-white border border-slate-200/90 text-slate-900 p-3 rounded-2xl text-center shadow-xs">
+                    <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">SIRS</span>
+                    <span className={`text-2xl font-black ${data.sirs_score >= 2 ? "text-rose-600" : "text-teal-700"}`}>{data.sirs_score}/4</span>
                   </div>
-                  <div className="bg-slate-900 text-white p-3 rounded-2xl text-center shadow-md">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">MEWS</span>
-                    <span className={`text-2xl font-black ${data.mews_score >= 4 ? "text-rose-400" : "text-teal-300"}`}>{data.mews_score}</span>
+                  <div className="bg-white border border-slate-200/90 text-slate-900 p-3 rounded-2xl text-center shadow-xs">
+                    <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">MEWS</span>
+                    <span className={`text-2xl font-black ${data.mews_score >= 4 ? "text-rose-600" : "text-teal-700"}`}>{data.mews_score}</span>
                   </div>
-                  <div className="bg-slate-900 text-white p-3 rounded-2xl text-center shadow-md">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">qSOFA</span>
-                    <span className={`text-2xl font-black ${data.qsofa_score >= 2 ? "text-rose-400" : "text-teal-300"}`}>{data.qsofa_score}</span>
+                  <div className="bg-white border border-slate-200/90 text-slate-900 p-3 rounded-2xl text-center shadow-xs">
+                    <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">qSOFA</span>
+                    <span className={`text-2xl font-black ${data.qsofa_score >= 2 ? "text-rose-600" : "text-teal-700"}`}>{data.qsofa_score}</span>
                   </div>
                 </div>
                 

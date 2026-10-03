@@ -165,7 +165,7 @@ export default function RAGAssistant() {
                   const isDone = idx < loadingPhase;
                   
                   return (
-                    <div key={idx} className={`flex items-center gap-4 transition-all duration-500 ${isActive ? 'opacity-100 scale-105 transform origin-left' : isDone ? 'opacity-50' : 'opacity-40'}`}>
+                    <div key={idx} className={`flex items-center gap-4 transition-all duration-300 ${isActive ? 'opacity-100' : isDone ? 'opacity-60' : 'opacity-40'}`}>
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         isActive ? 'bg-[var(--color-primary-50)] text-[var(--color-primary-600)] border border-[var(--color-primary-200)]' : 
                         isDone ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 

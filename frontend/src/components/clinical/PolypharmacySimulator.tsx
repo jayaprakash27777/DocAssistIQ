@@ -70,28 +70,28 @@ export default function PolypharmacySimulator({
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="bg-white/95 w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.95)] border border-slate-200/90 flex flex-col overflow-hidden glass-panel-4k gpu-accelerated"
+        className="bg-white w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.95)] border border-slate-200/90 flex flex-col overflow-hidden glass-panel-4k gpu-accelerated"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-md relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-teal-500/10 via-indigo-500/10 to-purple-500/10 pointer-events-none" />
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 bg-gradient-to-r from-teal-50/90 via-white to-indigo-50/80 text-slate-900 shadow-xs relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-teal-500/5 via-indigo-500/5 to-purple-500/5 pointer-events-none" />
           <div className="flex items-center gap-3.5 relative z-10">
-            <div className="p-2.5 bg-gradient-to-br from-teal-400 to-indigo-500 rounded-2xl shadow-lg shadow-teal-500/30 ring-1 ring-white/30 text-white">
+            <div className="p-2.5 bg-gradient-to-br from-teal-500 to-indigo-600 rounded-2xl shadow-md shadow-teal-500/20 text-white">
               <Dna className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-white m-0">Polypharmacy & Pharmacogenomics Simulator</h2>
-              <p className="text-xs text-slate-300 m-0">Simulate complex multi-drug regimens, CYP450 metabolism, and receptor interactions in real-time.</p>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 m-0">Polypharmacy & Pharmacogenomics Simulator</h2>
+              <p className="text-xs text-slate-600 m-0">Simulate complex multi-drug regimens, CYP450 metabolism, and receptor interactions in real-time.</p>
             </div>
           </div>
           <button 
             onClick={onClose} 
-            className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors relative z-10"
+            className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors relative z-10"
             title="Close simulator"
           >
             <X className="w-5 h-5" />

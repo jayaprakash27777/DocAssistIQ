@@ -70,7 +70,7 @@ export default function PatientsDashboard() {
         <motion.div variants={itemVariants}>
           <Link
             href="/patients/new"
-            className="flex items-center gap-2 bg-gradient-to-r from-[var(--color-primary-500)] to-[var(--color-primary-600)] text-white px-6 py-3.5 rounded-xl font-bold shadow-lg transition-all hover:scale-105 hover:shadow-[var(--shadow-glow)]"
+            className="flex items-center gap-2 bg-gradient-to-r from-[var(--color-primary-500)] to-[var(--color-primary-600)] text-white px-6 py-3.5 rounded-xl font-bold shadow-lg transition-all hover:brightness-105 hover:shadow-[var(--shadow-glow)]"
           >
             <PlusCircle className="w-5 h-5" />
             Add Patient Record

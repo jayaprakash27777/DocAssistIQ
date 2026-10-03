@@ -19,7 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, ValidationError, Field
 
 from app.config import Settings, get_settings
-from app.dependencies import get_db, get_settings_dep
+from app.dependencies import get_settings_dep
+from app.infrastructure.database import get_session_factory
 from app.models.user import User
 from app.services.auth_service import decode_token
 import base64
@@ -48,7 +49,7 @@ class ConnectionState:
         self.in_seq = -1  # Last seen sequence number from client
         self.last_heartbeat = datetime.now(timezone.utc)
         self.closed = False
-        self.audio_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+        self.audio_queue: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=10)
         self.asr_task: asyncio.Task[None] | None = None
 
     async def send_msg(self, msg_type: str, payload: dict, ack: int | None = None):
@@ -96,7 +97,6 @@ _STALE_TIMEOUT_S = 35
 async def ws_stream(
     websocket: WebSocket,
     token: str = Query(..., description="JWT access token for authentication"),
-    db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
     """Authenticated WebSocket stream with sequenced reliable delivery."""
@@ -110,11 +110,12 @@ async def ws_stream(
             return
             
         user_uuid = _uuid.UUID(user_id_str)
-        result = await db.execute(select(User).where(User.id == user_uuid))
-        user = result.scalar_one_or_none()
-        if user is None or not user.is_active:
-            await websocket.close(code=4003)
-            return
+        async with get_session_factory()() as db:
+            result = await db.execute(select(User).where(User.id == user_uuid))
+            user = result.scalar_one_or_none()
+            if user is None or not user.is_active:
+                await websocket.close(code=4003)
+                return
             
     except Exception:
         await websocket.close(code=4001)
@@ -206,7 +207,10 @@ async def ws_stream(
                 if b64_data:
                     try:
                         raw_bytes = base64.b64decode(b64_data)
-                        await state.audio_queue.put(raw_bytes)
+                        if not state.audio_queue.full():
+                            await state.audio_queue.put(raw_bytes)
+                        else:
+                            log.warning("ws_audio_queue_full_dropped_chunk", conn=connection_id)
                     except Exception:
                         pass
                 await state.send_msg("ack", {}, ack=envelope.sequence_number)
@@ -312,6 +316,25 @@ async def ws_stream(
                     }, ack=envelope.sequence_number)
                 except Exception as e:
                     await state.send_msg("error", {"code": "NOTE_DRAFT_FAILED", "message": str(e)}, ack=envelope.sequence_number)
+                continue
+
+            # Real-time Q&A on doctor notes over WebSocket
+            if envelope.type in ("ask_notes", "doctor_notes_qa", "consultation_ask"):
+                query_text = envelope.payload.get("query") or envelope.payload.get("question", "")
+                c_id = envelope.payload.get("consultation_id")
+                notes_override = envelope.payload.get("notes")
+                try:
+                    from app.services.doctor_notes_qa_service import doctor_notes_qa_service
+                    async with get_session_factory()() as qa_db:
+                        ans_res = await doctor_notes_qa_service.answer_question(
+                            query=query_text,
+                            consultation_id=c_id,
+                            notes_text=notes_override,
+                            db=qa_db,
+                        )
+                    await state.send_msg("qa_response", ans_res, ack=envelope.sequence_number)
+                except Exception as e:
+                    await state.send_msg("error", {"code": "NOTES_QA_FAILED", "message": str(e)}, ack=envelope.sequence_number)
                 continue
                 
             # Acknowledge receipt

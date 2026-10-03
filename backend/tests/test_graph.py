@@ -87,3 +87,16 @@ def test_get_disease_graph_not_found(test_client: TestClient):
     
     assert response.status_code == 404
 
+@pytest.mark.integration
+def test_get_disease_graph_by_name_success(test_client: TestClient):
+    token = _register_and_login(test_client)
+    response = test_client.get(
+        "/api/v1/knowledge/graph/by-disease/Malaria",
+        headers=_auth(token)
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "nodes" in data
+    assert "edges" in data
+    assert len(data["nodes"]) > 0
+

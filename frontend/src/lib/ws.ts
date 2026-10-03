@@ -156,6 +156,8 @@ class RealtimeClient {
   private handleOpen() {
     this.reconnectAttempts = 0;
     this.lastHeartbeat = Date.now();
+    this.inSeq = -1;
+    this.outSeq = 0;
     this.updateState('LIVE');
     this.startHeartbeat();
     
@@ -178,6 +180,8 @@ class RealtimeClient {
   private handleClose(event: CloseEvent) {
     console.warn(`[DocAssistIQ WS] Closed (code: ${event.code}, reason: "${event.reason || ''}")`);
     this.cleanup();
+    this.connectionId = null;
+    this.inSeq = -1;
     
     // Auth failures (4001, 4003) or expired token shouldn't retry automatically
     if (event.code === 4001 || event.code === 4003 || isTokenExpired(this.token)) {
@@ -211,17 +215,21 @@ class RealtimeClient {
         }
       }
       
-      // Duplicate suppression
-      if (envelope.sequence_number <= this.inSeq) {
+      if (envelope.type === 'connected') {
+        this.connectionId = envelope.connection_id;
+        this.inSeq = envelope.sequence_number;
+        return;
+      }
+
+      // Duplicate suppression: only suppress if from same connection and seq <= inSeq
+      if (envelope.connection_id && this.connectionId && envelope.connection_id === this.connectionId && envelope.sequence_number <= this.inSeq) {
         console.debug('[DocAssistIQ WS] Duplicate message suppressed', envelope.sequence_number);
         return;
       }
       
-      this.inSeq = envelope.sequence_number;
+      this.inSeq = Math.max(this.inSeq, envelope.sequence_number);
       
-      if (envelope.type === 'connected') {
-        this.connectionId = envelope.connection_id;
-      } else if (envelope.type === 'heartbeat' || envelope.type === 'ping') {
+      if (envelope.type === 'heartbeat' || envelope.type === 'ping') {
         this.send('pong');
       } else if (envelope.type === 'pong') {
         // Just an ack, handled above
@@ -289,7 +297,7 @@ let sharedClient: RealtimeClient | null = null;
 
 export function getSharedRealtimeClient(token?: string | null): RealtimeClient {
   const safeToken = (token && token !== "undefined" && token !== "null") ? token.trim() : "";
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ?? "http://127.0.0.1:8002";
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ?? "http://127.0.0.1:8000";
   const wsUrl = apiBaseUrl.replace(/^http/, "ws") + "/ws/v1/stream";
 
   if (!sharedClient) {

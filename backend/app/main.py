@@ -26,9 +26,11 @@ def _patched_hashpw(password: bytes, salt: bytes) -> bytes:
 bcrypt.hashpw = _patched_hashpw
 
 from contextlib import asynccontextmanager
-
 import structlog
-from fastapi import FastAPI, Response, Request
+
+from fastapi import FastAPI, Response, Request, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.dependencies import get_db
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -169,13 +171,16 @@ def create_app() -> FastAPI:
     @application.get("/api/v1/ai-status", tags=["system"], operation_id="get_ai_status_v1", include_in_schema=True)
     async def ai_status() -> dict:
         """Return AI system availability and capabilities."""
-        from app.services.llm_service import _circuit_breaker
+        from app.services.llm_service import _circuit_breaker, llm_service
         from app.services.offline_disease_kb import DISEASE_KB
         is_open = _circuit_breaker.is_open
         return {
             "llm_available": not is_open,
             "mode": "static_kb_fallback" if is_open else "llm_active",
-            "note": "LLM online" if not is_open else "Using static KB fallback",
+            "model": llm_service.default_model,
+            "fast_model": llm_service.fast_model,
+            "circuit_breaker": _circuit_breaker.status,
+            "note": f"LLM online ({llm_service.default_model})" if not is_open else "Using static KB fallback",
             "static_kb_diseases": len(DISEASE_KB) if hasattr(DISEASE_KB, '__len__') else 200,
             "static_kb_vhf_profiles": 8,
             "realtime_engine": "online",
@@ -188,24 +193,71 @@ def create_app() -> FastAPI:
                 "NLP Extraction",
                 "Real-time Medical Q&A",
             ],
+            "safety_watermark": "REFERENCE INFORMATION — CLINICIAN REVIEW REQUIRED",
         }
 
     # ── Public AI Ask (rate-limited for DoS protection) ────────
     @application.post("/ai/ask", tags=["AI"], operation_id="post_ai_ask_root", include_in_schema=True)
     @application.post("/api/v1/ai/ask", tags=["AI"], operation_id="post_ai_ask_v1", include_in_schema=True)
     @limiter.limit("60/minute")
-    async def ai_ask(request: Request, body: dict) -> dict:
+    async def ai_ask(request: Request, body: dict, db: AsyncSession = Depends(get_db)) -> dict:
         """
         Real-time clinical Q&A — protected with rate limiting.
-        Uses PubMed + MedlinePlus + Clinical KB for answers.
+        Answers any question from Doctor Notes, SOAP documentation, findings, and medical knowledge bases.
         """
-        from app.services.realtime_medical_engine import realtime_medical_answer
         query = (body.get("query") or body.get("question") or "").strip()
         if not query:
             return {"error": "query field is required", "answer": ""}
+            
+        consultation_id = body.get("consultation_id")
+        notes_text = body.get("notes") or body.get("doctor_notes") or body.get("context")
+
+        # Resolve @consultation_id from query if not provided explicitly in payload
+        if not consultation_id:
+            import re
+            m = re.search(r"@([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", query)
+            if m:
+                consultation_id = m.group(1)
+            else:
+                m_short = re.search(r"@([0-9a-fA-F]{8})", query)
+                if m_short:
+                    from sqlalchemy import select, cast, String
+                    from app.models.consultation import Consultation
+                    prefix = m_short.group(1).lower()
+                    stmt = select(Consultation.id).where(cast(Consultation.id, String).ilike(f"{prefix}%")).limit(1)
+                    matched_id = await db.scalar(stmt)
+                    if matched_id:
+                        consultation_id = str(matched_id)
+        elif consultation_id and len(str(consultation_id)) < 36:
+            from sqlalchemy import select, cast, String
+            from app.models.consultation import Consultation
+            prefix = str(consultation_id).strip().lower().replace("@", "")
+            stmt = select(Consultation.id).where(cast(Consultation.id, String).ilike(f"{prefix}%")).limit(1)
+            matched_id = await db.scalar(stmt)
+            if matched_id:
+                consultation_id = str(matched_id)
+
+        # Grounded answering for doctor notes queries or when consultation context is present
+        if consultation_id or notes_text:
+            from app.services.doctor_notes_qa_service import doctor_notes_qa_service
+            try:
+                result = await doctor_notes_qa_service.answer_question(
+                    query=query,
+                    consultation_id=consultation_id,
+                    notes_text=notes_text,
+                    db=db,
+                    top_k=int(body.get("top_k", 5)),
+                )
+                return result
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                return {"error": str(e), "answer": f"Error: {str(e)}"}
+
+        from app.services.realtime_medical_engine import realtime_medical_answer
         result = await realtime_medical_answer(
             query=query,
-            consultation_id=body.get("consultation_id"),
+            consultation_id=None,
             top_k=int(body.get("top_k", 5)),
         )
         return result

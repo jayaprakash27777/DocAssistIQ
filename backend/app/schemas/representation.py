@@ -26,6 +26,8 @@ class PatientContext(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     demographics: str | None = None
+    age: int | None = None
+    sex: str | None = None
     provenances: List[Provenance] = Field(default_factory=list)
 
 class ClinicalRepresentationResponse(BaseModel):

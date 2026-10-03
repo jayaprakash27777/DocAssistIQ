@@ -8,7 +8,7 @@ Strictly zero mock data or hardcoded canned phrases.
 
 import asyncio
 import base64
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Dict, Any, Optional
 import structlog
 
 from app.services.asr_service import asr_service
@@ -21,6 +21,11 @@ class TranscriptionService:
 
     def __init__(self):
         self._buffer = bytearray()
+        self._last_text = ""
+
+    async def transcribe(self, audio_bytes: bytes) -> Dict[str, Any]:
+        """Transcribe a complete audio recording."""
+        return await asr_service.transcribe_audio_bytes(audio_bytes)
 
     async def stream_audio(self, audio_chunk_b64: str) -> AsyncGenerator[str, None]:
         """
@@ -40,21 +45,26 @@ class TranscriptionService:
         if not audio_bytes:
             return
 
-        # Queue audio chunk into temporary queue for ASR processing
-        audio_queue = asyncio.Queue()
-        await audio_queue.put(audio_bytes)
-        await audio_queue.put(None)  # Sentinel to close stream
+        self._buffer.extend(audio_bytes)
 
+        # Transcribe accumulated buffer
         try:
-            async for asr_msg in asr_service.process_stream(audio_queue):
-                msg_type = asr_msg.get("type")
-                if msg_type in ("asr_partial", "asr_final"):
-                    text = asr_msg.get("text", "")
-                    if text and text.strip():
-                        yield text.strip() + " "
+            result = await asr_service.transcribe_audio_bytes(bytes(self._buffer))
+            text = (result.get("text") or "").strip()
+            if text and text != self._last_text:
+                new_fragment = text[len(self._last_text):].strip() if text.startswith(self._last_text) else text
+                self._last_text = text
+                if new_fragment:
+                    yield new_fragment + " "
         except Exception as e:
             log.warning("transcription_streaming_error", error=str(e))
+
+    def reset(self):
+        """Reset internal streaming buffer."""
+        self._buffer.clear()
+        self._last_text = ""
 
 
 # Singleton instance
 transcription_service = TranscriptionService()
+

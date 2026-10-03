@@ -15,10 +15,11 @@ import { NotificationBell } from "./NotificationBell";
 import { ProfileDropdown } from "./ProfileDropdown";
 import { WsStatus } from "./WsStatus";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Search } from "lucide-react";
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
-  "/ai": "Clinical AI Assistant",
+  "/ai": "DocAssist IQ AI",
   "/consultations": "Consultations",
   "/notes": "Clinical Notes",
   "/files": "File Storage",
@@ -26,6 +27,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/hub": "Medical Intelligence Hub",
   "/profile": "My Profile",
   "/admin": "Administration",
+  "/admin/users": "User Directory & RBAC",
   "/admin/doctors": "Doctor Verifications",
   "/admin/sources": "Medical Sources",
   "/admin/ingestion": "Knowledge Ingestion",
@@ -84,6 +86,19 @@ export function Header({ onMenuToggle }: Props) {
       </div>
 
       <div className="shell-header-right flex items-center gap-3">
+        {/* Quick Search / Command Palette Trigger */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
+          className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-100/90 hover:bg-slate-200/90 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-300 transition-all cursor-pointer shadow-2xs"
+          title="Open Global Command Palette (Ctrl+K)"
+        >
+          <Search className="w-3.5 h-3.5 text-indigo-500" />
+          <span className="font-medium">Search or ask DocAssist IQ AI...</span>
+          <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 font-mono text-[10px] text-slate-400">
+            Ctrl+K
+          </kbd>
+        </button>
         <div 
           className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold shadow-xs"
           title="Clinical Reasoning Engine: II-Medical-8B Active"

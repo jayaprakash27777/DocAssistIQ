@@ -265,7 +265,7 @@ function SectionField({
       {isDropZone && (
         <div className={`absolute -top-2 -right-2 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full z-10 transition-all ${
           isDragOver
-            ? "bg-blue-500 text-white shadow-lg scale-110"
+            ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-200"
             : "bg-slate-100 text-slate-400 border border-slate-200"
         }`}>
           Drop zone
@@ -515,35 +515,35 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
   const saving = updateMutation.isPending;
 
   return (
-    <div className="bg-white rounded-3xl shadow-[0_12px_44px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.95)] border border-slate-200/80 flex flex-col h-full overflow-hidden">
+    <div className="bg-white flex flex-col h-full overflow-hidden">
 
       {/* ── Hospital Header ── */}
-      <div className="shrink-0 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-6 py-4.5 border-b border-white/10 shadow-sm">
+      <div className="shrink-0 bg-white px-5 py-3 border-b border-slate-200/90 shadow-2xs">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-9 h-9 bg-white/10 rounded-2xl flex items-center justify-center border border-white/15 shadow-inner">
-              <FileSpreadsheet className="w-5 h-5 text-teal-400" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-teal-50 border border-teal-200 rounded-xl flex items-center justify-center text-teal-700 shadow-2xs">
+              <FileSpreadsheet className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-white font-black text-base tracking-tight leading-none">CLINICAL NOTE</h2>
-              <p className="text-slate-400 text-[10px] font-bold mt-1 uppercase tracking-widest">
-                Extended SOAP+ · International Hospital Standard
+              <h2 className="text-slate-900 font-extrabold text-sm tracking-tight leading-none font-heading">CLINICAL NOTE</h2>
+              <p className="text-slate-500 text-[10px] font-bold mt-1 uppercase tracking-wider">
+                Extended SOAP+ · Hospital Grade
                 {note.is_ai_generated && (
-                  <span className="ml-2 bg-blue-500/25 text-blue-300 border border-blue-400/40 px-2 py-0.5 rounded-full font-extrabold shadow-xs">
+                  <span className="ml-2 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-extrabold text-[9px]">
                     AI Drafted
                   </span>
                 )}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* Completeness ring */}
-            <div className="flex items-center gap-2.5 bg-white/5 px-3 py-1.5 rounded-2xl border border-white/10">
-              <svg className="w-8 h-8 -rotate-90 filter drop-shadow-sm" viewBox="0 0 32 32">
-                <circle cx="16" cy="16" r="12" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
+            <div className="flex items-center gap-2 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
+              <svg className="w-7 h-7 -rotate-90 filter drop-shadow-2xs" viewBox="0 0 32 32">
+                <circle cx="16" cy="16" r="12" fill="none" stroke="#e2e8f0" strokeWidth="3" />
                 <circle
                   cx="16" cy="16" r="12" fill="none"
-                  stroke={pct >= 80 ? "#34d399" : pct >= 50 ? "#fbbf24" : "#60a5fa"}
+                  stroke={pct >= 80 ? "#059669" : pct >= 50 ? "#d97706" : "#2563eb"}
                   strokeWidth="3.5" strokeLinecap="round"
                   strokeDasharray={`${2 * Math.PI * 12}`}
                   strokeDashoffset={`${2 * Math.PI * 12 * (1 - pct / 100)}`}
@@ -551,34 +551,34 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
                 />
               </svg>
               <div className="text-right">
-                <div className="text-white font-black text-sm leading-none">{pct}%</div>
-                <div className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Complete</div>
+                <div className="text-slate-900 font-extrabold text-xs leading-none">{pct}%</div>
+                <div className="text-slate-400 text-[8px] font-bold uppercase tracking-wider">Done</div>
               </div>
             </div>
             {/* Save status */}
-            <div className={`flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest ${saving ? "text-yellow-400" : "text-emerald-400"}`}>
+            <div className={`flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider ${saving ? "text-amber-600" : "text-emerald-700"}`}>
               {saving ? (
-                <><span className="w-2 h-2 bg-yellow-400 rounded-full animate-ping" />Saving</>
+                <><span className="w-2 h-2 bg-amber-500 rounded-full animate-ping" />Saving</>
               ) : (
-                <><span className="w-2 h-2 bg-emerald-400 rounded-full shadow-xs" />Saved</>
+                <><span className="w-2 h-2 bg-emerald-500 rounded-full" />Saved</>
               )}
             </div>
             {/* Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={handleCopyFullNote}
                 title="Copy entire formatted SOAP note for hospital EHR"
-                className="text-xs font-bold text-slate-100 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl border border-white/15 transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center gap-1.5"
+                className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition-colors shadow-2xs flex items-center gap-1.5"
               >
                 {copiedFull ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-emerald-300">Copied!</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700">Copied!</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3.5 h-3.5" />
+                    <Copy className="w-3.5 h-3.5 text-slate-500" />
                     <span>Copy Note</span>
                   </>
                 )}
@@ -587,32 +587,32 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
                 type="button"
                 onClick={toggleAllGroups}
                 title="Expand or collapse all SOAP categories"
-                className="text-xs font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 px-2.5 py-1.5 rounded-xl border border-white/15 transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center gap-1.5"
+                className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 transition-colors shadow-2xs flex items-center gap-1.5"
               >
-                <ChevronsUpDown className="w-3.5 h-3.5" />
+                <ChevronsUpDown className="w-3.5 h-3.5 text-slate-500" />
                 <span>Toggle</span>
               </button>
               <button
                 onClick={() => handleExport("pdf")}
-                className="text-xs font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl border border-white/15 transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center gap-1.5"
+                className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 transition-colors shadow-2xs flex items-center gap-1.5"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5 text-slate-500" />
                 <span>Export</span>
               </button>
               <button
                 onClick={() => handleExport("fhir")}
-                className="text-xs font-bold text-slate-200 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl border border-white/15 transition-all shadow-sm hover:scale-105 active:scale-95 flex items-center gap-1.5"
+                className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 transition-colors shadow-2xs flex items-center gap-1.5"
               >
-                <Share2 className="w-3.5 h-3.5" />
+                <Share2 className="w-3.5 h-3.5 text-slate-500" />
                 <span>FHIR</span>
               </button>
             </div>
           </div>
         </div>
         {/* Progress bar */}
-        <div className="mt-3.5 h-1.5 bg-white/10 rounded-full overflow-hidden">
+        <div className="mt-2.5 h-1 bg-slate-100 rounded-full overflow-hidden">
           <motion.div
-            className={`h-full rounded-full shadow-sm ${pct >= 80 ? "bg-gradient-to-r from-emerald-400 to-teal-400" : pct >= 50 ? "bg-gradient-to-r from-amber-400 to-yellow-400" : "bg-gradient-to-r from-blue-400 to-indigo-400"}`}
+            className={`h-full rounded-full ${pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : "bg-blue-500"}`}
             initial={{ width: 0 }}
             animate={{ width: `${pct}%` }}
             transition={{ duration: 0.8, ease: "easeOut" }}
@@ -732,7 +732,7 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
                                     <button
                                       type="button"
                                       onClick={() => handleInsertBoilerplate(section.id, SECTION_BOILERPLATES[section.id].text)}
-                                      className="text-[10px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-2.5 py-0.5 rounded-lg border border-teal-200 transition-all shadow-2xs flex items-center gap-1 active:scale-95"
+                                      className="text-[10px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-2.5 py-0.5 rounded-lg border border-teal-200 transition-colors shadow-2xs flex items-center gap-1"
                                       title="Insert standard normal boilerplate"
                                     >
                                       {SECTION_BOILERPLATES[section.id].label}

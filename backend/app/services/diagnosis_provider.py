@@ -286,7 +286,7 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
                     ),
                     return_exceptions=True,
                 ),
-                timeout=8.0,
+                timeout=1.5,
             )
         except asyncio.TimeoutError:
             log.warning("intelligence_fetch_timeout")
@@ -459,6 +459,43 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
                     first_line_treatment=actions["first_line_treatment"],
                 )
             )
+
+        # Open-domain medical entity engine (instant universal coverage for 1,500+ conditions, rare diseases, syndromes)
+        try:
+            from app.services.open_domain_medical_engine import open_domain_engine
+            open_matches = open_domain_engine.find_open_domain_matches(
+                patient_symptoms=patient_symptoms,
+                raw_text=" ".join(patient_symptoms) + " " + history_str,
+                top_k=3,
+            )
+            for om in open_matches:
+                d_name = om["disease"]
+                if not any(c.disease.lower() == d_name.lower() for c in top_candidates):
+                    om_score = float(om.get("score", 0.80))
+                    if om_score >= 0.70 or len(top_candidates) < 4:
+                        actions = _enrich_candidate_actions(d_name)
+                        top_candidates.append(
+                            DifferentialDiagnosisItem(  # type: ignore
+                                disease=d_name,
+                                score=round(min(om_score, 0.96), 3),
+                                supporting_findings=om.get("supporting_findings", [])[:6],
+                                missing_expected_findings=om.get("missing_findings", [])[:3],
+                                contradicting_information=[],
+                                uncertainty="Moderate" if om_score >= 0.75 else "High",
+                                explanation_reference=f"[Universal Medical Engine] {om.get('clinical_rationale', '')}",
+                                geographic_match=False,
+                                incubation_fit=None,
+                                immediate_tests=actions["immediate_tests"] or om.get("immediate_tests", [])[:4],
+                                recommended_investigations=actions["recommended_investigations"] or om.get("recommended_investigations", [])[:6],
+                                recommended_medications=actions["recommended_medications"] or om.get("recommended_medications", [])[:4],
+                                first_line_treatment=actions["first_line_treatment"] or om.get("first_line_treatment") or "Guideline-directed medical therapy",
+                            )
+                        )
+        except Exception as e:
+            log.warning("open_domain_engine_integration_error", error=str(e))
+
+        top_candidates.sort(key=lambda x: x.score, reverse=True)
+        top_candidates = top_candidates[:5]
 
         # Check active India & global epidemic outbreak surveillance
         outbreak_matches: List[dict] = []
@@ -665,6 +702,40 @@ class BaselineDiagnosisProvider(DiagnosisProvider):
                     first_line_treatment=actions["first_line_treatment"],
                 )
             )
+
+        # Also query open_domain_engine for rare diseases, genetic conditions, or uncataloged clinical syndromes
+        try:
+            from app.services.open_domain_medical_engine import open_domain_engine
+            open_matches = open_domain_engine.find_open_domain_matches(
+                patient_symptoms=fields["patient_symptoms"],
+                raw_text=" ".join(fields["patient_symptoms"]) + " " + fields["history_str"],
+                top_k=3,
+            )
+            for om in open_matches:
+                d_name = om["disease"]
+                if not any(c.disease.lower() == d_name.lower() for c in candidates):
+                    om_score = float(om.get("score", 0.80))
+                    if om_score >= 0.70 or len(candidates) < 4:
+                        actions = _enrich_candidate_actions(d_name)
+                        candidates.append(
+                            DifferentialDiagnosisItem(
+                                disease=d_name,
+                                score=round(min(om_score, 0.96), 3),
+                                supporting_findings=om.get("supporting_findings", [])[:6],
+                                missing_expected_findings=om.get("missing_findings", [])[:3],
+                                contradicting_information=[],
+                                uncertainty="Moderate" if om_score >= 0.75 else "High",
+                                explanation_reference=f"[Universal Medical Engine] {om.get('clinical_rationale', '')}",
+                                geographic_match=False,
+                                incubation_fit=None,
+                                immediate_tests=actions["immediate_tests"] or om.get("immediate_tests", [])[:4],
+                                recommended_investigations=actions["recommended_investigations"] or om.get("recommended_investigations", [])[:6],
+                                recommended_medications=actions["recommended_medications"] or om.get("recommended_medications", [])[:4],
+                                first_line_treatment=actions["first_line_treatment"] or om.get("first_line_treatment") or "Guideline-directed medical therapy",
+                            )
+                        )
+        except Exception:
+            pass
 
         candidates.sort(key=lambda x: x.score, reverse=True)
         top_5 = candidates[:5]

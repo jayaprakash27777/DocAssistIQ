@@ -28,7 +28,7 @@ from app.services.audit_service import log_event
 from app.services.embedding_service import generate_and_store_embedding
 from app.models.embedding import EmbeddingRecord
 from app.services.graph_service import get_disease_knowledge_graph
-from app.schemas.graph import DiseaseKnowledgeGraph
+from app.schemas.graph import DiseaseKnowledgeGraph, GraphNode, GraphEdge
 
 router = APIRouter(prefix="/knowledge", tags=["Knowledge Base (Entities)"])
 
@@ -201,4 +201,58 @@ async def get_disease_graph(
     symptoms, investigations, medicines, and supporting evidence.
     """
     return await get_disease_knowledge_graph(db, disease_id)
+
+@router.get(
+    "/graph/by-disease/{disease_name}",
+    response_model=DiseaseKnowledgeGraph,
+    summary="Get disease knowledge graph by name",
+    responses=API_RESPONSES,
+)
+async def get_disease_graph_by_name(
+    disease_name: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_doctor),
+) -> DiseaseKnowledgeGraph:
+    """
+    Fetch the complete knowledge graph by disease name, including
+    symptoms, investigations, medicines, and supporting evidence.
+    """
+    from app.models.knowledge import Disease
+    clean_name = disease_name.strip()
+    stmt = select(Disease).where(Disease.name.ilike(clean_name))
+    res = await db.execute(stmt)
+    disease = res.scalar_one_or_none()
+    if not disease:
+        stmt_fuzzy = select(Disease).where(Disease.name.ilike(f"%{clean_name}%"))
+        res_fuzzy = await db.execute(stmt_fuzzy)
+        disease = res_fuzzy.scalars().first()
+
+    if not disease:
+        from app.services.clinical_disease_metadata import get_disease_clinical_profile
+        meta = get_disease_clinical_profile(clean_name)
+        if meta:
+            root_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"docassistiq.disease.{clean_name.lower()}")
+            nodes = [
+                GraphNode(id=root_id, code=meta.get("icd11_code") or "ICD-11", name=clean_name, category=meta.get("disease_class") or "Clinical Condition", node_type="disease")
+            ]
+            edges = []
+            for s in meta.get("cardinal_symptoms", [])[:6]:
+                s_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"docassistiq.symptom.{s.lower()}")
+                nodes.append(GraphNode(id=s_id, code="SYM", name=s, node_type="symptom"))
+                edges.append(GraphEdge(source_id=root_id, target_id=s_id, relationship="has_symptom", metadata={"frequency": "high", "specificity": "cardinal"}))
+            for inv in meta.get("recommended_investigations", [])[:5]:
+                i_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"docassistiq.inv.{inv.lower()}")
+                nodes.append(GraphNode(id=i_id, code="INV", name=inv, node_type="investigation"))
+                edges.append(GraphEdge(source_id=root_id, target_id=i_id, relationship="requires_investigation", metadata={"priority": "HIGH"}))
+            for med in meta.get("recommended_medications", [])[:5]:
+                m_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"docassistiq.med.{med.lower()}")
+                nodes.append(GraphNode(id=m_id, code="MED", name=med, node_type="medicine"))
+                edges.append(GraphEdge(source_id=root_id, target_id=m_id, relationship="indicated_medicine", metadata={"line": "first_line"}))
+            return DiseaseKnowledgeGraph(disease_id=root_id, nodes=nodes, edges=edges)
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"Knowledge graph for '{disease_name}' not found",
+        )
+    return await get_disease_knowledge_graph(db, disease.id)
 

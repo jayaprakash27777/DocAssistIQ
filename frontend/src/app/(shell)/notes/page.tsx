@@ -28,7 +28,8 @@ import {
   Check, 
   Stethoscope,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Brain
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/shell/ToastProvider";
@@ -210,7 +211,7 @@ export default function NotesPage() {
             variant="outline"
             onClick={() => refetch()}
             disabled={isRefetching}
-            className="rounded-xl h-10 px-4 text-xs font-semibold gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50 active:scale-95"
+            className="rounded-xl h-10 px-4 text-xs font-semibold gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefetching ? "animate-spin" : ""}`} />
             Refresh
@@ -219,7 +220,7 @@ export default function NotesPage() {
           <Link href="/consultations">
             <Button
               variant="primary"
-              className="rounded-xl h-10 px-5 text-xs font-bold gap-2 bg-gradient-to-r from-teal-600 to-indigo-600 text-white shadow-md hover:brightness-110 active:scale-95"
+              className="rounded-xl h-10 px-5 text-xs font-bold gap-2 bg-gradient-to-r from-teal-600 to-indigo-600 text-white shadow-md hover:brightness-110"
             >
               <Plus className="w-4 h-4" />
               New Consultation Note
@@ -301,7 +302,7 @@ export default function NotesPage() {
             onClick={() => setStatusFilter("all")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               statusFilter === "all"
-                ? "bg-slate-900 text-white shadow-sm"
+                ? "bg-teal-600 text-white shadow-sm"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
             }`}
           >
@@ -481,10 +482,19 @@ export default function NotesPage() {
                     <Eye className="w-3.5 h-3.5" /> Inspect Note
                   </Button>
 
+                  <Link
+                    href={`/ai?cid=${cons.id}`}
+                    className="h-9 px-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1 transition-all shadow-2xs"
+                    title="Query this clinical note with DocAssist IQ AI"
+                  >
+                    <Brain className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>AI</span>
+                  </Link>
+
                   <Link href={`/consultations/${cons.id}`} className="flex-1">
                     <Button
                       variant="primary"
-                      className="w-full h-9 rounded-xl text-xs font-bold gap-1.5 bg-slate-900 text-white hover:bg-teal-600 transition-all"
+                      className="w-full h-9 rounded-xl text-xs font-bold gap-1.5 bg-teal-600 text-white hover:bg-teal-700 shadow-xs transition-all"
                     >
                       Workspace <ChevronRight className="w-3.5 h-3.5" />
                     </Button>

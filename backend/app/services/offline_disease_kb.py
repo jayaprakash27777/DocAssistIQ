@@ -122,11 +122,12 @@ DISEASE_KB: Dict[str, Dict] = {
         "symptoms": [
             "fever", "severe headache", "muscle aches", "joint pain", "neck pain",
             "vomiting", "diarrhea", "abdominal pain", "bleeding", "bruising",
-            "confusion", "mood changes", "tick bite history"
+            "confusion", "mood changes", "tick bite history", "tick exposure",
+            "petechiae", "petechial rash", "ecchymosis", "purpura", "livestock contact", "livestock handling"
         ],
-        "cardinal_symptoms": ["fever", "bleeding", "bruising", "tick exposure"],
+        "cardinal_symptoms": ["fever", "bleeding", "bruising", "tick exposure", "ecchymosis", "petechiae"],
         "hemorrhagic": True,
-        "geographic_zones": ["Africa", "Eastern Europe", "Middle East", "Asia"],
+        "geographic_zones": ["Africa", "Eastern Europe", "Middle East", "Asia", "India"],
         "clusters": ["hemorrhagic_fever", "tick_borne"],
         "incubation_min": 1, "incubation_max": 13,
         "severity": "critical",
@@ -137,13 +138,13 @@ DISEASE_KB: Dict[str, Dict] = {
     # ========================================================
     "Malaria (Plasmodium falciparum)": {
         "symptoms": [
-            "fever", "chills", "sweating", "headache", "muscle aches", "myalgia",
+            "fever", "chills", "rigors", "cyclic fever", "cyclical fever", "sweating", "headache", "muscle aches", "myalgia",
             "fatigue", "nausea", "vomiting", "diarrhea", "abdominal pain",
             "jaundice", "confusion", "rapid heart rate", "weakness",
-            "intermittent fever", "recurrent fever", "cyclical fever", "anemia", "pallor",
+            "intermittent fever", "recurrent fever", "anemia", "hemolytic anemia", "splenomegaly", "pallor",
             "thrombocytopenia", "blood smear requested", "nighttime mosquito exposure", "tachycardia"
         ],
-        "cardinal_symptoms": ["fever", "chills"],
+        "cardinal_symptoms": ["fever", "chills", "cyclic fever", "rigors", "splenomegaly"],
         "hemorrhagic": False,
         "geographic_zones": ["Africa", "South-East Asia", "Americas", "Western Pacific", "Yemen", "Middle East"],
         "clusters": ["febrile_illness", "parasitic", "tropical"],
@@ -152,10 +153,11 @@ DISEASE_KB: Dict[str, Dict] = {
     },
     "Malaria (Plasmodium vivax)": {
         "symptoms": [
-            "fever", "chills", "sweating", "headache", "fatigue",
-            "nausea", "muscle aches", "relapsing fever", "intermittent fever", "recurrent fever"
+            "fever", "chills", "rigors", "cyclic fever", "cyclical fever", "sweating", "headache", "fatigue",
+            "nausea", "muscle aches", "relapsing fever", "intermittent fever", "recurrent fever",
+            "splenomegaly", "anemia", "hemolytic anemia"
         ],
-        "cardinal_symptoms": ["fever", "chills"],
+        "cardinal_symptoms": ["fever", "chills", "cyclic fever", "rigors", "splenomegaly"],
         "hemorrhagic": False,
         "geographic_zones": ["South-East Asia", "Americas", "Africa", "Yemen"],
         "clusters": ["febrile_illness", "parasitic", "tropical"],
@@ -166,9 +168,10 @@ DISEASE_KB: Dict[str, Dict] = {
         "symptoms": [
             "fever", "confusion", "seizures", "coma", "severe weakness",
             "jaundice", "reduced urine output", "bleeding", "rapid heart rate", "pallor",
-            "intermittent fever", "recurrent fever", "anemia", "thrombocytopenia", "blood smear requested", "vomiting"
+            "intermittent fever", "recurrent fever", "anemia", "hemolytic anemia", "splenomegaly",
+            "rigors", "cyclic fever", "thrombocytopenia", "blood smear requested", "vomiting"
         ],
-        "cardinal_symptoms": ["fever", "confusion"],
+        "cardinal_symptoms": ["fever", "confusion", "cyclic fever", "splenomegaly"],
         "hemorrhagic": False,
         "geographic_zones": ["Africa", "South-East Asia", "Yemen", "Middle East"],
         "clusters": ["febrile_illness", "parasitic", "neurological_fever"],
@@ -1849,6 +1852,351 @@ DISEASE_KB: Dict[str, Dict] = {
         ],
         "_treatment_summary": "Supportive management: rest, hydration, antipyretics/analgesics. Strict avoidance of contact sports for 3–4 weeks to prevent splenic rupture. Avoid amoxicillin (causes non-allergic maculopapular rash).",
     },
+    "Type 2 Diabetes Mellitus": {
+        "symptoms": [
+            "polyuria", "polydipsia", "frequent urination", "excessive thirst",
+            "unexplained weight loss", "weight loss", "fatigue", "blurred vision",
+            "slow-healing sores", "frequent infections", "paresthesias", "polyphagia",
+            "increased hunger", "elevated blood glucose", "hyperglycemia"
+        ],
+        "cardinal_symptoms": ["polyuria", "polydipsia", "unexplained weight loss", "fatigue"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["endocrine_crisis"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "Fasting Plasma Glucose (FPG >= 126 mg/dL confirms diabetes)",
+            "Hemoglobin A1c (HbA1c >= 6.5% confirms diagnosis)",
+            "Oral Glucose Tolerance Test (2-hour post 75g glucose >= 200 mg/dL)",
+            "Comprehensive Metabolic Panel (CMP: serum creatinine, eGFR, electrolytes)",
+            "Urine Albumin-to-Creatinine Ratio (UACR: screen for diabetic nephropathy)",
+            "Lipid Panel (cardiovascular risk stratification)"
+        ],
+        "_treatment_summary": "First-line lifestyle modification + Metformin 500mg-1000mg BID. Add SGLT2 inhibitor (Empagliflozin/Dapagliflozin) or GLP-1 receptor agonist (Semaglutide) if ASCVD, HF, or CKD present. Target HbA1c < 7.0%."
+    },
+    "Type 1 Diabetes Mellitus": {
+        "symptoms": [
+            "polyuria", "polydipsia", "polyphagia", "rapid weight loss",
+            "fatigue", "weakness", "fruity breath", "nausea", "vomiting",
+            "abdominal pain", "blurry vision", "Kussmaul breathing", "dehydration"
+        ],
+        "cardinal_symptoms": ["polyuria", "polydipsia", "rapid weight loss", "fruity breath"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["endocrine_crisis"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+        "prevalence": "moderate",
+        "_investigations": [
+            "Fasting plasma glucose and random plasma glucose",
+            "Hemoglobin A1c (HbA1c)",
+            "Serum or urine ketones (beta-hydroxybutyrate >3.0 mmol/L indicates DKA risk)",
+            "Islet autoantibodies (anti-GAD65, IA-2, ZnT8)",
+            "Fasting or stimulated C-peptide (markedly low or undetectable)"
+        ],
+        "_treatment_summary": "Lifelong basal-bolus subcutaneous insulin (e.g. Glargine/Degludec daily + Lispro/Aspart with meals) or continuous subcutaneous insulin infusion (insulin pump). Frequent glucose monitoring (CGM)."
+    },
+    "Essential Hypertension": {
+        "symptoms": [
+            "elevated blood pressure", "high blood pressure", "morning headache",
+            "occipital headache", "dizziness", "lightheadedness", "tinnitus",
+            "palpitations", "epistaxis", "blurred vision", "chest discomfort", "asymptomatic"
+        ],
+        "cardinal_symptoms": ["elevated blood pressure", "morning headache", "dizziness"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": [],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "Serial standardized clinic BP measurements (>=130/80 or >=140/90 on >=2 separate visits)",
+            "24-hour Ambulatory Blood Pressure Monitoring (ABPM: gold standard)",
+            "Basic metabolic panel (serum electrolytes, BUN, creatinine, eGFR)",
+            "Urinalysis (screen for proteinuria / microscopic hematuria)",
+            "12-Lead Electrocardiogram (screen for left ventricular hypertrophy / strain)",
+            "Lipid panel and fasting blood glucose"
+        ],
+        "_treatment_summary": "First-line antihypertensive therapy: ACE inhibitor (Lisinopril 10-40mg) or ARB (Losartan 50-100mg), Dihydropyridine CCB (Amlodipine 5-10mg), or Thiazide diuretic (Chlorthalidone 12.5-25mg). Target BP <130/80 mmHg."
+    },
+    "Iron Deficiency Anemia": {
+        "symptoms": [
+            "fatigue", "chronic fatigue", "weakness", "pallor", "pale conjunctiva",
+            "exertional dyspnea", "shortness of breath on exertion", "tachycardia",
+            "brittle nails", "koilonychia", "spoon nails", "pica", "ice craving",
+            "glossitis", "cheilitis", "headache", "cold intolerance", "dizziness"
+        ],
+        "cardinal_symptoms": ["fatigue", "pallor", "exertional dyspnea", "koilonychia", "pica"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": [],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "Complete Blood Count (low Hemoglobin/Hematocrit, MCV <80 fL microcytic, MCH hypochromic, elevated RDW)",
+            "Serum Ferritin (gold standard: <30 ng/mL diagnostic, <15 ng/mL pathognomonic)",
+            "Iron Panel (low serum iron, elevated Total Iron Binding Capacity [TIBC], transferrin saturation <16%)",
+            "Peripheral Blood Smear (hypochromic microcytic erythrocytes with anisopoikilocytosis)",
+            "Fecal Occult Blood Test / Colonoscopy & Endoscopy (mandatory in men and postmenopausal women to rule out GI bleeding/malignancy)",
+            "Celiac disease serology (anti-tTG IgA)"
+        ],
+        "_treatment_summary": "Oral iron replacement: Ferrous sulfate 325 mg (65 mg elemental iron) or Ferrous fumarate daily or on alternate days with Vitamin C. IV Ferric carboxymaltose if oral iron malabsorption or intolerance. Identify and treat underlying cause."
+    },
+    "Osteoarthritis": {
+        "symptoms": [
+            "joint pain", "knee pain", "hip pain", "joint stiffness", "crepitus",
+            "joint swelling", "bony enlargement", "limited range of motion",
+            "morning stiffness < 30 minutes", "pain worsening with weight-bearing",
+            "pain relieved by rest", "joint tenderness", "Heberden nodes", "Bouchard nodes"
+        ],
+        "cardinal_symptoms": ["joint pain", "crepitus", "morning stiffness < 30 minutes", "pain worsening with weight-bearing"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["joint_pain_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "Plain weight-bearing radiographs of affected joint (hallmarks: asymmetric joint space narrowing, subchondral sclerosis, subchondral cysts, osteophytes)",
+            "Erythrocyte sedimentation rate (ESR) and CRP (normal, rules out inflammatory arthritis)",
+            "Synovial fluid analysis (non-inflammatory: WBC <2,000/mcL with mononuclear predominance)",
+            "MRI of joint (only if internal derangement, meniscal tear, or avascular necrosis suspected)"
+        ],
+        "_treatment_summary": "Core therapy: weight loss, low-impact exercise, physical therapy. Pharmacotherapy: Topical NSAIDs (Diclofenac gel) first-line for knee/hand OA; Oral NSAIDs (Naproxen/Celecoxib) with PPI; Intra-articular corticosteroid injections. Total joint arthroplasty for refractory severe OA."
+    },
+    "Chronic Kidney Disease (CKD)": {
+        "symptoms": [
+            "fatigue", "weakness", "decreased urine output", "nocturia", "peripheral edema",
+            "bilateral leg swelling", "periorbital puffiness", "shortness of breath",
+            "nausea", "loss of appetite", "pruritus", "metallic taste", "elevated blood pressure",
+            "muscle cramps", "pallor"
+        ],
+        "cardinal_symptoms": ["peripheral edema", "fatigue", "nocturia", "elevated blood pressure"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["renal_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+        "prevalence": "common",
+        "_investigations": [
+            "Serum creatinine and estimated Glomerular Filtration Rate (eGFR <60 mL/min/1.73m2 for >=3 months)",
+            "Urine Albumin-to-Creatinine Ratio (UACR: >=30 mg/g indicates persistent kidney damage)",
+            "Electrolyte panel (serum potassium, bicarbonate, calcium, phosphate)",
+            "Renal Ultrasound (bilateral small, echogenic kidneys with cortical thinning)",
+            "Complete blood count (normocytic normochromic anemia of chronic disease / low EPO)"
+        ],
+        "_treatment_summary": "Strict BP control (<120 mmHg systolic) using ACEi/ARB (renal protective). SGLT2 inhibitors (Dapagliflozin/Empagliflozin) for kidney protection. Non-steroidal MRA (Finerenone). Dietary protein restriction and sodium <2g/day. Dialysis or kidney transplant evaluation in Stage 5 (eGFR <15)."
+    },
+    "Epilepsy / Seizure Disorder": {
+        "symptoms": [
+            "seizure", "convulsions", "tonic-clonic movements", "loss of consciousness",
+            "tongue biting", "urinary incontinence", "post-ictal confusion", "aura",
+            "staring spells", "muscle jerking", "myoclonus", "head turning", "drowsiness"
+        ],
+        "cardinal_symptoms": ["convulsions", "loss of consciousness", "tongue biting", "post-ictal confusion"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["neurological_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+        "prevalence": "common",
+        "_investigations": [
+            "Electroencephalogram (EEG: focal epileptiform spikes, generalized spike-and-wave discharges)",
+            "Brain MRI with epilepsy protocol (screen for hippocampal sclerosis, focal cortical dysplasia, tumor, vascular malformation)",
+            "Serum electrolytes, glucose, calcium, magnesium (exclude metabolic provoking factors)",
+            "Toxicology screen and blood alcohol level",
+            "Lumbar puncture (if CNS infection / fever suspected)"
+        ],
+        "_treatment_summary": "First-line anti-seizure medication (ASM): Levetiracetam (Keppra 500-1500mg BID), Lamotrigine, or Sodium Valproate (avoid in women of childbearing potential). For status epilepticus (>5 min): IV Lorazepam 4mg bolus followed by IV Levetiracetam/Fosphenytoin. Driving safety counseling."
+    },
+    "Major Depressive Disorder (MDD)": {
+        "symptoms": [
+            "depressed mood", "sadness", "anhedonia", "loss of interest",
+            "insomnia", "hypersomnia", "fatigue", "loss of energy",
+            "feelings of worthlessness", "excessive guilt", "poor concentration",
+            "appetite change", "weight loss", "weight gain", "psychomotor retardation",
+            "suicidal ideation"
+        ],
+        "cardinal_symptoms": ["depressed mood", "anhedonia", "fatigue", "poor concentration"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": [],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "PHQ-9 (Patient Health Questionnaire-9) standardized screening",
+            "TSH and Free T4 (exclude primary hypothyroidism causing secondary depression)",
+            "Serum Vitamin B12 and folate levels",
+            "Complete blood count and metabolic panel (exclude organic systemic etiologies)",
+            "Formal suicide risk assessment (Columbia-Suicide Severity Rating Scale [C-SSRS])"
+        ],
+        "_treatment_summary": "First-line pharmacotherapy: SSRIs (Sertraline 50-200mg, Escitalopram 10-20mg) or SNRIs (Venlafaxine, Duloxetine). Evidence-based psychotherapy (Cognitive Behavioral Therapy [CBT]). Immediate crisis stabilization and psychiatric admission if active suicidal ideation with intent."
+    },
+    "Generalized Anxiety Disorder": {
+        "symptoms": [
+            "excessive worry", "anxiety", "restlessness", "feeling on edge",
+            "muscle tension", "fatigue", "difficulty concentrating", "irritability",
+            "sleep disturbance", "insomnia", "palpitations", "shortness of breath",
+            "sweating", "tremor", "gastrointestinal distress"
+        ],
+        "cardinal_symptoms": ["excessive worry", "restlessness", "muscle tension", "sleep disturbance"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": [],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "GAD-7 (Generalized Anxiety Disorder 7-item) questionnaire",
+            "Serum TSH (exclude hyperthyroidism causing adrenergic anxiety symptoms)",
+            "12-lead ECG (exclude cardiac arrhythmia when presenting with palpitations)",
+            "Urine drug screen (exclude stimulant/caffeine abuse)"
+        ],
+        "_treatment_summary": "First-line pharmacotherapy: SSRIs (Escitalopram, Sertraline) or SNRIs (Duloxetine, Venlafaxine). Buspirone as non-benzodiazepine adjunctive agent. Cognitive Behavioral Therapy (CBT). Avoid chronic benzodiazepines."
+    },
+    "Atopic Dermatitis (Eczema)": {
+        "symptoms": [
+            "pruritus", "severe itching", "eczematous lesions", "dry skin", "xerosis",
+            "flexural rash", "lichenification", "erythematous papules", "excoriations",
+            "crusting", "facial rash", "personal history of asthma or allergic rhinitis"
+        ],
+        "cardinal_symptoms": ["pruritus", "flexural rash", "dry skin", "lichenification"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": [],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "Clinical Hanifin-Rajka diagnostic criteria (pruritus, typical flexural morphology, chronic relapsing course, personal/family atopic history)",
+            "Skin scraping with KOH (exclude dermatophyte/tinea infection)",
+            "Bacterial swab and culture (screen for secondary Staphylococcus aureus superinfection / impetiginization)"
+        ],
+        "_treatment_summary": "Cornerstone: frequent ceramide-based emollient moisturizers. Topical corticosteroids (Hydrocortisone 1-2.5% for face/flexures, Betamethasone/Triamcinolone for trunk/extremities). Topical calcineurin inhibitors (Tacrolimus). Dupilumab (IL-4/IL-13 antagonist) for moderate-to-severe disease."
+    },
+    "Psoriasis Vulgaris": {
+        "symptoms": [
+            "erythematous plaques", "silvery scales", "silvery-white plaques",
+            "well-demarcated rash", "extensor surface rash", "elbow plaques",
+            "knee plaques", "scalp plaques", "pruritus", "nail pitting",
+            "oil drop sign", "Auspitz sign", "joint pain"
+        ],
+        "cardinal_symptoms": ["erythematous plaques", "silvery scales", "extensor surface rash", "Auspitz sign"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": [],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "Clinical examination (pathognomonic Auspitz sign: pinpoint bleeding upon scale removal; Koebner phenomenon)",
+            "Skin biopsy (hyperkeratosis, parakeratosis, Munro microabscesses, elongated rete ridges)",
+            "Rheumatology screening (screen for psoriatic arthritis in up to 30% of patients)"
+        ],
+        "_treatment_summary": "Topical therapy: High-potency topical corticosteroids (Clobetasol) combined with topical Vitamin D3 analogue (Calcipotriene). Phototherapy (narrowband UVB). Biologics (TNF inhibitors, IL-17 inhibitors [Secukinumab], IL-23 inhibitors) for moderate-to-severe plaque psoriasis."
+    },
+    "Acute Otitis Media": {
+        "symptoms": [
+            "ear pain", "otalgia", "fever", "hearing loss", "ear fullness",
+            "otorrhea", "tugging at ear", "irritability", "bulging tympanic membrane",
+            "erythematous tympanic membrane", "rhinorrhea", "cough"
+        ],
+        "cardinal_symptoms": ["ear pain", "bulging tympanic membrane", "fever"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["respiratory_fever"],
+        "incubation_min": 1, "incubation_max": 4,
+        "severity": "moderate",
+        "prevalence": "common",
+        "_investigations": [
+            "Pneumatic Otoscopy (diagnostic gold standard: moderate-to-severe bulging of tympanic membrane with decreased mobility, erythema, and opacification)",
+            "Tympanometry (Type B flat curve indicating middle ear effusion)",
+            "Middle ear aspirate culture (reserved for refractory, complicated, or immunocompromised cases)"
+        ],
+        "_treatment_summary": "First-line antibiotic therapy: High-dose oral Amoxicillin (80-90 mg/kg/day in children; 875mg PO BID in adults) for 5-10 days. Amoxicillin-Clavulanate if recent antibiotic exposure or conjunctivitis. Analgesia with oral paracetamol / ibuprofen."
+    },
+    "Status Epilepticus": {
+        "symptoms": [
+            "seizures", "continuous seizures", "status epilepticus", "prolonged seizure",
+            "loss of consciousness", "altered consciousness", "confusion", "postictal state",
+            "tongue biting", "urinary incontinence", "hypoxia", "hyperthermia", "cyanosis",
+            "tachycardia", "convulsions", "tonic clonic activity", "unresponsiveness"
+        ],
+        "cardinal_symptoms": ["continuous seizures", "prolonged seizure", "status epilepticus", "loss of consciousness"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["neurological_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "critical",
+        "prevalence": "common",
+        "_investigations": [
+            "Point-of-care capillary blood glucose (immediate to rule out profound hypoglycemia)",
+            "Continuous Video/Routine Electroencephalography (EEG) to confirm termination and monitor for nonconvulsive status",
+            "Emergent non-contrast head CT to rule out intracranial hemorrhage or acute mass lesion",
+            "Comprehensive serum metabolic panel (electrolytes, calcium, magnesium, phosphate, renal and hepatic function)",
+            "Antiepileptic drug (AED) serum trough levels and comprehensive toxicology screen"
+        ],
+        "_treatment_summary": "Time-critical emergency (AES Guidelines): Step 1 (0-5 min): ABCs, high-flow O2, bedside glucose. Step 2 (5-20 min, Emergent Initial): IV Lorazepam 4mg (0.1 mg/kg) slow push or IM Midazolam 10mg if no IV access. Step 3 (20-40 min, Urgent Control): IV Levetiracetam 60mg/kg (max 4500mg) or Fosphenytoin 20mg PE/kg. Step 4 (>40 min, Refractory): Continuous IV anesthetic infusion (Propofol, Midazolam, or Ketamine) with mechanical ventilation."
+    },
+    "Acute Upper Gastrointestinal Bleeding": {
+        "symptoms": [
+            "hematemesis", "vomiting blood", "coffee ground emesis", "melena", "black tarry stools",
+            "hypotension", "tachycardia", "orthostatic dizziness", "pallor", "syncope", "weakness",
+            "fatigue", "epigastric pain", "abdominal pain", "diaphoresis", "altered mental status"
+        ],
+        "cardinal_symptoms": ["hematemesis", "coffee ground emesis", "melena", "hypotension"],
+        "hemorrhagic": True,
+        "geographic_zones": ["Global"],
+        "clusters": ["acute_abdomen", "hemorrhagic_fever"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "critical",
+        "prevalence": "common",
+        "_investigations": [
+            "Emergent Upper Endoscopy (Esophagogastroduodenoscopy / EGD) within 24 hours (within 12h if hemodynamic instability)",
+            "Complete blood count (CBC) with serial hematocrit/hemoglobin monitoring",
+            "Coagulation profile (PT, INR, aPTT, fibrinogen)",
+            "Blood type, screen, and crossmatch for packed RBCs",
+            "Serum blood urea nitrogen (BUN) and creatinine (BUN:Cr ratio > 20:1 strongly indicates upper GI source)"
+        ],
+        "_treatment_summary": "Emergency resuscitation: Two large-bore 16-18G IV lines, crystalloid resuscitation, restrictive RBC transfusion target (Hb 7-8 g/dL). High-dose IV Proton Pump Inhibitor (Pantoprazole 80mg IV bolus followed by 8mg/hr continuous infusion). If suspected variceal source / cirrhosis: IV Octreotide (50mcg bolus then 50mcg/hr) plus prophylactic Ceftriaxone 1g IV daily. Urgent diagnostic and therapeutic endoscopy (clipping, thermal coagulation, band ligation)."
+    },
+
+    "Refsum Disease": {
+        "symptoms": [
+            "difficulty walking", "gait ataxia", "weakness of lower limbs", "distal weakness",
+            "numbness in feet", "distal sensory loss", "sensory ataxia", "absent ankle reflexes",
+            "areflexia", "peripheral polyneuropathy", "night blindness", "nyctalopia",
+            "pigmentary retinal degeneration", "retinitis pigmentosa", "reduced rod responses",
+            "loss of smell", "anosmia", "sensorineural hearing loss", "deafness",
+            "ichthyosis", "dry scaly skin", "atrial arrhythmia", "cardiac arrhythmia",
+            "elevated plasma phytanic acid", "normal very-long-chain fatty acids",
+            "peroxisomal metabolic disorder"
+        ],
+        "cardinal_symptoms": [
+            "pigmentary retinal degeneration", "elevated plasma phytanic acid",
+            "peripheral polyneuropathy", "gait ataxia", "anosmia"
+        ],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["metabolic_neuropathy", "ataxia_syndrome", "retinal_degeneration"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+        "prevalence": "rare",
+        "_investigations": [
+            "Fasting Plasma Phytanic Acid and Pristanic Acid Quantification (confirmatory: phytanic acid elevated >200-2000 umol/L; low pristanic/phytanic ratio)",
+            "Plasma Very-Long-Chain Fatty Acids (VLCFAs: C26:0, C24:0, C22:0 — strictly normal, excludes Zellweger spectrum disorders)",
+            "Molecular Genetic Sequencing: Targeted PHYH (Phytanoyl-CoA 2-hydroxylase, 90% of cases) and PEX7 (peroxin 7 / PTS2 receptor, 10% of cases)",
+            "Comprehensive Ophthalmologic Exam: Dilated Funduscopy (bone-spicule pigmentary retinopathy), Full-Field Electroretinography (ERG: extinguished/reduced rod responses), Visual Field Perimetry",
+            "Nerve Conduction Studies & Electromyography (EMG/NCS: marked symmetric reduction in motor and sensory conduction velocities, prolonged distal latencies)",
+            "12-Lead ECG, 24-48h Holter Telemetry, and Echocardiogram (evaluates conduction blocks, atrial arrhythmias, QT prolongation, cardiomyopathy)",
+            "Audiometric Testing (Pure Tone Audiometry: bilateral sensorineural hearing loss)"
+        ],
+        "_treatment_summary": "Lifelong strict dietary restriction of phytanic acid (<10 mg/day) and phytol (eliminate ruminant meats, lamb, beef, dairy fats, and farmed fish). CRITICAL: Avoid fasting, sudden caloric restriction, or rapid weight loss (triggers massive adipose phytanic acid mobilization causing lethal arrhythmias and fulminant neuropathy). Administer high-calorie IV dextrose during acute illnesses. Therapeutic plasma exchange (plasmapheresis) or lipid apheresis for acute toxic spikes (>1000 umol/L) or cardiac arrhythmias. Cardiac monitoring and pacemaker if high-grade AV block develops."
+    }
 }
 
 # Integrate Expanded Multi-Specialty Clinical Catalog
@@ -1858,7 +2206,29 @@ try:
 except Exception:
     pass
 
-DISEASE_KB["Meningococcal Meningitis"] = DISEASE_KB["Meningococcal Disease / Meningococcemia (with Meningitis)"]
+# Aliases for consistent lookup
+DISEASE_KB["Pulmonary Tuberculosis"] = DISEASE_KB.get("Tuberculosis (Active)", {})
+DISEASE_KB["Bronchial Asthma"] = DISEASE_KB.get("Asthma Exacerbation", {})
+DISEASE_KB["Diabetes Mellitus"] = DISEASE_KB.get("Type 2 Diabetes Mellitus", {})
+DISEASE_KB["Hypertension"] = DISEASE_KB.get("Essential Hypertension", {})
+DISEASE_KB["Hypothyroidism"] = DISEASE_KB.get("Hypothyroidism / Myxedema Coma", {})
+DISEASE_KB["Hyperthyroidism"] = DISEASE_KB.get("Hyperthyroidism / Thyroid Storm", {})
+DISEASE_KB["Addison's Disease"] = DISEASE_KB.get("Adrenal Insufficiency (Addisonian Crisis)", {})
+DISEASE_KB["Urinary Tract Infection"] = DISEASE_KB.get("Urinary Tract Infection (Lower)", {})
+DISEASE_KB["Kidney Stones"] = DISEASE_KB.get("Nephrolithiasis (Kidney Stones)", {})
+DISEASE_KB["Gout"] = DISEASE_KB.get("Gout (Acute Gouty Arthritis)", {})
+DISEASE_KB["Pneumonia"] = DISEASE_KB.get("Community-Acquired Pneumonia (Lobar Pneumonia)", {})
+DISEASE_KB["Heart Attack"] = DISEASE_KB.get("Acute Myocardial Infarction (STEMI/NSTEMI)", {})
+DISEASE_KB["Stroke"] = DISEASE_KB.get("Acute Ischemic Stroke (CVA)", {})
+DISEASE_KB["GERD"] = DISEASE_KB.get("Gastroesophageal Reflux Disease (GERD)", {})
+DISEASE_KB["Appendicitis"] = DISEASE_KB.get("Acute Appendicitis", {})
+DISEASE_KB["Common Cold"] = DISEASE_KB.get("Common Cold (Viral Upper Respiratory Infection)", {})
+DISEASE_KB["Anemia"] = DISEASE_KB.get("Iron Deficiency Anemia", {})
+DISEASE_KB["Upper GI Bleed"] = DISEASE_KB.get("Acute Upper Gastrointestinal Bleeding", {})
+DISEASE_KB["GI Bleeding"] = DISEASE_KB.get("Acute Upper Gastrointestinal Bleeding", {})
+DISEASE_KB["Status Epilepticus"] = DISEASE_KB.get("Status Epilepticus", {})
+if "Meningococcal Disease / Meningococcemia (with Meningitis)" in DISEASE_KB:
+    DISEASE_KB["Meningococcal Meningitis"] = DISEASE_KB["Meningococcal Disease / Meningococcemia (with Meningitis)"]
 
 # ---------------------------------------------------------------------------
 # Epidemiological Prevalence Tiers
@@ -1866,8 +2236,32 @@ DISEASE_KB["Meningococcal Meningitis"] = DISEASE_KB["Meningococcal Disease / Men
 # ---------------------------------------------------------------------------
 COMMON_PREVALENCE_DISEASES: Set[str] = {
     "Common Cold (Viral Upper Respiratory Infection)",
+    "Common Cold",
     "Influenza",
     "COVID-19",
+    "Dengue Fever",
+    "Malaria (Plasmodium falciparum)",
+    "Malaria (Plasmodium vivax)",
+    "Typhoid Fever",
+    "Tuberculosis (Active)",
+    "Pulmonary Tuberculosis",
+    "Type 2 Diabetes Mellitus",
+    "Type 1 Diabetes Mellitus",
+    "Diabetes Mellitus",
+    "Essential Hypertension",
+    "Hypertension",
+    "Iron Deficiency Anemia",
+    "Anemia",
+    "Osteoarthritis",
+    "Chronic Kidney Disease (CKD)",
+    "Epilepsy / Seizure Disorder",
+    "Major Depressive Disorder (MDD)",
+    "Generalized Anxiety Disorder",
+    "Atopic Dermatitis (Eczema)",
+    "Psoriasis Vulgaris",
+    "Acute Otitis Media",
+    "Hypothyroidism / Myxedema Coma",
+    "Hypothyroidism",
     "Migraine",
     "Tension-type Headache",
     "Acute Sinusitis (Rhinosinusitis)",
@@ -1881,6 +2275,7 @@ COMMON_PREVALENCE_DISEASES: Set[str] = {
     "Gout (Acute Gouty Arthritis)",
     "Mononucleosis (Infectious / EBV)",
     "Asthma Exacerbation",
+    "Bronchial Asthma",
     "Peptic Ulcer Disease",
     "Herpes Zoster (Shingles)",
     "Acute Ischemic Stroke (CVA)",
@@ -1888,6 +2283,7 @@ COMMON_PREVALENCE_DISEASES: Set[str] = {
     "Community-Acquired Pneumonia (Lobar Pneumonia)",
     "Acute Pancreatitis",
     "Acute Appendicitis",
+    "Acute Cholecystitis",
     "Acute Heart Failure (Cardiogenic Pulmonary Edema)",
     "Preeclampsia with Severe Features",
     "Systemic Lupus Erythematosus (SLE)",
@@ -1900,6 +2296,13 @@ COMMON_PREVALENCE_DISEASES: Set[str] = {
     "Cellulitis",
     "Pyelonephritis (Upper UTI)",
     "Infective Endocarditis",
+    "Hepatitis A",
+    "Hepatitis B (Acute)",
+    "Measles",
+    "Varicella (Chickenpox)",
+    "Cholera",
+    "Status Epilepticus",
+    "Acute Upper Gastrointestinal Bleeding",
 }
 
 ULTRA_RARE_OUTBREAK_DISEASES: Set[str] = {
@@ -2275,6 +2678,9 @@ KNOWN_GEOGRAPHIC_DISEASE_LINKS: Dict[str, Set[str]] = {
     "ghana": {"Mpox (Monkeypox)", "Malaria (Plasmodium falciparum)", "Yellow Fever"},
     "central african republic": {
         "Mpox (Monkeypox)", "Malaria (Plasmodium falciparum)", "Ebola Virus Disease (Zaire)",
+    },
+    "madagascar": {
+        "Bubonic Plague", "Pneumonic Plague", "Malaria (Plasmodium falciparum)", "Schistosomiasis",
     },
     # South/Southeast Asia
     "pakistan": {"Dengue Fever", "Typhoid Fever", "Cholera", "Malaria (Plasmodium falciparum)"},

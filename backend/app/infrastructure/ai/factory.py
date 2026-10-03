@@ -39,3 +39,11 @@ def get_embedding_provider() -> EmbeddingProvider:
         _embedding_provider = BaselineEmbeddingProvider()
         
     return _embedding_provider
+
+
+def set_system_ai_model(model_name: str) -> GenerationProvider:
+    """Dynamically updates the global GenerationProvider singleton with the new model."""
+    global _generation_provider
+    _generation_provider = OllamaGenerationProvider(model_name=model_name)
+    return _generation_provider
+

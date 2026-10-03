@@ -106,22 +106,34 @@ export interface WebSpeechASRControls {
   forceNextSpeaker: (role: SpeakerRole) => void; // NEW: force next segment to be a specific speaker
 }
 
-// ─── Short Confirmation Detector ──────────────────────────────────────────────
-// These short responses after a doctor question are always Patient
-const SHORT_PATIENT_CONFIRMATIONS = /^(yes|no|yeah|nope|okay|ok|alright|sure|maybe|not really|kind of|sort of|i think so|about \d+|around \d+|\d+ days?|\d+ weeks?|\d+ months?|\d+ hours?|three days|two weeks|a week|a month|since yesterday|from last|since \d+|from \d+|it hurts|it started|the pain|my head|my chest|my stomach|some fever|some pain|body pain|headache|loose motions)\.?$/i;
+// ─── Natural Conversation Patient Patterns ────────────────────────────────────
+// Direct vocatives addressing the clinician (decisive Patient indicator)
+const VOCATIVE_DOCTOR_ADDRESS = /\b(yes\s+doc(?:tor)?|no\s+doc(?:tor)?|okay\s+doc(?:tor)?|sure\s+doc(?:tor)?|thank\s+you\s+doc(?:tor)?|thanks?\s+doc(?:tor)?|doc(?:tor)?\s*,|please\s+doc(?:tor)?|dr\.?\s+[a-z]+|sister|ma'?am|sir)\b/i;
 
+// Short responses, durations, confirmations, and symptom affirmations after doctor prompt
+const SHORT_PATIENT_CONFIRMATIONS = /^(?:yes|no|yeah|nope|okay|ok|alright|sure|maybe|not really|kind of|sort of|i think so|about \d+|around \d+|\d+\s*(?:days?|weeks?|months?|hours?)|three days|two days|four days|a week|two weeks|a month|since yesterday|from yesterday|since morning|from morning|last night|since \d+|from \d+|it hurts|it started|the pain|my head|my chest|my stomach|some fever|mild fever|high fever|some pain|body pain|headache|loose motions|no fever|only cough|only pain|nothing else|a little bit|quite severe|not much)\.?$/i;
 
-// ─── Doctor Question Detector ──────────────────────────────────────────────
+// Patient temporal duration patterns
+const DURATION_ONSET_PATTERN = /\b(?:(?:for|since|about|around)\s+(?:\d+|two|three|four|five|six|several|a couple of)\s+(?:days?|weeks?|months?|hours?)|since\s+(?:yesterday|morning|last night|monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b/i;
+
+// Patient functional impairment and home remedies
+const PATIENT_IMPAIRMENT_REMEDIES = /\b(?:couldn'?t\s+(?:sleep|eat|walk|work|breathe)|unable to\s+(?:sleep|eat|walk|work)|missed\s+(?:work|office|school)|took\s+(?:some\s+|a\s+)?(?:paracetamol|crocin|dolo|ibuprofen|tylenol|aspirin|antacid|tablet|pill|medicine)|tried\s+(?:drinking|taking|resting|warm water)|my\s+(?:husband|wife|mom|mother|dad|father|family)\s+(?:told|asked)\s+me)\b/i;
+
+// ─── Doctor Clinical Question & Directive Detector ─────────────────────────
 function isDoctorQuestion(text: string): boolean {
   const t = text.toLowerCase().trim();
   return (
-    (t.endsWith("?") && /^(any|have you|do you|did you|are you|how long|since when|when did|can you|tell me)/.test(t)) ||
-    /\bany (?:fever|pain|cough|chills|nausea|vomit|diarr|rash|bleed|shortness|complaints)\b/.test(t) ||
-    /\bhow long have you|since how many days|any history|what brings you\b/.test(t)
+    // Matches conversational inquiry openings even when punctuation is omitted by speech recognition
+    /^(?:how long|since when|when did|what brings you|how can i help|tell me what|tell me about|what seems to be|where does it hurt|what kind of|does it hurt|have you had|are you having|do you have|did you take|can you tell me|any other|any history|are you allergic|what medications?)\b/.test(t) ||
+    (t.endsWith("?") && /^(?:any|have you|do you|did you|are you|how long|since when|when did|can you|could you|tell me|is it)/.test(t)) ||
+    /\bany\s+(?:fever|pain|cough|chills|nausea|vomit|diarr|rash|bleed|shortness|dizziness|complaints|swelling)\b/.test(t) ||
+    /\b(?:how long have you|since how many days|any history of|what brings you in today|on examination)\b/.test(t) ||
+    // Physical examination directives function as doctor prompts
+    /\b(?:open your mouth|say ah|take a deep breath|breathe (?:in|out)|lie down|let me (?:examine|listen|check|feel)|relax your|turn your head)\b/.test(t)
   );
 }
 
-// ─── Speaker Classifier v3 ─────────────────────────────────────────────────
+// ─── Speaker Classifier v4 (Enterprise Clinical Grade) ─────────────────────
 interface ClassifyResult {
   speaker: SpeakerRole;
   confidence: number; // 0.0 - 1.0
@@ -136,75 +148,94 @@ function classifySpeaker(
   let docScore = 0;
   let patScore = 0;
 
-  // PRIORITY CHECK: Short confirmation after doctor question → always Patient
-  if (lastDoctorQuestion && SHORT_PATIENT_CONFIRMATIONS.test(t)) {
-    return { speaker: "Patient", confidence: 0.88 };
+  // SIGNAL 0: Direct Vocative Addressing Clinician ("yes doctor", "thanks doc", "dr.") → Strong Patient Signal
+  if (VOCATIVE_DOCTOR_ADDRESS.test(t)) {
+    patScore += 4.0;
   }
 
-  // PRIORITY CHECK: Very short utterance (< 4 words) after doctor question → likely Patient
+  // PRIORITY CHECK: Short confirmation after doctor prompt → always Patient
+  if (lastDoctorQuestion && SHORT_PATIENT_CONFIRMATIONS.test(t)) {
+    return { speaker: "Patient", confidence: 0.92 };
+  }
+
+  // PRIORITY CHECK: Duration/onset phrase after doctor prompt → Patient
+  if (lastDoctorQuestion && DURATION_ONSET_PATTERN.test(t)) {
+    patScore += 3.5;
+  }
+
+  // PRIORITY CHECK: Very short utterance (< 4 words) after doctor prompt → likely Patient response
   const wordCount = t.split(/\s+/).length;
   if (lastDoctorQuestion && wordCount < 4) {
-    patScore += 3;
+    patScore += 2.8;
   }
 
-  // S1: Doctor vocabulary
-  if (/\b(prescrib|diagnos|refer|order|follow.?up|auscult|palpat|percussion|tachycard|hypertens|hypotens)\b/.test(t)) docScore += 2;
-  if (/\b(how long have you|when did.{0,20}start|any history|family history|do you have any|can you describe|what brings you|on examination)\b/.test(t)) docScore += 2;
-  if (/\b(let me examine|open your mouth|deep breath|take a deep breath|does this hurt|press here|breathe normally)\b/.test(t)) docScore += 2;
-  if (/\b(i'?m going to|we'?ll need to|i recommend|i'?d like to|we should|i will order|i am going to)\b/.test(t)) docScore += 1.5;
-  if (/\b(dose|mg|mmhg|bpm|twice daily|once a day|once daily|before food|after food|blood pressure|heart rate|oxygen saturation)\b/.test(t)) docScore += 1.5;
-  if (/^(i see|i understand|right|noted|good|okay so|alright so|let me check|let me just)/.test(t)) docScore += 1.5;
-  if (/\b(do you have any questions|is there anything else|take care|not to worry|come back)\b/.test(t)) docScore += 1.5;
-  // Indian medical English doctor patterns
-  if (/\b(any complaints|since how many|since how long|any loose motions|any burning|any palpitation|any chest tightness)\b/.test(t)) docScore += 2;
+  // S1: Doctor Visit Openers & Pleasantries
+  if (/\b(?:what brings you|how can i help you|come in|have a seat|take a seat|what seems to be the problem|how are you feeling today|good (?:morning|afternoon)|tell me what happened)\b/.test(t)) {
+    docScore += 3.5;
+  }
 
-  // S2: Doctor-type question pattern
+  // S2: Doctor Physical Exam Directives (Natural bedside commands)
+  if (/\b(?:open your mouth|say ah|take a deep breath|breathe in|breathe out|deep breath in|deep breath out|lie down|turn your head|roll up your sleeve|let me (?:listen|check|feel|palpate|examine|take a look)|let'?s check your (?:bp|blood pressure|pulse|temperature|heart|lungs)|relax your (?:arm|leg|abdomen)|look up|follow my finger)\b/.test(t)) {
+    docScore += 4.0;
+  }
+
+  // S3: Doctor Diagnostic & Prescriptive Vocabulary
+  if (/\b(?:prescrib|diagnos|refer|order|follow.?up|auscult|palpat|percussion|tachycard|hypertens|hypotens)\b/.test(t)) docScore += 2.5;
+  if (/\b(?:i'?ll (?:prescribe|write|order|start you on)|i am prescribing|take (?:this|these) (?:tablets?|medication|pills?|capsules?)|(?:once|twice|three times) (?:a day|daily)|(?:before|after) (?:food|meals)|get an? (?:ecg|x-ray|scan|blood test|ultrasound)|follow up (?:in|after)|come back (?:if|in))\b/.test(t)) {
+    docScore += 3.5;
+  }
+  if (/\b(?:dose|mg|mmhg|bpm|blood pressure|heart rate|oxygen saturation|saturation is|lungs are clear|heart sounds normal)\b/.test(t)) docScore += 2.0;
+  if (/^(?:i see|i understand|right|noted|good|okay so|alright so|let me check|let me just note)\b/.test(t)) docScore += 1.8;
+  if (/\b(?:do you have any questions|is there anything else|take care|not to worry|everything looks fine)\b/.test(t)) docScore += 2.0;
+
+  // Indian / Global Medical English doctor inquiry patterns
+  if (/\b(?:any complaints|since how many|since how long|any loose motions|any burning|any palpitation|any chest tightness|any shortness of breath)\b/.test(t)) docScore += 2.5;
+
+  // S4: Doctor-type Inquiry Pattern (works with or without question mark)
+  if (/^(?:how long|since when|when did|what brings you|where does it|does it radiate|what kind|how often|how many times|do you have|have you had|are you having|did you take)\b/.test(t)) {
+    docScore += 2.5;
+  }
   if (t.endsWith("?")) {
-    if (/^(can you|could you|do you|did you|have you|are you|when did|how long|how often|any fever|any pain|any cough|any complaints)/.test(t)) docScore += 2;
-    if (/^(is it|will i|can i|am i|should i|what does|do i need|why is|how bad)/.test(t)) patScore += 1.5;
-    if (/(?:any |have you |do you |did you |are you )(?:fever|chills|cough|pain|nausea|bleed|rash|swelling|diarr|shortness|dizziness|vomit|complaints)/.test(t)) docScore += 2;
+    if (/^(?:can you|could you|do you|did you|have you|are you|when did|how long|how often)/.test(t)) docScore += 2.0;
+    if (/^(?:is it|will i|can i|am i|should i|what does|do i need|why is|how bad|is it dangerous)/.test(t)) patScore += 2.0;
   }
 
-  // S3: Patient vocabulary
-  if (/\bmy\s+(chest|head|stomach|back|leg|arm|eye|ear|throat|ankle|hip|knee|shoulder|neck|abdomen|belly|wrist|elbow|jaw|groin)\b/.test(t)) patScore += 2;
-  if (/\b(i'?ve been|i feel|it hurts|it's hurting|throbbing|aching|burning|numbing|tingling|itching|swollen)\b/.test(t)) patScore += 1.5;
-  if (/\b(for the past|since yesterday|since last|started (yesterday|last week|two days)|getting worse|getting better)\b/.test(t)) patScore += 1.5;
-  if (/\b(worried|scared|afraid|is it serious|will i be okay|do i need|can i go to work)\b/.test(t)) patScore += 1.5;
-  if (/\bi\s+(have|had|am|feel|can'?t|don'?t|notice|noticed|started|began)\b/.test(t)) patScore += 0.8;
+  // S5: Patient Symptom Vocabulary & First-Person Complaints
+  if (/\bmy\s+(?:chest|head|stomach|back|leg|arm|eye|ear|throat|ankle|hip|knee|shoulder|neck|abdomen|belly|wrist|elbow|jaw|groin|body)\b/.test(t)) patScore += 2.5;
+  if (/\b(?:i'?ve been (?:having|feeling|experiencing)|i feel|it hurts|it's hurting|throbbing|aching|burning|numbing|tingling|itching|swollen|stabbing|sharp pain|dull ache)\b/.test(t)) patScore += 2.5;
+  if (DURATION_ONSET_PATTERN.test(t)) patScore += 2.0;
+  if (PATIENT_IMPAIRMENT_REMEDIES.test(t)) patScore += 3.5;
+  if (/\b(?:worried|scared|afraid|is it serious|will i be okay|do i need admission|can i go to work|will it get worse)\b/.test(t)) patScore += 2.0;
+  if (/\bi\s+(?:have|had|feel|can'?t|couldn'?t|don'?t|noticed|started|vomited|threw up)\b/.test(t)) patScore += 1.2;
+
   // Indian patient patterns
-  if (/\b(since \d+ days?|from \d+ days?|some fever|some pain|body pain|full body pain|headache|acidity|gas problem|loose motions)\b/.test(t)) patScore += 2;
-  if (/\b(burning sensation|prickling|losing weight|no energy)\b/.test(t)) patScore += 1.5;
+  if (/\b(?:since \d+ days?|from \d+ days?|some fever|some pain|body pain|full body pain|headache|acidity|gas problem|loose motions|motions|vomiting)\b/.test(t)) patScore += 2.5;
+  if (/\b(?:burning sensation|prickling|losing weight|no energy|feeling weak|extreme tiredness)\b/.test(t)) patScore += 2.0;
 
-  // S4: Short utterance → likely patient response
-  if (wordCount < 5) patScore += 0.4;
-  // Very short (1-2 words) → strong patient signal
-  if (wordCount <= 2) patScore += 0.8;
-
-  // S5: Alternation heuristic — if last 3 segments are all Doctor, next is likely Patient
+  // S6: Conversational Turn-Taking (Alternation heuristic)
   if (recentSpeakers.length >= 3) {
     const last3 = recentSpeakers.slice(-3);
     if (last3.every(s => s === "Doctor") && docScore <= patScore + 0.5) {
-      patScore += 1.2; // nudge towards alternation
+      patScore += 1.5; // nudge towards patient turn
     }
     if (last3.every(s => s === "Patient") && patScore <= docScore + 0.5) {
-      docScore += 1.2;
+      docScore += 1.5; // nudge towards doctor turn
     }
   }
 
   // Decision
   const total = docScore + patScore;
-  if (total < 0.5) {
+  if (total < 0.6) {
     return { speaker: "Unknown", confidence: 0.35 };
   }
   if (docScore > patScore) {
-    const conf = Math.min(0.93, 0.52 + ((docScore - patScore) / (total + 1)) * 0.55);
+    const conf = Math.min(0.95, 0.55 + ((docScore - patScore) / (total + 1)) * 0.50);
     return { speaker: "Doctor", confidence: conf };
   }
   if (patScore > docScore) {
-    const conf = Math.min(0.93, 0.52 + ((patScore - docScore) / (total + 1)) * 0.55);
+    const conf = Math.min(0.95, 0.55 + ((patScore - docScore) / (total + 1)) * 0.50);
     return { speaker: "Patient", confidence: conf };
   }
-  // TIE → Unknown (CRITICAL FIX: was returning currentSpeaker which defaulted to Doctor)
   return { speaker: "Unknown", confidence: 0.40 };
 }
 

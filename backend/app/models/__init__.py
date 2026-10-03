@@ -86,7 +86,16 @@ from app.models.ingestion import IngestionJob  # noqa: F401
 from app.models.embedding import EmbeddingRecord  # noqa: F401
 
 # ── Social Hub (Phase 47) ─────────────────────────────────────
-from app.models.social import DoctorPost, PostAttachment, PostLike, PostComment, PostBookmark  # noqa: F401
+from app.models.social import (  # noqa: F401
+    DoctorPost,
+    PostAttachment,
+    PostLike,
+    PostComment,
+    PostBookmark,
+    PostTreatmentSuggestion,
+    CurbsideMessage,
+)
+
 
 __all__ = [
     # Provenance
@@ -151,4 +160,7 @@ __all__ = [
     "PostLike",
     "PostComment",
     "PostBookmark",
+    "PostTreatmentSuggestion",
+    "CurbsideMessage",
 ]
+

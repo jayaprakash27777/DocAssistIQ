@@ -60,7 +60,7 @@ export function ProfileDropdown({ user }: Props) {
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
 
-  const isAdmin = user.role === "admin";
+  const isAdmin = user.role === "admin" || user.role === "super_admin";
 
   return (
     <div className="profile-dropdown-container relative" ref={containerRef}>

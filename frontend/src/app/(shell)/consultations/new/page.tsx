@@ -87,18 +87,23 @@ export default function NewConsultationPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if coming from Outbreak Surveillance Radar
-    const simQuery = sessionStorage.getItem("outbreak_simulation_query");
-    const targetDisease = sessionStorage.getItem("outbreak_target_disease");
-    if (simQuery) {
-      setText(simQuery);
-      sessionStorage.removeItem("outbreak_simulation_query");
-      sessionStorage.removeItem("outbreak_target_disease");
-      toast.success(
-        targetDisease
-          ? `Loaded ${targetDisease} epidemic surveillance scenario from Outbreak Radar!`
-          : "Loaded epidemic outbreak scenario from Surveillance Radar!"
-      );
+    if (typeof window === "undefined") return;
+    try {
+      // Check if coming from Outbreak Surveillance Radar
+      const simQuery = sessionStorage.getItem("outbreak_simulation_query");
+      const targetDisease = sessionStorage.getItem("outbreak_target_disease");
+      if (simQuery) {
+        setText(simQuery);
+        sessionStorage.removeItem("outbreak_simulation_query");
+        sessionStorage.removeItem("outbreak_target_disease");
+        toast.success(
+          targetDisease
+            ? `Loaded ${targetDisease} epidemic surveillance scenario from Outbreak Radar!`
+            : "Loaded epidemic outbreak scenario from Surveillance Radar!"
+        );
+      }
+    } catch {
+      // Ignore if sessionStorage unavailable
     }
   }, [toast]);
 
@@ -139,29 +144,19 @@ export default function NewConsultationPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
-      {/* Dev safety notice */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8 p-4 bg-teal-50/80 border border-teal-200/70 rounded-2xl flex items-start gap-3 shadow-sm" 
-        role="note"
-      >
-        <span className="text-teal-600 text-xl leading-none" aria-hidden="true">ℹ</span>
-        <div className="flex-1 text-xs text-teal-900 leading-relaxed font-medium">
-          <strong className="block mb-1 font-bold text-teal-950">{PLACEHOLDER_LABEL}</strong>
-          This environment is for clinical demonstration and simulation. Do not enter actual Protected Health Information (PHI).
-        </div>
-      </motion.div>
-
+    <div className="max-w-4xl mx-auto py-6 px-4 sm:px-6">
       <motion.header 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="mb-8"
+        className="mb-6"
       >
-        <h2 className="text-3xl font-black tracking-tight text-slate-900 font-heading mb-2">New Consultation</h2>
-        <p className="text-slate-500 text-base font-medium">
+        <div className="flex items-center justify-between gap-3 mb-1">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 font-heading m-0">New Consultation</h2>
+          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider hidden sm:inline">
+            {PLACEHOLDER_LABEL}
+          </span>
+        </div>
+        <p className="text-slate-500 text-sm font-medium">
           Describe the clinical scenario. Your input will be securely processed to initiate a new patient record.
         </p>
       </motion.header>
@@ -209,7 +204,7 @@ export default function NewConsultationPage() {
                       toast.success(`Loaded ${s.label} scenario`);
                     }}
                     disabled={submitting}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-xs font-semibold text-slate-700 hover:text-teal-900 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-xs font-semibold text-slate-700 hover:text-teal-900 shadow-2xs transition-all disabled:opacity-50"
                   >
                     {s.iconType === "heart" ? (
                       <HeartPulse className="w-3.5 h-3.5 text-rose-500" />
@@ -248,7 +243,7 @@ export default function NewConsultationPage() {
                       toast.success(`Loaded ${obs.label} scenario! Differential diagnosis will prioritize epidemic outbreak.`);
                     }}
                     disabled={submitting}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-50 to-amber-50 hover:from-rose-100 hover:to-amber-100 border border-rose-300 text-xs font-bold text-rose-900 shadow-2xs transition-all active:scale-95 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-50 to-amber-50 hover:from-rose-100 hover:to-amber-100 border border-rose-300 text-xs font-bold text-rose-900 shadow-2xs transition-all disabled:opacity-50"
                   >
                     <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
                     <span>{obs.label}</span>

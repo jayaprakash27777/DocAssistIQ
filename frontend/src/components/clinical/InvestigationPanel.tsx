@@ -10,28 +10,36 @@ import { motion, AnimatePresence } from "framer-motion";
 import ClinicalLoader from "./ClinicalLoader";
 import { AlertTriangle, AlertCircle, FileText, CheckCircle2, BookOpen } from "lucide-react";
 
-const PRIORITY_STYLES: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  "HIGH PRIORITY": { bg: "bg-red-50",    text: "text-red-700",    border: "border-red-200",    dot: "bg-red-500" },
-  "CONDITIONAL":   { bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-200",  dot: "bg-amber-500" },
-  "IF INDICATED":  { bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-200",   dot: "bg-blue-400" },
-};
+function getPriorityStyle(priority: string = "") {
+  const p = (priority || "").toUpperCase();
+  if (p.includes("HIGH") || p.includes("STAT") || p.includes("IMMEDIATE") || p.includes("URGENT") || p.includes("CONFIRMATORY")) {
+    return { bg: "bg-red-50", text: "text-red-700", border: "border-red-200", dot: "bg-red-500" };
+  }
+  if (p.includes("CONDITIONAL") || p.includes("MONITOR") || p.includes("CONSIDER") || p.includes("SECONDARY")) {
+    return { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", dot: "bg-amber-500" };
+  }
+  if (p.includes("INDICATED") || p.includes("ROUTINE") || p.includes("BASELINE") || p.includes("STANDARD")) {
+    return { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", dot: "bg-blue-400" };
+  }
+  return { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200", dot: "bg-slate-400" };
+}
 
 const Section = ({ title, items, color, icon: Icon, consultationId, disease }: { title: string, items: any[], color: string, icon: any, consultationId: string, disease: string }) => {
   if (items.length === 0) return null;
   return (
-    <div className="mb-8 last:mb-0">
-      <h6 className={`text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 ${color}`}>
-        <Icon className="w-4 h-4" /> {title}
-        <span className="ml-auto text-[10px] font-black text-slate-400 normal-case tracking-normal">
-          {items.length} test{items.length !== 1 ? "s" : ""} · Drag any to Clinical Note
+    <div className="mb-6 last:mb-0">
+      <h6 className={`text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${color}`}>
+        <Icon className="w-4 h-4 shrink-0" /> {title}
+        <span className="ml-auto text-[10px] font-semibold text-slate-500 normal-case tracking-normal">
+          {items.length} test{items.length !== 1 ? "s" : ""}
         </span>
       </h6>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {items.map((item: any, idx: number) => {
-          const pStyle = PRIORITY_STYLES[item.priority] || PRIORITY_STYLES["IF INDICATED"];
+          const pStyle = getPriorityStyle(item.priority);
           // Rich drag payload for clinical note
           const dragText = [
-            `${item.priority}: ${item.name || item.investigation_name}`,
+            `${item.priority || "RECOMMENDED"}: ${item.name || item.investigation_name}`,
             item.rationale ? `  Rationale: ${item.rationale}` : "",
             item.evidence  ? `  Evidence: ${item.evidence}` : "",
             item.safety_flags?.length ? `  ⚠️ Safety: ${item.safety_flags.join("; ")}` : "",
@@ -39,7 +47,7 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
 
           return (
             <motion.div
-              key={`${item.investigation_name}-${idx}`}
+              key={`${item.investigation_name || item.name}-${idx}`}
               draggable={true}
               onDragStart={(e) => {
                 const de = (e as unknown as DragEvent);
@@ -48,34 +56,27 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
                   de.dataTransfer.effectAllowed = "copy";
                 }
               }}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.06 }}
-              className={`group relative px-5 py-4 rounded-2xl border ${pStyle.border} ${pStyle.bg} hover:shadow-md hover:border-slate-300/80 transition-all duration-200 cursor-grab active:cursor-grabbing active:scale-[0.99] active:opacity-80 backdrop-blur-md`}
+              transition={{ delay: idx * 0.03 }}
+              className={`group relative px-4 py-3.5 rounded-xl border ${pStyle.border} ${pStyle.bg} hover:border-slate-300 transition-colors cursor-grab active:cursor-grabbing backdrop-blur-md shadow-2xs`}
             >
-              {/* Drag tooltip */}
-              <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                <div className="bg-slate-800 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-lg whitespace-nowrap">
-                  ⠿ Drag to Clinical Note
-                </div>
-              </div>
-
               <div className="flex items-start gap-3">
-                <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${pStyle.dot}`} />
+                <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${pStyle.dot}`} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-3">
                     <span className={`font-bold text-sm ${pStyle.text} leading-tight`}>
                       {item.name || item.investigation_name}
                     </span>
-                    <span className={`flex-shrink-0 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${pStyle.border} ${pStyle.text} ${pStyle.bg}`}>
-                      {item.priority}
+                    <span className={`flex-shrink-0 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${pStyle.border} ${pStyle.text} bg-white/80`}>
+                      {item.priority || "RECOMMENDED"}
                     </span>
                   </div>
                   {item.rationale && (
-                    <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">{item.rationale}</p>
+                    <p className="text-xs text-slate-600 mt-1 leading-relaxed font-normal">{item.rationale}</p>
                   )}
                   {item.evidence && (
-                    <p className="text-[10px] text-slate-400 mt-1 font-medium italic flex items-center gap-1">
+                    <p className="text-[10px] text-slate-500 mt-1 font-medium italic flex items-center gap-1">
                       <BookOpen className="w-3 h-3 text-slate-400 shrink-0" />
                       <span>{item.evidence}</span>
                     </p>
@@ -83,7 +84,7 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
                   {item.safety_flags?.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {item.safety_flags.map((flag: string, fi: number) => (
-                        <span key={fi} className="inline-flex items-center gap-1 text-[9px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                        <span key={fi} className="inline-flex items-center gap-1 text-[9px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
                           <AlertTriangle className="w-2.5 h-2.5 text-red-600 shrink-0" />
                           <span>{flag}</span>
                         </span>
@@ -93,7 +94,7 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
                 </div>
               </div>
 
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <FeedbackButtons
                   suggestionId={`inv-${consultationId}-${disease}-${item.name || item.investigation_name}`}
                   suggestionType="investigation"
@@ -134,41 +135,51 @@ export default function InvestigationPanel({ consultationId, disease, competing 
   }
 
   if (error) {
-    return <div className="mt-4 p-4 text-xs text-[var(--color-danger-700)] bg-[var(--color-danger-50)]/80 rounded-2xl border border-[var(--color-danger-200)] flex items-center gap-2"><AlertCircle className="w-4 h-4"/> {error}</div>;
+    return <div className="mt-4 p-4 text-xs text-red-700 bg-red-50 rounded-2xl border border-red-200 flex items-center gap-2"><AlertCircle className="w-4 h-4"/> {error}</div>;
   }
 
   if (!data || data.suggestions.length === 0) {
     return (
-      <div className="mt-4 p-4 text-xs text-[var(--text-secondary)] bg-[var(--surface-sunken)] rounded-2xl border border-[var(--border-default)] italic">
+      <div className="mt-4 p-4 text-xs text-slate-600 bg-slate-50 rounded-2xl border border-slate-200 italic">
         No reference investigations available for {disease}.
       </div>
     );
   }
 
-  const highPriority = data.suggestions.filter(s => s.priority === "HIGH PRIORITY");
-  const conditional = data.suggestions.filter(s => s.priority === "CONDITIONAL");
-  const ifIndicated = data.suggestions.filter(s => s.priority === "IF INDICATED");
-
+  const highPriority = data.suggestions.filter(s => {
+    const p = (s.priority || "").toUpperCase();
+    return p.includes("HIGH") || p.includes("STAT") || p.includes("IMMEDIATE") || p.includes("URGENT") || p.includes("CONFIRMATORY");
+  });
+  const conditional = data.suggestions.filter(s => {
+    const p = (s.priority || "").toUpperCase();
+    return !highPriority.includes(s) && (p.includes("CONDITIONAL") || p.includes("MONITOR") || p.includes("CONSIDER") || p.includes("SECONDARY"));
+  });
+  const ifIndicated = data.suggestions.filter(s => {
+    const p = (s.priority || "").toUpperCase();
+    return !highPriority.includes(s) && !conditional.includes(s) && (p.includes("INDICATED") || p.includes("ROUTINE") || p.includes("BASELINE") || p.includes("STANDARD"));
+  });
+  const additional = data.suggestions.filter(s => !highPriority.includes(s) && !conditional.includes(s) && !ifIndicated.includes(s));
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-6 p-7 overflow-hidden rounded-3xl shadow-[0_12px_44px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.95)] border border-slate-200/80 bg-white/90 backdrop-blur-3xl relative"
+      className="mt-4 p-6 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs relative text-left"
     >
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400 opacity-80" />
-      
-      <div className="flex items-start justify-between mb-8 pb-5 border-b border-slate-200/60">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-white rounded-2xl shadow-sm border border-blue-100 flex items-center justify-center ring-2 ring-blue-50">
-            <FileText className="w-6 h-6 text-blue-600" />
+      <div className="flex items-start justify-between mb-5 pb-4 border-b border-slate-200/80">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-blue-50 rounded-xl border border-blue-200 flex items-center justify-center text-blue-700">
+            <FileText className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h5 className="font-black text-slate-800 text-lg tracking-tight">Expected Investigations</h5>
-            <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase mt-1">Context-aware algorithmic recommendations</p>
+            <h5 className="font-extrabold text-slate-900 text-base tracking-tight font-heading">Recommended Diagnostic Workup &amp; Tests</h5>
+            <p className="text-[11px] text-slate-500 font-medium">Standard-of-care lab, imaging, and bedside test protocol for {disease}</p>
           </div>
         </div>
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center gap-2">
+          <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg">
+            {data.suggestions.length} Total Tests
+          </span>
           <FeedbackButtons 
             suggestionId={`inv-${consultationId}-${disease}`} 
             suggestionType="investigation" 
@@ -177,10 +188,11 @@ export default function InvestigationPanel({ consultationId, disease, competing 
         </div>
       </div>
 
-      <div className="space-y-6">
-        <Section title="High Priority / Immediate" items={highPriority} color="text-[var(--color-danger-600)] [var(--color-danger-400)]" icon={AlertCircle} consultationId={consultationId} disease={disease} />
-        <Section title="Conditional / Monitor" items={conditional} color="text-[var(--color-warning-600)] [var(--color-warning-400)]" icon={AlertTriangle} consultationId={consultationId} disease={disease} />
-        <Section title="If Indicated" items={ifIndicated} color="text-[var(--color-primary-600)] [var(--color-primary-400)]" icon={CheckCircle2} consultationId={consultationId} disease={disease} />
+      <div className="space-y-5">
+        <Section title="High Priority / Immediate" items={highPriority} color="text-red-700" icon={AlertCircle} consultationId={consultationId} disease={disease} />
+        <Section title="Conditional / Monitor" items={conditional} color="text-amber-700" icon={AlertTriangle} consultationId={consultationId} disease={disease} />
+        <Section title="If Indicated" items={ifIndicated} color="text-blue-700" icon={CheckCircle2} consultationId={consultationId} disease={disease} />
+        <Section title="Additional Diagnostic Workup" items={additional} color="text-slate-700" icon={FileText} consultationId={consultationId} disease={disease} />
       </div>
     </motion.div>
   );

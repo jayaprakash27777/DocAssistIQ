@@ -305,54 +305,38 @@ INVESTIGATION_TEMPLATES: dict[str, list[dict]] = {
 # ---------------------------------------------------------------------------
 
 async def _fetch_who_outbreak_news() -> str:
-    """Fetch WHO Disease Outbreak News via WHO API (free, no key)."""
+    """Fetch WHO Disease Outbreak News via WHO News RSS (free, live, no key)."""
     cached = _cache_get("who_outbreak_news")
     if cached:
         return cached
 
     try:
         import httpx
-        # WHO provides news articles via their public API
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            # WHO Outbreak News via public endpoint
+        import xml.etree.ElementTree as ET
+        import re
+        async with httpx.AsyncClient(timeout=4.0) as client:
             resp = await client.get(
-                "https://www.who.int/api/news/newstype/outbreak-news",
-                params={"$top": 20, "$select": "Title,PublicationDate,Summary,Url"},
-                headers={"Accept": "application/json"}
+                "https://www.who.int/rss-feeds/news-english.xml",
+                follow_redirects=True,
+                headers={"User-Agent": "DocAssistIQ-Intelligence/1.0"}
             )
-            if resp.status_code == 200:
-                data = resp.json()
-                items = data.get("value", []) if isinstance(data, dict) else data
-                lines = []
-                for item in items[:15]:
-                    title = item.get("Title", "") or ""
-                    summary = item.get("Summary", "") or ""
-                    lines.append(f"- {title}: {summary[:300]}")
-                result = "WHO DISEASE OUTBREAK NEWS (Live):\n" + "\n".join(lines)
-                _cache_set("who_outbreak_news", result)
-                return result
-    except Exception as e:
-        log.warning("who_api_failed", error=str(e))
-
-    # Fallback: WHO RSS feed
-    try:
-        import httpx
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.get("https://www.who.int/rss-feeds/news-english.xml")
             if resp.status_code == 200:
                 root = ET.fromstring(resp.text)
                 items = root.findall(".//item")
                 lines = []
-                for item in items[:15]:
+                for item in items[:25]:
                     title_el = item.find("title")
                     desc_el = item.find("description")
-                    title = title_el.text if title_el is not None else ""
-                    desc = desc_el.text if desc_el is not None else ""
-                    if "outbreak" in (title + desc).lower() or "disease" in (title + desc).lower():
-                        lines.append(f"- {title}: {desc[:200]}")
-                result = "WHO NEWS (Outbreak Filtered):\n" + "\n".join(lines[:10])
-                _cache_set("who_outbreak_news", result)
-                return result
+                    title = title_el.text if title_el is not None and title_el.text else ""
+                    desc = desc_el.text if desc_el is not None and desc_el.text else ""
+                    combined = (title + " " + desc).lower()
+                    if any(kw in combined for kw in ["outbreak", "disease", "virus", "infection", "epidemic", "fever", "who", "health emergency"]):
+                        clean_desc = re.sub(r'<[^>]+>', ' ', desc).strip()[:250]
+                        lines.append(f"- {title.strip()}: {clean_desc}")
+                if lines:
+                    result = "WHO GLOBAL HEALTH & OUTBREAK NEWS (Live):\n" + "\n".join(lines[:12])
+                    _cache_set("who_outbreak_news", result)
+                    return result
     except Exception as e:
         log.warning("who_rss_failed", error=str(e))
 
@@ -419,26 +403,30 @@ async def _fetch_promedmail_feed() -> str:
 
 
 async def _fetch_ncbi_pubmed_articles(disease_name: str) -> str:
-    """Search NCBI PubMed for recent outbreak articles (free, no key for basic use)."""
+    """Search NCBI PubMed for recent outbreak and clinical articles (free, no key)."""
     cache_key = f"pubmed_{disease_name[:30]}"
     cached = _cache_get(cache_key)
     if cached:
         return cached
 
+    import re
+    clean_name = re.sub(r'\(.*?\)', '', disease_name).strip()
+    search_term = f"{clean_name} outbreak"
+
     try:
         import httpx
-        search_term = quote(f"{disease_name} outbreak 2024 2025 2026")
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=4.0) as client:
             # ESearch to get IDs
             search_resp = await client.get(
                 "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
                 params={
                     "db": "pubmed",
                     "term": search_term,
-                    "retmax": "5",
+                    "retmax": "4",
                     "retmode": "json",
                     "sort": "date"
-                }
+                },
+                headers={"User-Agent": "DocAssistIQ-MedicalBot/2.0 (https://docassistiq.ai; health@docassistiq.ai)"}
             )
             if search_resp.status_code == 200:
                 ids = search_resp.json().get("esearchresult", {}).get("idlist", [])
@@ -448,23 +436,25 @@ async def _fetch_ncbi_pubmed_articles(disease_name: str) -> str:
                         "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi",
                         params={
                             "db": "pubmed",
-                            "id": ",".join(ids[:5]),
+                            "id": ",".join(ids[:4]),
                             "retmode": "json"
-                        }
+                        },
+                        headers={"User-Agent": "DocAssistIQ-MedicalBot/2.0 (https://docassistiq.ai; health@docassistiq.ai)"}
                     )
                     if sum_resp.status_code == 200:
                         sum_data = sum_resp.json().get("result", {})
                         lines = []
-                        for pmid in ids[:5]:
+                        for pmid in ids[:4]:
                             article = sum_data.get(pmid, {})
                             title = article.get("title", "")
                             source = article.get("source", "")
                             pubdate = article.get("pubdate", "")
                             if title:
-                                lines.append(f"- [{pubdate}] {title} ({source})")
-                        result = f"RECENT PUBMED LITERATURE ({disease_name}):\n" + "\n".join(lines)
-                        _cache_set(cache_key, result)
-                        return result
+                                lines.append(f"- [{pubdate}] {title} ({source}) [PMID: {pmid}]")
+                        if lines:
+                            result = f"RECENT PUBMED LITERATURE ({disease_name}):\n" + "\n".join(lines)
+                            _cache_set(cache_key, result)
+                            return result
     except Exception as e:
         log.warning("ncbi_pubmed_failed", error=str(e))
 
@@ -472,25 +462,69 @@ async def _fetch_ncbi_pubmed_articles(disease_name: str) -> str:
 
 
 async def _fetch_wikipedia_disease_summary(disease_name: str) -> str:
-    """Fetch Wikipedia disease summary (free)."""
+    """Fetch Wikipedia disease summary using OpenSearch canonical resolution (free, no key)."""
     cache_key = f"wiki_{disease_name[:30]}"
     cached = _cache_get(cache_key)
     if cached:
         return cached
 
+    import re
+    clean_name = re.sub(r'\(.*?\)', '', disease_name).strip()
+    search_queries = [clean_name]
+    tokens = clean_name.split()
+    if len(tokens) > 1 and tokens[0].lower() not in ("acute", "chronic", "severe", "primary", "secondary"):
+        search_queries.append(tokens[0])
+
+    wiki_headers = {"User-Agent": "DocAssistIQ-MedicalBot/2.0 (https://docassistiq.ai; health@docassistiq.ai)"}
+
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(
-                f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(disease_name)}"
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                text = data.get("extract", "")
-                if text:
-                    result = f"WIKIPEDIA SUMMARY ({disease_name}):\n{text[:1500]}"
-                    _cache_set(cache_key, result)
-                    return result
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            # 1. Use OpenSearch to resolve exact canonical title on Wikipedia
+            for query in search_queries:
+                search_resp = await client.get(
+                    "https://en.wikipedia.org/w/api.php",
+                    params={
+                        "action": "opensearch",
+                        "search": query,
+                        "limit": "2",
+                        "namespace": "0",
+                        "format": "json"
+                    },
+                    headers=wiki_headers
+                )
+                if search_resp.status_code == 200:
+                    data = search_resp.json()
+                    titles = data[1] if len(data) > 1 else []
+                    if titles:
+                        canonical_title = titles[0]
+                        # 2. Fetch page summary for the canonical title
+                        sum_resp = await client.get(
+                            f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(canonical_title.replace(' ', '_'))}",
+                            headers=wiki_headers
+                        )
+                        if sum_resp.status_code == 200:
+                            sum_data = sum_resp.json()
+                            text = sum_data.get("extract", "")
+                            if text and len(text) > 20:
+                                result = f"WIKIPEDIA SUMMARY ({canonical_title}):\n{text[:1500]}"
+                                _cache_set(cache_key, result)
+                                return result
+
+            # 3. Direct candidate fallback
+            direct_cands = [clean_name, disease_name]
+            for cand in direct_cands:
+                resp = await client.get(
+                    f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(cand.replace(' ', '_'))}",
+                    headers=wiki_headers
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    text = data.get("extract", "")
+                    if text and len(text) > 20:
+                        result = f"WIKIPEDIA SUMMARY ({disease_name}):\n{text[:1500]}"
+                        _cache_set(cache_key, result)
+                        return result
     except Exception as e:
         log.warning("wikipedia_fetch_failed", error=str(e))
 
@@ -726,13 +760,30 @@ class IntelligenceEngine:
 
     async def get_disease_intelligence_context(self, disease_name: str) -> dict:
         """
-        Fetches comprehensive context for a specific disease from multiple sources.
+        Fetches comprehensive context for a specific disease from multiple sources in parallel.
         """
+        async def _safe(coro, timeout=3.5, default=""):
+            try:
+                return await asyncio.wait_for(coro, timeout=timeout)
+            except Exception:
+                return default
+
+        async def _fetch_icd():
+            try:
+                from app.services.clinical_disease_metadata import get_disease_clinical_profile
+                prof = get_disease_clinical_profile(disease_name)
+                if prof and prof.get("icd11"):
+                    return f"ICD-11 CLASSIFICATION:\nTitle: {disease_name}\nICD Code: {prof.get('icd11')}"
+            except Exception:
+                pass
+            return ""
+
         tasks = [
-            _fetch_wikipedia_disease_summary(disease_name),
-            _fetch_ncbi_pubmed_articles(disease_name),
-            _fetch_who_outbreak_news(),
-            _fetch_cdc_travel_notices(),
+            _safe(_fetch_wikipedia_disease_summary(disease_name), timeout=3.5),
+            _safe(_fetch_ncbi_pubmed_articles(disease_name), timeout=3.5),
+            _safe(_fetch_who_outbreak_news(), timeout=3.0),
+            _safe(_fetch_cdc_travel_notices(), timeout=3.0),
+            _safe(_fetch_icd(), timeout=3.0),
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -740,30 +791,7 @@ class IntelligenceEngine:
         pubmed_ctx = results[1] if not isinstance(results[1], Exception) else ""
         who_ctx = results[2] if not isinstance(results[2], Exception) else ""
         cdc_ctx = results[3] if not isinstance(results[3], Exception) else ""
-
-        # Try to get ICD-11 info (WHO ICD-11 Foundation API - free, no key)
-        icd_ctx = ""
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(
-                    "https://id.who.int/icd/entity/search",
-                    params={"q": disease_name, "subtreFilterUsage": "foundationDescendants"},
-                    headers={"Accept": "application/json", "API-Version": "v2", "Accept-Language": "en"}
-                )
-                if resp.status_code == 200:
-                    icd_data = resp.json()
-                    entities = icd_data.get("destinationEntities", [])
-                    if entities:
-                        entity = entities[0]
-                        icd_ctx = (
-                            f"ICD-11 CLASSIFICATION:\n"
-                            f"Title: {entity.get('title', '')}\n"
-                            f"Definition: {entity.get('definition', '')[:500]}\n"
-                            f"ICD Code: {entity.get('theCode', 'N/A')}"
-                        )
-        except Exception as e:
-            log.warning("icd11_fetch_failed", error=str(e))
+        icd_ctx = results[4] if not isinstance(results[4], Exception) else ""
 
         disease_class = get_disease_class(disease_name)
         incubation_data = INCUBATION_PERIODS.get(disease_name.lower())

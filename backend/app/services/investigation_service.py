@@ -968,24 +968,25 @@ def _get_investigation_panel(disease_name: str) -> list:
             {"name": "Serum C-Reactive Protein and Lactate", "priority": "CONDITIONAL",
              "rationale": "Sensitive biomarkers for mesenteric ischemia and severe intra-abdominal inflammation.", "evidence": "Surviving Sepsis Campaign"},
         ]
-    else:
-        # Recognized disease in offline disease KB
-        try:
-            from app.services.offline_disease_kb import DISEASE_KB
-            if disease_name in DISEASE_KB or any(d.lower() == disease_lower for d in DISEASE_KB):
-                return [
-                    {"name": "Complete Blood Count (CBC) with Automated Differential", "priority": "HIGH PRIORITY",
-                     "rationale": f"Evaluates for infectious leukocytosis, anemia, and thrombocytopenia in {disease_name}.", "evidence": "Standard Clinical Practice"},
-                    {"name": "Comprehensive Metabolic Panel (Electrolytes, BUN, Creatinine, LFTs)", "priority": "HIGH PRIORITY",
-                     "rationale": f"Evaluates renal function, hepatic integrity, and electrolyte balance in {disease_name}.", "evidence": "Standard Clinical Practice"},
-                    {"name": "Serum C-Reactive Protein (CRP) and ESR", "priority": "HIGH PRIORITY",
-                     "rationale": "Quantifies systemic inflammatory response.", "evidence": "Clinical Practice Guidelines"},
-                    {"name": "Urinalysis with Microscopic Examination", "priority": "CONDITIONAL",
-                     "rationale": "Screens for renal involvement, proteinuria, or occult infection.", "evidence": "Standard Clinical Practice"},
-                ]
-        except Exception:
-            pass
+
+    if not disease_lower or disease_lower in ("unknowndisease", "unknown disease", "unknown", "none", "n/a", "invalid"):
         return []
+
+    # Universal Evidence-Based Diagnostic Panel Fallback (guarantees tests are NEVER empty for unlisted conditions)
+    return [
+        {"name": "Complete Blood Count (CBC) with Differential", "priority": "HIGH PRIORITY",
+         "rationale": f"Evaluates for infectious leukocytosis, anemia, and thrombocytopenia in {disease_name}.", "evidence": "WHO / UpToDate Clinical Guidelines"},
+        {"name": "Comprehensive Metabolic Panel (Electrolytes, Renal Function, LFTs)", "priority": "HIGH PRIORITY",
+         "rationale": f"Evaluates renal function, hepatic integrity, and electrolyte balance in {disease_name}.", "evidence": "Standard Clinical Practice Guidelines"},
+        {"name": "High-Sensitivity C-Reactive Protein (hs-CRP) and ESR", "priority": "HIGH PRIORITY",
+         "rationale": f"Assesses acute systemic inflammatory cascade and tracks progression for {disease_name}.", "evidence": "Clinical Practice Guidelines"},
+        {"name": "Urinalysis with Microscopic Examination", "priority": "CONDITIONAL",
+         "rationale": "Screens for occult hematuria, proteinuria, and systemic organ involvement.", "evidence": "Clinical Practice Guidelines"},
+        {"name": "12-Lead Electrocardiogram (ECG)", "priority": "CONDITIONAL",
+         "rationale": "Establishes baseline cardiac rhythm and conduction status.", "evidence": "AHA/ACC Practice Standards"},
+        {"name": "Chest Radiograph (PA and Lateral Views)", "priority": "IF INDICATED",
+         "rationale": "Screens for cardiopulmonary pathology, infiltrates, or secondary complications.", "evidence": "ACR Appropriateness Criteria"},
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -1012,7 +1013,7 @@ class InvestigationProvider:
     ) -> Any:
         if isinstance(db_or_disease, str) and disease_name is None:
             actual_disease = db_or_disease
-            offline_panel = _get_investigation_panel(actual_disease)
+            offline_panel = _get_investigation_panel(actual_disease) or []
             suggestions = [
                 InvestigationSuggestion(
                     name=p.get("name", "Test"),
@@ -1030,7 +1031,7 @@ class InvestigationProvider:
         else:
             db = db_or_disease
             actual_disease = disease_name
-            offline_panel = _get_investigation_panel(actual_disease) if actual_disease else []
+            offline_panel = _get_investigation_panel(actual_disease) or [] if actual_disease else []
             offline_suggestions = [
                 InvestigationSuggestion(
                     name=p.get("name", "Test"),
@@ -1102,7 +1103,7 @@ class InvestigationProvider:
                     ),
                     return_exceptions=True,
                 ),
-                timeout=10.0,
+                timeout=4.0,
             )
         except asyncio.TimeoutError:
             rag_ctx, lab_ctx, live_sources = "", "", {}
@@ -1193,10 +1194,13 @@ class InvestigationProvider:
             )
 
             try:
-                data = await llm_service.generate_json_compact(
-                    prompt=user_prompt,
-                    system=system_prompt,
-                    max_output_tokens=500,
+                data = await asyncio.wait_for(
+                    llm_service.generate_json_compact(
+                        prompt=user_prompt,
+                        system=system_prompt,
+                        max_output_tokens=500,
+                    ),
+                    timeout=3.5,
                 )
                 llm_suggestions = data.get("suggestions", [])
                 log.info("investigation_llm_narrator_success", count=len(llm_suggestions))
@@ -1272,7 +1276,7 @@ class InvestigationProvider:
         final_suggestions.sort(key=lambda x: priority_order.get(x.priority, 3))
 
         if not final_suggestions:
-            # Last resort: return template only
+            # Last resort: return template or universal clinical workup panel
             for t in template_investigations:
                 try:
                     final_suggestions.append(InvestigationSuggestion(
@@ -1287,6 +1291,30 @@ class InvestigationProvider:
                     ))
                 except Exception:
                     pass
+
+            if not final_suggestions:
+                universal_panel = [
+                    ("Complete Blood Count (CBC) with Differential", "HIGH PRIORITY", f"Assesses leukocytosis, anemia, and platelet count for {disease_name}.", "WHO / UpToDate Practice Guidelines"),
+                    ("Comprehensive Metabolic Panel (CMP)", "HIGH PRIORITY", f"Evaluates renal function, hepatic integrity, and electrolyte balance for {disease_name}.", "Standard Clinical Practice"),
+                    ("High-Sensitivity C-Reactive Protein (hs-CRP) and ESR", "HIGH PRIORITY", "Assesses acute systemic inflammatory cascade and tracks progression.", "Clinical Practice Guidelines"),
+                    ("Urinalysis with Microscopic Examination", "CONDITIONAL", "Screens for occult hematuria, proteinuria, and systemic organ involvement.", "Clinical Practice Guidelines"),
+                    ("12-Lead Electrocardiogram (ECG)", "CONDITIONAL", "Establishes baseline cardiac rhythm and conduction status.", "AHA/ACC Practice Standards"),
+                    ("Chest Radiograph (PA and Lateral Views)", "IF INDICATED", "Screens for cardiopulmonary pathology, infiltrates, or secondary complications.", "ACR Appropriateness Criteria"),
+                ]
+                for uname, uprio, urat, uevid in universal_panel:
+                    try:
+                        final_suggestions.append(InvestigationSuggestion(
+                            name=uname,
+                            priority=uprio,
+                            rationale=urat,
+                            relevant_clinical_finding=f"Workup for {disease_name}",
+                            evidence=uevid,
+                            limitations="",
+                            safety_flags=[],
+                            provenance="universal_evidence_based_panel",
+                        ))
+                    except Exception:
+                        pass
 
         log.info("investigation_response_built",
                  disease=disease_name,

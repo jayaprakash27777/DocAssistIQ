@@ -39,7 +39,8 @@ import {
   Award,
   Database,
   Radio,
-  ExternalLink
+  ExternalLink,
+  Brain
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/shell/ToastProvider";
@@ -146,7 +147,7 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
-  const isAdmin = user.role === "admin";
+  const isAdmin = user.role === "admin" || user.role === "super_admin";
   const memberSince = new Date(user.created_at).toLocaleDateString("en-GB", {
     year: "numeric",
     month: "long",
@@ -524,11 +525,22 @@ export default function DashboardPage() {
                             {new Date(c.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
-                        <div 
-                          className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm shrink-0" 
-                          style={{ color: status.color, backgroundColor: status.bg, borderColor: `${status.color}30` }}
-                        >
-                          {status.label}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Link
+                            href={`/ai?cid=${c.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all flex items-center gap-1 shadow-2xs"
+                            title="Ask DocAssist IQ AI"
+                          >
+                            <Brain className="w-3 h-3 text-indigo-600" />
+                            <span>AI</span>
+                          </Link>
+                          <div 
+                            className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm" 
+                            style={{ color: status.color, backgroundColor: status.bg, borderColor: `${status.color}30` }}
+                          >
+                            {status.label}
+                          </div>
                         </div>
                       </Link>
                     </motion.div>
