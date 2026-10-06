@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/set-state-in-effect */
-/* eslint-disable react/no-unescaped-entities */
 /**
  * DocAssistIQ — Structured Manual Clinical Intake Form (Phase 22).
  */
@@ -18,7 +17,6 @@ import {
   finalizeIntake,
   type ManualIntakeResponse,
   type ManualIntakeUpdate,
-  PLACEHOLDER_LABEL,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -190,10 +188,6 @@ export default function ManualIntakePage() {
                 <ChevronLeft className="w-4 h-4" />
                 <span>Return to Consultation Room</span>
               </Link>
-              <span className="text-slate-300 dark:text-slate-700">•</span>
-              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider hidden sm:inline">
-                {PLACEHOLDER_LABEL}
-              </span>
               <span className="text-slate-300 dark:text-slate-700">•</span>
               <button
                 type="button"

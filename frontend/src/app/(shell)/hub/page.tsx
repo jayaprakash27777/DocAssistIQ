@@ -9,7 +9,14 @@ import { TrendingHashtagsWidget } from "@/components/hub/TrendingHashtagsWidget"
 import { EmergencyRadarWidget } from "@/components/hub/EmergencyRadarWidget";
 import { VerifiedDoctorsWidget } from "@/components/hub/VerifiedDoctorsWidget";
 import { StatEmergencyPagerBanner } from "@/components/hub/StatEmergencyPagerBanner";
-import { DoctorPost } from "@/types/social";
+import { ClinicalStoriesTray } from "@/components/hub/ClinicalStoriesTray";
+import { ClinicalReelsModal, ClinicalReel } from "@/components/hub/ClinicalReelsModal";
+import { AudioSpaceModal, AudioSpaceData } from "@/components/hub/AudioSpaceModal";
+import { DoctorCirclesModal, CircleData } from "@/components/hub/DoctorCirclesModal";
+import { CurbsideMessengerDrawer } from "@/components/hub/CurbsideMessengerDrawer";
+import { CMEEventsModal } from "@/components/hub/CMEEventsModal";
+import { DDICheckerModal } from "@/components/hub/DDICheckerModal";
+import { DoctorPost, QuotedPostSummary } from "@/types/social";
 import { getSharedRealtimeClient } from "@/lib/ws";
 import { getStoredToken } from "@/lib/api";
 import {
@@ -24,7 +31,10 @@ import {
   Vote,
   RefreshCw,
   ShieldCheck,
-  ArrowUp
+  ArrowUp,
+  Radio,
+  MessageSquare,
+  Users
 } from "lucide-react";
 
 type FeedFilter = "all" | "emergency" | "dilemma" | "treatment";
@@ -43,8 +53,29 @@ function HubFeedContent() {
   const [activeTag, setActiveTag] = useState<string | null>(
     initialQuery ? (initialQuery.startsWith("#") ? initialQuery : `#${initialQuery}`) : null
   );
+
+  // Composer state
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [composerDefaultEmergency, setComposerDefaultEmergency] = useState(false);
+  const [quotedPost, setQuotedPost] = useState<QuotedPostSummary | null>(null);
+
+  // Real-time modules state
+  const [reels, setReels] = useState<ClinicalReel[]>([]);
+  const [isReelsOpen, setIsReelsOpen] = useState(false);
+  const [selectedReelIndex, setSelectedReelIndex] = useState(0);
+
+  const [activeSpace, setActiveSpace] = useState<AudioSpaceData | null>(null);
+  const [isAudioSpaceOpen, setIsAudioSpaceOpen] = useState(false);
+
+  const [isCirclesOpen, setIsCirclesOpen] = useState(false);
+
+  const [isCurbsideMessengerOpen, setIsCurbsideMessengerOpen] = useState(false);
+  const [curbsideActiveColleagueId, setCurbsideActiveColleagueId] = useState<string | null>(null);
+  const [curbsideAttachedCase, setCurbsideAttachedCase] = useState<{ id: string; disease_name: string; diagnosis?: string } | null>(null);
+
+  const [isDDIOpen, setIsDDIOpen] = useState(false);
+  const [isCMEOpen, setIsCMEOpen] = useState(false);
+
   const [wsLive, setWsLive] = useState(false);
 
   // Sync state if URL query param changes
@@ -93,6 +124,35 @@ function HubFeedContent() {
     fetchPosts(activeTag, filter === "emergency");
   }, [activeTag, filter, fetchPosts]);
 
+  // Fetch real-time initial modules (Reels, Live Spaces)
+  useEffect(() => {
+    const fetchRealtimeModules = async () => {
+      try {
+        const token = getStoredToken();
+        const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+        // Fetch Reels
+        fetch("/api/v1/hub/reels", { headers })
+          .then((r) => (r.ok ? r.json() : []))
+          .then((data) => {
+            if (Array.isArray(data) && data.length > 0) setReels(data);
+          })
+          .catch(() => {});
+
+        // Fetch Live Spaces
+        fetch("/api/v1/hub/spaces", { headers })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data && data.is_live) setActiveSpace(data);
+          })
+          .catch(() => {});
+      } catch (err) {
+        console.error("Failed to fetch initial hub modules", err);
+      }
+    };
+    fetchRealtimeModules();
+  }, []);
+
   // Real-time WebSocket subscriptions for live doctor feed updates
   useEffect(() => {
     const token = getStoredToken();
@@ -113,6 +173,18 @@ function HubFeedContent() {
           prev.map((post) =>
             post.id === payload.post_id
               ? { ...post, likes_count: payload.likes_count }
+              : post
+          )
+        );
+      } else if (type === "hub_post_reaction" && payload?.post_id) {
+        setPosts((prev) =>
+          prev.map((post) =>
+            post.id === payload.post_id
+              ? {
+                  ...post,
+                  likes_count: payload.likes_count ?? post.likes_count,
+                  reactions_breakdown: payload.reactions_breakdown ?? post.reactions_breakdown,
+                }
               : post
           )
         );
@@ -277,6 +349,20 @@ function HubFeedContent() {
           {/* ══════════════ LEFT SIDEBAR ══════════════ */}
           <SocialNavRail
             onOpenCompose={handleOpenStandardComposer}
+            onOpenComposer={handleOpenStandardComposer}
+            onOpenAudioSpace={() => setIsAudioSpaceOpen(true)}
+            onOpenDoctorCircles={() => setIsCirclesOpen(true)}
+            onOpenClinicalReels={() => {
+              setSelectedReelIndex(0);
+              setIsReelsOpen(true);
+            }}
+            onOpenCurbsideMessenger={() => {
+              setCurbsideActiveColleagueId(null);
+              setCurbsideAttachedCase(null);
+              setIsCurbsideMessengerOpen(true);
+            }}
+            onOpenDDIChecker={() => setIsDDIOpen(true)}
+            onOpenCMEEvents={() => setIsCMEOpen(true)}
             urgentCasesCount={urgentCount}
           />
 
@@ -290,30 +376,78 @@ function HubFeedContent() {
               }}
             />
 
+            {/* Live Audio Space Banner (Twitter Spaces style) */}
+            {activeSpace && activeSpace.is_live && (
+              <div className="bg-gradient-to-r from-rose-500 via-rose-600 to-pink-600 text-white rounded-2xl p-4 shadow-xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                    <Radio className="w-5 h-5 text-white animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-white/25 px-2 py-0.5 rounded-full">
+                        ● LIVE AUDIO DISCUSSION
+                      </span>
+                      <span className="text-xs text-rose-100 font-bold">
+                        {activeSpace.listeners_count} doctors listening
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-black text-white mt-0.5">
+                      {activeSpace.title}
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAudioSpaceOpen(true)}
+                  className="px-4 py-2 bg-white text-rose-600 hover:bg-rose-50 text-xs font-black rounded-xl shadow-xs transition shrink-0 cursor-pointer"
+                >
+                  Listen In Live →
+                </button>
+              </div>
+            )}
+
+            {/* Instagram / Reels Stories Tray */}
+            {reels.length > 0 && (
+              <ClinicalStoriesTray
+                reels={reels}
+                onSelectReel={(idx) => {
+                  setSelectedReelIndex(idx);
+                  setIsReelsOpen(true);
+                }}
+                onOpenComposer={handleOpenStandardComposer}
+              />
+            )}
+
             {/* Top Control Header Card */}
             <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-black text-slate-900 tracking-tight">
-                    Clinical Timeline
-                  </h1>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-teal-50 text-teal-800 px-2.5 py-0.5 rounded-full border border-teal-200">
-                    <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
-                    Verified Clinicians
-                  </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-lg font-black text-slate-900 tracking-tight">
+                      Doctor Community Feed
+                    </h1>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-teal-50 text-teal-800 px-2.5 py-0.5 rounded-full border border-teal-200">
+                      <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
+                      Verified Doctors
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Discuss real patient cases, get quick second opinions, and learn from colleagues worldwide.
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-3">
                   {/* Real-time Indicator */}
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                     <span className={`w-2 h-2 rounded-full ${wsLive ? "bg-emerald-500 animate-pulse" : "bg-amber-400"}`} />
-                    <span>{wsLive ? "Live Sync" : "Syncing"}</span>
+                    <span>{wsLive ? "Live" : "Connecting"}</span>
                   </div>
 
                   <button
                     onClick={handleManualRefresh}
                     disabled={refreshing}
-                    title="Refresh Timeline"
+                    title="Refresh Feed"
                     className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
                   >
                     <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin text-teal-600" : ""}`} />
@@ -344,7 +478,7 @@ function HubFeedContent() {
                   }`}
                 >
                   <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                  STAT Emergency ({urgentCount})
+                  🚨 Urgent Help ({urgentCount})
                 </button>
 
                 <button
@@ -356,7 +490,7 @@ function HubFeedContent() {
                   }`}
                 >
                   <Stethoscope className="w-3.5 h-3.5 text-indigo-500" />
-                  Diagnostic Dilemmas
+                  🤔 Unclear Diagnoses
                 </button>
 
                 <button
@@ -368,7 +502,7 @@ function HubFeedContent() {
                   }`}
                 >
                   <Pill className="w-3.5 h-3.5 text-teal-600" />
-                  Treatment Regimens
+                  💊 Treatment Plans
                 </button>
               </div>
 
@@ -397,7 +531,7 @@ function HubFeedContent() {
               >
                 <ArrowUp className="w-4 h-4" />
                 <span>
-                  {newIncomingPosts.length} new clinical {newIncomingPosts.length === 1 ? "case" : "cases"} posted • Click to view
+                  {newIncomingPosts.length} new {newIncomingPosts.length === 1 ? "case" : "cases"} posted • Tap to see newest
                 </span>
               </button>
             )}
@@ -413,7 +547,7 @@ function HubFeedContent() {
                   onClick={handleOpenStandardComposer}
                   className="flex-1 text-left px-4 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-500 text-xs rounded-xl border border-slate-200 transition cursor-pointer"
                 >
-                  Share a clinical dilemma, diagnostic imaging, or treatment question with colleagues worldwide...
+                  Have a patient case to discuss? Ask colleagues, add test results, or get a quick second opinion...
                 </button>
               </div>
 
@@ -425,7 +559,7 @@ function HubFeedContent() {
                     className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-teal-700 hover:bg-teal-50 transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <FileImage className="w-4 h-4 text-teal-600" />
-                    <span>Attach Imaging</span>
+                    <span>Add Images</span>
                   </button>
 
                   <button
@@ -434,7 +568,7 @@ function HubFeedContent() {
                     className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <Vote className="w-4 h-4 text-indigo-600" />
-                    <span>Consensus Poll</span>
+                    <span>Create Poll</span>
                   </button>
 
                   <button
@@ -443,7 +577,7 @@ function HubFeedContent() {
                     className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-700 hover:text-rose-800 hover:bg-rose-50 transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <AlertTriangle className="w-4 h-4 text-rose-600" />
-                    <span>STAT 2nd Opinion</span>
+                    <span>Urgent 2nd Opinion</span>
                   </button>
                 </div>
 
@@ -478,11 +612,11 @@ function HubFeedContent() {
             ) : displayedPosts.length === 0 ? (
               <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8 shadow-xs space-y-3">
                 <span className="text-4xl">🩺</span>
-                <h3 className="text-base font-bold text-slate-900">No clinical cases found</h3>
+                <h3 className="text-base font-bold text-slate-900">No cases found here yet</h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
                   {activeTag
-                    ? `No current discussions under ${activeTag}. Be the first verified clinician to share a case!`
-                    : "No cases match your selected filter. Start a clinical discussion or request a second opinion."}
+                    ? `No discussions under ${activeTag} yet. Be the first doctor to share a case!`
+                    : "No cases match this filter. Start a clinical discussion or ask colleagues for advice."}
                 </p>
                 <div className="pt-2 flex justify-center gap-2">
                   {activeTag && (
@@ -497,7 +631,7 @@ function HubFeedContent() {
                     onClick={handleOpenStandardComposer}
                     className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-black text-xs rounded-xl transition shadow-xs cursor-pointer"
                   >
-                    Share New Case
+                    Share a Case
                   </button>
                 </div>
               </div>
@@ -508,6 +642,29 @@ function HubFeedContent() {
                     key={post.id}
                     post={post}
                     onHashtagClick={handleSelectHashtag}
+                    onQuotePost={(p) => {
+                      setQuotedPost({
+                        id: p.id,
+                        author_name: p.author_name || "Dr. Attending Specialist",
+                        author_specialty: p.author_specialty,
+                        author_institution: p.author_institution,
+                        disease_name: p.disease_name,
+                        diagnosis: p.diagnosis,
+                        clinical_findings: p.clinical_findings,
+                        created_at: p.created_at,
+                        is_urgent_consult: p.is_urgent_consult,
+                      });
+                      setIsComposerOpen(true);
+                    }}
+                    onOpenCurbside={(p) => {
+                      setCurbsideActiveColleagueId(p.author_id);
+                      setCurbsideAttachedCase({
+                        id: p.id,
+                        disease_name: p.disease_name,
+                        diagnosis: p.diagnosis,
+                      });
+                      setIsCurbsideMessengerOpen(true);
+                    }}
                   />
                 ))}
               </div>
@@ -522,7 +679,7 @@ function HubFeedContent() {
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search diseases, drugs, or #tags..."
+                  placeholder="Search cases, symptoms, medicines, or #topics..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -547,28 +704,105 @@ function HubFeedContent() {
             {/* Verified Global Doctors Directory Widget */}
             <VerifiedDoctorsWidget />
 
-            {/* Global Physician Network Notice */}
+            {/* Safe Doctor Network Notice */}
             <div className="p-3 bg-teal-50/60 rounded-2xl border border-teal-100 text-[11px] text-teal-900 space-y-1">
               <div className="font-extrabold flex items-center gap-1.5 text-teal-800">
                 <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
-                <span>Global Medical Network</span>
+                <span>Safe Doctor Network</span>
               </div>
               <p className="text-teal-700 leading-snug">
-                For verified medical doctors worldwide. All case sharing conforms to HIPAA & GDPR de-identification standards.
+                Private network for verified doctors. All patient names and personal details are strictly protected.
               </p>
             </div>
           </aside>
         </div>
       </div>
 
+      {/* ── Floating Curbside Messenger Trigger Button ── */}
+      {!isCurbsideMessengerOpen && (
+        <button
+          type="button"
+          onClick={() => {
+            setCurbsideActiveColleagueId(null);
+            setCurbsideAttachedCase(null);
+            setIsCurbsideMessengerOpen(true);
+          }}
+          className="fixed bottom-6 right-6 z-40 bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2.5 font-black text-xs transition-all duration-200 hover:scale-105 cursor-pointer border border-teal-500"
+        >
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+          </span>
+          <MessageSquare className="w-4 h-4" />
+          <span>Doctor Chat</span>
+        </button>
+      )}
+
+      {/* ── Real-Time Modals & Drawers ── */}
+      {isReelsOpen && (
+        <ClinicalReelsModal
+          reels={reels}
+          initialIndex={selectedReelIndex}
+          onClose={() => setIsReelsOpen(false)}
+        />
+      )}
+
+      {isAudioSpaceOpen && (
+        <AudioSpaceModal
+          space={activeSpace}
+          onClose={() => setIsAudioSpaceOpen(false)}
+        />
+      )}
+
+      {isCirclesOpen && (
+        <DoctorCirclesModal
+          onSelectCircleFilter={(c) => {
+            setIsCirclesOpen(false);
+            handleSelectHashtag(c.specialty);
+          }}
+          onClose={() => setIsCirclesOpen(false)}
+        />
+      )}
+
+      {isCurbsideMessengerOpen && (
+        <CurbsideMessengerDrawer
+          onClose={() => {
+            setIsCurbsideMessengerOpen(false);
+            setCurbsideActiveColleagueId(null);
+            setCurbsideAttachedCase(null);
+          }}
+          targetColleagueId={curbsideActiveColleagueId}
+          activeCaseToAttach={curbsideAttachedCase}
+          onClearAttachedCase={() => setCurbsideAttachedCase(null)}
+        />
+      )}
+
+      {isDDIOpen && (
+        <DDICheckerModal
+          onClose={() => setIsDDIOpen(false)}
+        />
+      )}
+
+      {isCMEOpen && (
+        <CMEEventsModal
+          onClose={() => setIsCMEOpen(false)}
+        />
+      )}
+
       {/* Case Composer Modal */}
       {isComposerOpen && (
         <SocialCaseComposer
           initialEmergency={composerDefaultEmergency}
-          onClose={() => setIsComposerOpen(false)}
+          quotedPost={quotedPost}
+          onClearQuote={() => setQuotedPost(null)}
+          onClose={() => {
+            setIsComposerOpen(false);
+            setQuotedPost(null);
+          }}
           onPostCreated={(newPost: DoctorPost) => {
             setPosts((prev) => [newPost, ...prev]);
             setIsComposerOpen(false);
+            setQuotedPost(null);
           }}
         />
       )}

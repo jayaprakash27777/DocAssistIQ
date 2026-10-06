@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { DoctorPost } from "@/types/social";
+import { DoctorPost, TreatmentSuggestion } from "@/types/social";
 import { TreatmentSuggestionBox } from "./TreatmentSuggestionBox";
 import { CountryBadge } from "./CountryBadge";
 import { CaseOutcomeModal } from "./CaseOutcomeModal";
@@ -9,6 +9,7 @@ import { CurbsideConsultDrawer } from "./CurbsideConsultDrawer";
 import { GrandRoundsExportModal } from "./GrandRoundsExportModal";
 import { BookmarkFolderModal } from "./BookmarkFolderModal";
 import { getStoredToken } from "@/lib/api";
+import { useToast } from "@/components/shell/ToastProvider";
 import {
   CheckCircle2,
   Clock,
@@ -45,7 +46,16 @@ interface SocialPostCardProps {
   onHashtagClick?: (tag: string) => void;
   onOpenImage?: (url: string) => void;
   onQuotePost?: (post: DoctorPost) => void;
+  onOpenCurbside?: (post: DoctorPost) => void;
 }
+
+export const CLINICAL_REACTIONS = [
+  { type: "validate", emoji: "👍", label: "Agree" },
+  { type: "insightful", emoji: "💡", label: "Helpful" },
+  { type: "rare", emoji: "🔬", label: "Rare" },
+  { type: "endorsed", emoji: "⭐", label: "Top Plan" },
+  { type: "flag", emoji: "🚨", label: "Urgent" },
+] as const;
 
 export function SocialPostCard({
   post,
@@ -61,7 +71,9 @@ export function SocialPostCard({
   onHashtagClick,
   onOpenImage,
   onQuotePost,
+  onOpenCurbside,
 }: SocialPostCardProps) {
+  const { toast } = useToast();
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -78,19 +90,33 @@ export function SocialPostCard({
   // Optimistic real-time states
   const [likesCount, setLikesCount] = useState<number>(post.likes_count || 0);
   const [isLiked, setIsLiked] = useState<boolean>(Boolean(post.is_liked_by_me));
+  const [myReaction, setMyReaction] = useState<string | null>(
+    post.my_reaction || (post.is_liked_by_me ? "validate" : null)
+  );
+  const [reactionsBreakdown, setReactionsBreakdown] = useState<Record<string, number>>(
+    post.reactions_breakdown || {}
+  );
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState<boolean>(Boolean(post.is_bookmarked_by_me));
   const [commentsList, setCommentsList] = useState(post.comments || []);
   const [pollDataState, setPollDataState] = useState(post.poll_data);
+  const [treatmentSuggestions, setTreatmentSuggestions] = useState<TreatmentSuggestion[]>(post.treatment_suggestions || []);
 
   // Sync state whenever props update via WebSocket
   useEffect(() => {
-    setLikesCount(post.likes_count || 0);
-    setIsLiked(Boolean(post.is_liked_by_me));
-    setIsBookmarked(Boolean(post.is_bookmarked_by_me));
-    setCommentsList(post.comments || []);
-    setPollDataState(post.poll_data);
-    setPostOutcome(post.patient_outcome || null);
-    setIsSolved(Boolean(post.is_solved));
+    const timer = setTimeout(() => {
+      setLikesCount(post.likes_count || 0);
+      setIsLiked(Boolean(post.is_liked_by_me));
+      setMyReaction(post.my_reaction || (post.is_liked_by_me ? "validate" : null));
+      setReactionsBreakdown(post.reactions_breakdown || {});
+      setIsBookmarked(Boolean(post.is_bookmarked_by_me));
+      setCommentsList(post.comments || []);
+      setPollDataState(post.poll_data);
+      setPostOutcome(post.patient_outcome || null);
+      setIsSolved(Boolean(post.is_solved));
+      setTreatmentSuggestions(post.treatment_suggestions || []);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [post]);
 
   const activeDoctorId =
@@ -102,29 +128,63 @@ export function SocialPostCard({
 
   const handleHashtag = onHashtagClick || onSelectHashtag || (() => {});
 
-  const handleLike = async (id: string) => {
-    const nextLiked = !isLiked;
-    setIsLiked(nextLiked);
-    setLikesCount((prev) => (nextLiked ? prev + 1 : Math.max(0, prev - 1)));
+  const handleSelectReaction = async (reactionType: string) => {
+    setShowReactionPicker(false);
+    const isTogglingOff = myReaction === reactionType;
+    const nextReaction = isTogglingOff ? null : reactionType;
+    const prevReaction = myReaction;
+    const prevLikes = likesCount;
 
-    if (onLike) {
-      await onLike(id);
-      return;
-    }
+    setMyReaction(nextReaction);
+    setIsLiked(Boolean(nextReaction));
+    setLikesCount((prev) => {
+      if (isTogglingOff) return Math.max(0, prev - 1);
+      if (!prevReaction) return prev + 1;
+      return prev;
+    });
+
+    setReactionsBreakdown((prev) => {
+      const updated = { ...prev };
+      if (prevReaction && updated[prevReaction]) {
+        updated[prevReaction] = Math.max(0, updated[prevReaction] - 1);
+      }
+      if (nextReaction) {
+        updated[nextReaction] = (updated[nextReaction] || 0) + 1;
+      }
+      return updated;
+    });
+
     try {
       const token = getStoredToken();
-      const res = await fetch(`/api/v1/hub/posts/${id}/like`, {
+      const res = await fetch(`/api/v1/hub/posts/${post.id}/react`, {
         method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ reaction_type: reactionType }),
       });
       if (res.ok) {
         const data = await res.json();
+        setMyReaction(data.reaction);
+        setIsLiked(Boolean(data.reaction));
         setLikesCount(data.likes_count);
-        setIsLiked(data.liked);
+        if (data.reactions_breakdown) {
+          setReactionsBreakdown(data.reactions_breakdown);
+        }
       }
     } catch {
-      setIsLiked(!nextLiked);
-      setLikesCount((prev) => (!nextLiked ? prev + 1 : Math.max(0, prev - 1)));
+      setMyReaction(prevReaction);
+      setIsLiked(Boolean(prevReaction));
+      setLikesCount(prevLikes);
+    }
+  };
+
+  const handleLike = async (id: string) => {
+    if (myReaction) {
+      await handleSelectReaction(myReaction);
+    } else {
+      await handleSelectReaction("validate");
     }
   };
 
@@ -223,38 +283,76 @@ export function SocialPostCard({
     }
   };
 
-  const handleAddTreatmentSuggestion = async (id: string, data: any) => {
+  const handleAddTreatmentSuggestion = async (id: string, data: { drug_or_intervention: string; dosage_and_route?: string; clinical_rationale: string; evidence_grade?: string }) => {
     if (onAddTreatmentSuggestion) return onAddTreatmentSuggestion(id, data);
-    const token = getStoredToken();
-    await fetch(`/api/v1/hub/posts/${id}/treatment-suggestions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(data),
-    });
+    try {
+      const token = getStoredToken();
+      const res = await fetch(`/api/v1/hub/posts/${id}/treatment-suggestions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        const newSug = await res.json();
+        setTreatmentSuggestions((prev) => [...prev, newSug]);
+        toast.success("Treatment recommendation added to case.");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.detail || "Failed to submit treatment recommendation.");
+      }
+    } catch {
+      toast.error("Network error submitting treatment recommendation.");
+    }
   };
 
   const handleEndorseTreatmentSuggestion = async (id: string, sId: string) => {
+    // Optimistic UI update
+    setTreatmentSuggestions((prev) =>
+      prev.map((s) => (s.id === sId ? { ...s, endorsements_count: (s.endorsements_count || 0) + 1 } : s))
+    );
+    toast.success("Treatment regimen endorsed.");
     if (onEndorseTreatmentSuggestion) return onEndorseTreatmentSuggestion(id, sId);
-    const token = getStoredToken();
-    await fetch(`/api/v1/hub/posts/${id}/treatment-suggestions/${sId}/endorse`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    try {
+      const token = getStoredToken();
+      await fetch(`/api/v1/hub/posts/${id}/treatment-suggestions/${sId}/endorse`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch {
+      // Revert if network error
+      setTreatmentSuggestions((prev) =>
+        prev.map((s) => (s.id === sId ? { ...s, endorsements_count: Math.max(0, (s.endorsements_count || 1) - 1) } : s))
+      );
+      toast.error("Failed to record endorsement.");
+    }
   };
 
   const handleAdoptTreatmentSuggestion = async (id: string, sId: string) => {
+    // Optimistic UI update
+    setTreatmentSuggestions((prev) =>
+      prev.map((s) => ({ ...s, is_adopted: s.id === sId }))
+    );
+    toast.success("Regimen marked as clinically adopted for this patient.");
     if (onAdoptTreatmentSuggestion) return onAdoptTreatmentSuggestion(id, sId);
-    const token = getStoredToken();
-    await fetch(`/api/v1/hub/posts/${id}/treatment-suggestions/${sId}/adopt`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    try {
+      const token = getStoredToken();
+      await fetch(`/api/v1/hub/posts/${id}/treatment-suggestions/${sId}/adopt`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch {
+      toast.error("Failed to update adopted regimen status.");
+    }
   };
 
   const isUrgent = Boolean(post.is_urgent_consult || post.case_status === "urgent_consult");
+
+  const currentReactionObj = CLINICAL_REACTIONS.find((r) => r.type === myReaction);
+  const activeEmoji = currentReactionObj ? currentReactionObj.emoji : isLiked ? "❤️" : "🤍";
+  const activeLabel = currentReactionObj ? currentReactionObj.label : isLiked ? "Liked" : "Validate";
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -286,10 +384,10 @@ export function SocialPostCard({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
             </span>
-            <span>🚨 STAT EMERGENCY 2ND OPINION NEEDED</span>
+            <span>🚨 URGENT: SECOND OPINION NEEDED</span>
           </div>
           <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
-            Critical Review
+            Urgent Case
           </span>
         </div>
       )}
@@ -342,9 +440,35 @@ export function SocialPostCard({
           <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line font-normal">
             {post.clinical_findings}
           </p>
+
+          {/* ── Quoted Case Reference (Twitter/X Quote Post) ── */}
+          {post.quoted_post && (
+            <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-1.5 my-2 hover:bg-slate-50 transition">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-teal-600 text-white font-bold text-[10px] flex items-center justify-center">
+                  {post.quoted_post.author_name ? post.quoted_post.author_name[0] : "D"}
+                </div>
+                <span className="font-extrabold text-xs text-slate-900">
+                  {post.quoted_post.author_name}
+                </span>
+                <span className="text-[10px] text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-100 font-medium">
+                  {post.quoted_post.author_specialty || "Verified Specialist"}
+                </span>
+                {post.quoted_post.is_urgent_consult && (
+                  <span className="text-[9px] font-black bg-rose-100 text-rose-700 px-1.5 py-0.2 rounded uppercase">
+                    Urgent Case
+                  </span>
+                )}
+              </div>
+              <h4 className="font-bold text-xs text-slate-900">{post.quoted_post.disease_name}</h4>
+              <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed font-normal">
+                {post.quoted_post.clinical_findings}
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* ── Patient Outcome & 48h Follow-Up Resolution ── */}
+        {/* ── Patient Outcome & Follow-Up Resolution ── */}
         {(postOutcome || isSolved) ? (
           <div className="p-4 bg-gradient-to-r from-teal-50/90 to-emerald-50/90 rounded-2xl border border-teal-200/90 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
@@ -354,7 +478,7 @@ export function SocialPostCard({
                 </span>
                 <div>
                   <span className="text-xs font-black text-teal-950 uppercase tracking-wide">
-                    ✓ Solved Case • 48h Patient Outcome
+                    ✓ Solved Case • Patient Outcome
                   </span>
                   {post.outcome_reported_at && (
                     <span className="block text-[10px] text-teal-700 font-mono">
@@ -369,7 +493,7 @@ export function SocialPostCard({
                   onClick={() => setShowOutcomeModal(true)}
                   className="text-[11px] font-bold text-teal-800 hover:text-teal-950 bg-teal-100 hover:bg-teal-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
                 >
-                  Edit Outcome
+                  Update Outcome
                 </button>
               )}
             </div>
@@ -381,14 +505,14 @@ export function SocialPostCard({
           <div className="px-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs">
             <span className="text-slate-600 font-medium flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-amber-500" />
-              Case in progress. Have 48h follow-up vitals or repeat labs?
+              Case in progress. Have any patient updates or test results?
             </span>
             <button
               type="button"
               onClick={() => setShowOutcomeModal(true)}
               className="text-xs font-bold text-teal-700 hover:text-teal-900 hover:underline cursor-pointer"
             >
-              Record 48h Outcome →
+              Add Patient Update →
             </button>
           </div>
         ) : null}
@@ -409,7 +533,7 @@ export function SocialPostCard({
                 />
                 <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors" />
                 <span className="absolute bottom-2 right-2 text-[10px] font-bold bg-slate-900/70 text-white px-2 py-0.5 rounded-md backdrop-blur-xs">
-                  🔍 View High-Res
+                  🔍 View Full Image
                 </span>
               </div>
 
@@ -426,7 +550,7 @@ export function SocialPostCard({
           >
             <div className="flex items-center gap-2">
               <span className="text-teal-600">📋</span>
-              <span>Clinical Assessment, Diagnosis & Current Rx</span>
+              <span>Diagnosis & Current Plan</span>
             </div>
             <span className="text-slate-400 font-mono text-[11px]">
               {showWorkup ? "▲ Hide" : "▼ Review"}
@@ -493,7 +617,7 @@ export function SocialPostCard({
         {pollDataState && pollDataState.options && pollDataState.options.length > 0 && (
           <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/90 space-y-2.5">
             <h4 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-              <span>🗳️ Clinical Consensus Poll:</span>
+              <span>🗳️ Doctor Poll:</span>
               <span className="font-normal text-slate-700">{pollDataState.question}</span>
             </h4>
             <div className="space-y-1.5">
@@ -526,7 +650,7 @@ export function SocialPostCard({
               })}
             </div>
             <p className="text-[10px] text-slate-400 font-medium text-right">
-              {pollDataState.total_votes} verified physician votes
+              {pollDataState.total_votes} {pollDataState.total_votes === 1 ? "doctor vote" : "doctors voted"}
             </p>
           </div>
         )}
@@ -536,27 +660,61 @@ export function SocialPostCard({
           postId={post.id}
           postAuthorId={post.author_id}
           currentDoctorId={activeDoctorId}
-          suggestions={post.treatment_suggestions || []}
+          suggestions={treatmentSuggestions}
           onAddSuggestion={handleAddTreatmentSuggestion}
           onEndorseSuggestion={handleEndorseTreatmentSuggestion}
           onAdoptSuggestion={handleAdoptTreatmentSuggestion}
         />
 
-        {/* ── Social Action Bar (Twitter / Bluesky style) ── */}
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-slate-500 text-xs font-bold">
-          {/* Endorse / Like */}
-          <button
-            type="button"
-            onClick={() => handleLike(post.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-colors cursor-pointer ${
-              isLiked
-                ? "text-rose-600 bg-rose-50"
-                : "hover:bg-slate-100 hover:text-slate-800"
-            }`}
+        {/* ── Social Action Bar (Twitter / Facebook / LinkedIn style) ── */}
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-slate-500 text-xs font-bold relative">
+          {/* Facebook-style Clinical Reaction Bar & Like Button */}
+          <div
+            className="relative"
+            onMouseEnter={() => setShowReactionPicker(true)}
+            onMouseLeave={() => setShowReactionPicker(false)}
           >
-            <span>{isLiked ? "❤️" : "🤍"}</span>
-            <span>{likesCount}</span>
-          </button>
+            {/* Floating Popover on Hover / Tap */}
+            {showReactionPicker && (
+              <div className="absolute -top-12 left-0 flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full shadow-lg border border-slate-200 z-30 transition-all duration-150">
+                {CLINICAL_REACTIONS.map((r) => (
+                  <button
+                    key={r.type}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectReaction(r.type);
+                    }}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold transition-all duration-150 hover:scale-125 cursor-pointer ${
+                      myReaction === r.type ? "bg-teal-50 ring-1 ring-teal-500" : "hover:bg-slate-50"
+                    }`}
+                    title={r.label}
+                  >
+                    <span className="text-base">{r.emoji}</span>
+                    <span className="text-[10px] font-bold text-slate-700 hidden sm:inline">{r.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => handleLike(post.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                myReaction
+                  ? "text-teal-700 bg-teal-50 font-black border border-teal-200/80"
+                  : isLiked
+                  ? "text-rose-600 bg-rose-50"
+                  : "hover:bg-slate-100 hover:text-slate-800"
+              }`}
+            >
+              <span>{activeEmoji}</span>
+              <span>{likesCount}</span>
+              <span className="hidden sm:inline text-[11px] font-medium text-slate-500">
+                {activeLabel}
+              </span>
+            </button>
+          </div>
 
           {/* Comments */}
           <button
@@ -576,30 +734,36 @@ export function SocialPostCard({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
             >
               <span>🔁</span>
-              <span>Quote</span>
+              <span>Quote Case</span>
             </button>
           )}
 
-          {/* Curbside 1-on-1 Consult */}
+          {/* Doctor Chat */}
           <button
             type="button"
-            onClick={() => setShowCurbsideDrawer(true)}
+            onClick={() => {
+              if (onOpenCurbside) {
+                onOpenCurbside(post);
+              } else {
+                setShowCurbsideDrawer(true);
+              }
+            }}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-teal-50 hover:text-teal-700 transition-colors cursor-pointer text-slate-600"
-            title={`Start private Curbside Consult with Dr. ${post.author_name || "Specialist"}`}
+            title={`Start private chat with Dr. ${post.author_name || "Specialist"}`}
           >
             <MessageSquare className="w-3.5 h-3.5 text-teal-600" />
-            <span>Curbside</span>
+            <span>Chat</span>
           </button>
 
-          {/* Grand Rounds Print / PDF */}
+          {/* Export Case / PDF */}
           <button
             type="button"
             onClick={() => setShowGrandRoundsModal(true)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer text-slate-600"
-            title="Export Case for Hospital Grand Rounds or Clinical Audit"
+            title="Save or print this case summary"
           >
             <Printer className="w-3.5 h-3.5 text-slate-500" />
-            <span>Grand Rounds</span>
+            <span>Export</span>
           </button>
 
           {/* Bookmark & Folder */}
@@ -647,8 +811,6 @@ export function SocialPostCard({
           </button>
         </div>
 
-
-
         {/* ── Expandable Peer Comments Discussion Thread ── */}
         {showComments && (
           <div className="pt-3 border-t border-slate-100 space-y-3">
@@ -657,7 +819,7 @@ export function SocialPostCard({
               <input
                 type="text"
                 required
-                placeholder="Write clinical peer review consultation..."
+                placeholder="Write a helpful comment or advice..."
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 bg-white outline-none focus:border-teal-600 shadow-2xs"
@@ -667,7 +829,7 @@ export function SocialPostCard({
                 disabled={isSubmittingComment || !commentText.trim()}
                 className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
               >
-                {isSubmittingComment ? "Posting..." : "Reply"}
+                {isSubmittingComment ? "Posting..." : "Comment"}
               </button>
             </form>
 
@@ -690,7 +852,7 @@ export function SocialPostCard({
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-slate-400 italic">No comments yet. Start the clinical discussion.</p>
+              <p className="text-xs text-slate-400 italic">No comments yet. Be the first to share your thoughts!</p>
             )}
           </div>
         )}

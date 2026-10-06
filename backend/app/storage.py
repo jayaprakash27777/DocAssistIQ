@@ -67,6 +67,7 @@ class StorageProvider(Protocol):
         self,
         object_key: str,
         expires_seconds: int = 3600,
+        response_headers: dict | None = None,
     ) -> str:
         """Generate a short-lived presigned GET URL."""
         ...
@@ -154,14 +155,20 @@ class MinioStorageProvider:
         self,
         object_key: str,
         expires_seconds: int = 3600,
+        response_headers: dict | None = None,
     ) -> str:
         """Return a presigned GET URL valid for `expires_seconds`."""
         from datetime import timedelta
+
+        extra_kwargs = {}
+        if response_headers:
+            extra_kwargs["response_headers"] = response_headers
 
         url = self._client.presigned_get_object(
             bucket_name=self._bucket,
             object_name=object_key,
             expires=timedelta(seconds=expires_seconds),
+            **extra_kwargs,
         )
         log.info("storage_presigned_url_generated", key=object_key, expires=expires_seconds)
         return url

@@ -36,9 +36,7 @@ export function TrendingHashtagsWidget({
   };
 
   useEffect(() => {
-    if (initialHashtags && initialHashtags.length > 0) {
-      setHashtags(initialHashtags);
-    } else {
+    if (!initialHashtags || initialHashtags.length === 0) {
       loadHashtags();
     }
 
@@ -65,7 +63,7 @@ export function TrendingHashtagsWidget({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
           </svg>
           <h3 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider">
-            Trending Hashtags
+            Popular Topics
           </h3>
         </div>
         {activeHashtag && onClearHashtag && (

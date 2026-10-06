@@ -26,6 +26,7 @@ export const metadata: Metadata = {
 };
 
 import { QueryProvider } from "@/components/QueryProvider";
+import { ToastProvider } from "@/components/shell/ToastProvider";
 
 export default function RootLayout({
   children,
@@ -42,9 +43,11 @@ export default function RootLayout({
             forcedTheme="light"
             disableTransitionOnChange
           >
-            {/* System status bar — shown only when services are degraded or offline */}
-            <SystemStatus />
-            {children}
+            <ToastProvider>
+              {/* System status bar — shown only when services are degraded or offline */}
+              <SystemStatus />
+              {children}
+            </ToastProvider>
           </ThemeProvider>
         </QueryProvider>
       </body>

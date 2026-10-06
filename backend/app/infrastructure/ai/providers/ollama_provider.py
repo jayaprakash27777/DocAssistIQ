@@ -117,7 +117,6 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
                     
                 return emb
         except Exception:
-            # Deterministic, normalized fallback embedding vector matching target dimensions
-            import hashlib
-            h = hashlib.sha256(text.encode("utf-8")).digest()
-            return [(h[i % len(h)] / 255.0) - 0.5 for i in range(self.dimensions)]
+            # Deterministic, L2-normalized semantic fallback embedding vector matching target dimensions
+            from app.infrastructure.ai.providers.baseline import BaselineEmbeddingProvider
+            return await BaselineEmbeddingProvider(self.dimensions).embed(text)

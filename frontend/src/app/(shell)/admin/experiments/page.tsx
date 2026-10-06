@@ -597,7 +597,7 @@ export default function ExperimentsPage() {
     </div>
   );
 }
-// Add a quick mock Database icon since it's not imported directly in lucide-react if using the old set
+// Database SVG icon component
 function Database({ size = 24, className = "" }: { size?: number, className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>

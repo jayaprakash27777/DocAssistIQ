@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { simulatePolypharmacy, PolypharmacyResponse } from "@/lib/api";
 
+const emptySubscribe = () => () => {};
+
 export default function PolypharmacySimulator({ 
   consultationId, 
   initialMedications = [],
@@ -28,12 +30,7 @@ export default function PolypharmacySimulator({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PolypharmacyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+  const mounted = React.useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   const handleAddMed = (e: React.FormEvent) => {
     e.preventDefault();

@@ -52,39 +52,17 @@ interface ChatMessage {
   };
 }
 
-const LOADING_STEPS = [
-  "Reading & grounding in doctor notes…",
-  "Analyzing medical knowledge base & guidelines…",
-  "Evaluating differential reasoning & red flags…",
-  "Compiling evidence-grounded clinical response…",
-];
-
 export default function InlineAIChat({ consultationId, notes }: InlineAIChatProps) {
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingStep, setLoadingStep] = useState(0);
+  const [loadingStatus, setLoadingStatus] = useState("Consulting clinical knowledge & notes…");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(true);
   const [showQuickAsks, setShowQuickAsks] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!loading) {
-      setLoadingStep(0);
-      return;
-    }
-    const t1 = setTimeout(() => setLoadingStep(1), 2000);
-    const t2 = setTimeout(() => setLoadingStep(2), 6000);
-    const t3 = setTimeout(() => setLoadingStep(3), 12000);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, [loading]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -110,6 +88,7 @@ export default function InlineAIChat({ consultationId, notes }: InlineAIChatProp
     };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
+    setLoadingStatus("Grounding query in consultation clinical notes…");
 
     try {
       // 1. Try authenticated consultation grounded notes Q&A
@@ -129,6 +108,7 @@ export default function InlineAIChat({ consultationId, notes }: InlineAIChatProp
 
       // 2. If not answered yet, try direct doctor notes endpoint
       if (!d) {
+        setLoadingStatus("Evaluating clinical reasoning and note context…");
         const generalRes = await askDoctorNotesGeneral(trimmed, notes, consultationId);
         if (generalRes.ok) {
           d = generalRes.data;
@@ -137,6 +117,7 @@ export default function InlineAIChat({ consultationId, notes }: InlineAIChatProp
 
       // 3. Fallback to standard RAG query
       if (!d) {
+        setLoadingStatus("Retrieving evidence from medical knowledge base…");
         const ragRes = await ragQuery({
           query: trimmed,
           top_k: 5,
@@ -378,7 +359,7 @@ export default function InlineAIChat({ consultationId, notes }: InlineAIChatProp
                   >
                     <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
                     <span className="text-sm text-slate-500 transition-all duration-300">
-                      {LOADING_STEPS[loadingStep]}
+                      {loadingStatus}
                     </span>
                   </div>
                 </div>

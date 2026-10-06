@@ -6,12 +6,10 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/shell/ToastProvider";
 import { 
   Search, Stethoscope, PlusCircle, Clock, FileText, ArrowRight, UserCircle,
-  Copy, Check, Activity, FileCheck, Sparkles, Filter, ChevronRight, CheckCircle2,
-  AlertCircle, ShieldCheck, Radio, Brain, Tag
+  Copy, Check, FileCheck, ShieldCheck, Radio, Brain, Tag
 } from "lucide-react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { useConsultations, useSearchConsultations, useCreateConsultation } from "@/hooks/useConsultations";
-import { PLACEHOLDER_LABEL } from "@/lib/api";
 
 type StatusFilter = "all" | "recording" | "in_review" | "finalized";
 
@@ -37,8 +35,8 @@ export default function ConsultationsListPage() {
       const data = await createMutation.mutateAsync();
       toast.success("New consultation initiated");
       router.push(`/consultations/${data.id}`);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to initiate session");
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message || "Failed to initiate session");
     }
   };
 
@@ -53,17 +51,29 @@ export default function ConsultationsListPage() {
 
   const isSearching = debouncedQuery.length >= 3;
   const loading = isSearching ? isSearchLoading : isListLoading;
-  const rawConsultations = isSearching ? (searchData || []) : (listData || []);
   const creating = createMutation.isPending;
 
-  // Filter consultations by selected status tab
+  const rawConsultations = useMemo(() => {
+    return isSearching ? (searchData || []) : (listData || []);
+  }, [isSearching, searchData, listData]);
+
+  // Filter consultations by search query and selected status tab
   const filteredConsultations = useMemo(() => {
-    if (statusFilter === "all") return rawConsultations;
-    if (statusFilter === "recording") return rawConsultations.filter(c => c.status === "recording");
-    if (statusFilter === "in_review") return rawConsultations.filter(c => ["draft", "under_review", "analysis_ready"].includes(c.status));
-    if (statusFilter === "finalized") return rawConsultations.filter(c => ["finalized", "amended", "completed"].includes(c.status));
-    return rawConsultations;
-  }, [rawConsultations, statusFilter]);
+    let list = rawConsultations;
+    if (searchQuery.trim() && !isSearching) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(c => 
+        c.id.toLowerCase().includes(q) ||
+        (c.patient_ref && c.patient_ref.toLowerCase().includes(q)) ||
+        (c.input_preview && c.input_preview.toLowerCase().includes(q))
+      );
+    }
+    if (statusFilter === "all") return list;
+    if (statusFilter === "recording") return list.filter(c => c.status === "recording");
+    if (statusFilter === "in_review") return list.filter(c => ["draft", "under_review", "analysis_ready"].includes(c.status));
+    if (statusFilter === "finalized") return list.filter(c => ["finalized", "amended", "completed"].includes(c.status));
+    return list;
+  }, [rawConsultations, statusFilter, searchQuery, isSearching]);
 
   // Aggregate metrics
   const totalCount = listData?.length || 0;
@@ -93,9 +103,6 @@ export default function ConsultationsListPage() {
             <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20">
               EHR Clinical Encounter Directory
             </span>
-            <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-wider hidden sm:inline">
-              {PLACEHOLDER_LABEL}
-            </span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-black font-heading text-slate-900 dark:text-white tracking-tight m-0">
             Patient Consultations
@@ -105,19 +112,16 @@ export default function ConsultationsListPage() {
           </p>
         </div>
 
-        <motion.button 
-          onClick={handleCreate} 
-          disabled={creating}
-          className="flex items-center gap-2 bg-gradient-to-r from-teal-600 via-indigo-600 to-teal-700 text-white px-6 py-3.5 rounded-2xl font-bold shadow-lg transition-all disabled:opacity-70 cursor-pointer shrink-0"
-          style={{ boxShadow: "0 8px 24px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.3)" }}
-        >
-          {creating ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
+        <div className="flex items-center gap-3">
+          <Link
+            href="/consultations/new"
+            className="flex items-center gap-2 bg-gradient-to-r from-teal-600 via-indigo-600 to-teal-700 text-white px-6 py-3.5 rounded-2xl font-bold shadow-lg transition-all hover:brightness-110 cursor-pointer shrink-0"
+            style={{ boxShadow: "0 8px 24px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.3)" }}
+          >
             <PlusCircle className="w-5 h-5" />
-          )}
-          <span>{creating ? "Initiating Session..." : "New Consultation"}</span>
-        </motion.button>
+            <span>New Consultation</span>
+          </Link>
+        </div>
       </header>
 
       {/* ── Clinical Key Metrics Row ────────────────────────────────────────────────── */}
@@ -342,19 +346,52 @@ export default function ConsultationsListPage() {
                         </div>
                       </div>
 
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-2xs border ${
-                        isFinal
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800' 
-                          : isRec
-                            ? 'bg-rose-50 text-rose-700 border-rose-300 ring-2 ring-rose-200/50 animate-pulse dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
-                            : isProc
-                              ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800'
-                              : 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
-                      }`}>
-                        {c.status.replace('_', ' ')}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {isFinal && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                            <FileCheck className="w-3 h-3 text-emerald-600" />
+                            <span className="hidden sm:inline">Signed Docs</span>
+                          </span>
+                        )}
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-2xs border ${
+                          isFinal
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800' 
+                            : isRec
+                              ? 'bg-rose-50 text-rose-700 border-rose-300 ring-2 ring-rose-200/50 animate-pulse dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
+                              : isProc
+                                ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800'
+                                : 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                        }`}>
+                          {c.status.replace('_', ' ')}
+                        </span>
+                      </div>
                     </div>
                     
+                    {/* Patient EHR Linkage Badge */}
+                    <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
+                      {c.patient_ref && c.patient_id ? (
+                        <Link
+                          href={`/patients/${c.patient_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold text-teal-800 dark:text-teal-300 bg-teal-50/90 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900 border border-teal-200/90 dark:border-teal-800 transition-colors shadow-2xs group/pt"
+                          title="Open verified Patient EHR file"
+                        >
+                          <UserCircle className="w-3.5 h-3.5 text-teal-600" />
+                          <span>Patient: <strong className="font-extrabold">{c.patient_ref}</strong></span>
+                          {c.patient_demographics && (
+                            <span className="text-[10px] text-teal-700/80 dark:text-teal-400 font-semibold border-l border-teal-300 dark:border-teal-700 pl-1.5 ml-0.5">
+                              {[c.patient_demographics.biological_sex, c.patient_demographics.age_group].filter(Boolean).join(" • ")}
+                            </span>
+                          )}
+                          <ArrowRight className="w-3 h-3 text-teal-500 opacity-60 group-hover/pt:opacity-100 group-hover/pt:translate-x-0.5 transition-all" />
+                        </Link>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/40 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-800">
+                          Auto-assigned Patient Profile
+                        </span>
+                      )}
+                    </div>
+
                     {/* Clinical Note Preview Snippet */}
                     <div className="mt-3 mb-5 p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
                       <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-3 leading-relaxed font-normal m-0">

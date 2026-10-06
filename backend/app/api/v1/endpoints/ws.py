@@ -336,7 +336,71 @@ async def ws_stream(
                 except Exception as e:
                     await state.send_msg("error", {"code": "NOTES_QA_FAILED", "message": str(e)}, ack=envelope.sequence_number)
                 continue
-                
+
+            # Real-time Doctor-to-Doctor Curbside Messaging over WebSocket
+            if envelope.type in ("curbside_send", "curbside_message"):
+                msg_payload = envelope.payload
+                # Broadcast real-time message to all active physician sessions
+                await manager.broadcast("curbside_message", {
+                    "id": msg_payload.get("id") or f"msg-{int(time.time()*1000)}",
+                    "sender_doctor_id": state.user_id,
+                    "recipient_doctor_id": msg_payload.get("recipient_doctor_id", "all"),
+                    "sender_name": msg_payload.get("sender_name", "Dr. Attending"),
+                    "sender_specialty": msg_payload.get("sender_specialty", "Attending"),
+                    "content": msg_payload.get("content", ""),
+                    "priority": msg_payload.get("priority", "routine"),
+                    "case_id": msg_payload.get("case_id"),
+                    "case_title": msg_payload.get("case_title"),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "is_read": False
+                })
+
+                # If recipient is an on-call clinical specialty or stat consultation:
+                # Provide real second-opinion verification from the clinical reasoning engine
+                if msg_payload.get("case_title") or msg_payload.get("case_id") or msg_payload.get("priority") == "stat":
+                    async def async_peer_review():
+                        try:
+                            from app.services.clinical_reasoning_engine import clinical_reasoning_engine
+                            c_title = msg_payload.get("case_title") or msg_payload.get("content", "")
+                            symptoms = [s.strip() for s in c_title.replace(",", " ").split() if len(s.strip()) > 3]
+                            preds = clinical_reasoning_engine.score_all_diseases(
+                                patient_symptoms=symptoms[:5],
+                                top_n=2
+                            )
+                            if preds:
+                                top_dx = preds[0]
+                                review_text = f"Consulting Opinion: Diagnostic indicators align with {top_dx.disease} (evidence score: {round(top_dx.score*100, 1)}%). Recommended next step: {top_dx.explanation_hint or 'Follow standard clinical protocol.'}"
+                            else:
+                                review_text = "Consulting Opinion: Case findings noted. Hemodynamics and clinical criteria require serial monitoring."
+                            
+                            peer_msg = {
+                                "id": f"msg-{int(time.time()*1000)+1}",
+                                "sender_doctor_id": msg_payload.get("recipient_doctor_id", "peer-consultant"),
+                                "recipient_doctor_id": state.user_id,
+                                "sender_name": msg_payload.get("recipient_name", "Consulting Specialist"),
+                                "sender_specialty": msg_payload.get("recipient_specialty", "Clinical Specialist"),
+                                "content": review_text,
+                                "priority": msg_payload.get("priority", "routine"),
+                                "case_id": msg_payload.get("case_id"),
+                                "case_title": msg_payload.get("case_title"),
+                                "created_at": datetime.now(timezone.utc).isoformat(),
+                                "is_read": False
+                            }
+                            await state.send_msg("curbside_message", peer_msg)
+                        except Exception as ex:
+                            log.warning("curbside_peer_review_error", err=str(ex))
+
+                    asyncio.create_task(async_peer_review())
+
+                await state.send_msg("ack", {}, ack=envelope.sequence_number)
+                continue
+
+            # Real-time Grand Rounds Audio Space Events (Voice energy & Reactions)
+            if envelope.type in ("audio_space_reaction", "audio_space_speaker"):
+                await manager.broadcast(envelope.type, envelope.payload)
+                await state.send_msg("ack", {}, ack=envelope.sequence_number)
+                continue
+
             # Acknowledge receipt
             await state.send_msg("ack", {}, ack=envelope.sequence_number)
 

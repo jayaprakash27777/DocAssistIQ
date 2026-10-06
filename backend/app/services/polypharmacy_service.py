@@ -22,6 +22,13 @@ DETERMINISTIC_DDI_RULES: List[Dict[str, Any]] = [
         "recommendation": "Avoid combination. If analgesia/antipyresis is required, use acetaminophen (max 2g/day) or consider alternative non-NSAID therapies with close INR monitoring."
     },
     {
+        "pair": ({"warfarin", "coumadin"}, {"amiodarone"}),
+        "severity": "CRITICAL",
+        "mechanism": "Potent CYP2C9 and CYP3A4 inhibition by amiodarone impairs S-warfarin hepatic clearance.",
+        "clinical_effect": "Dramatic elevation of INR and severe risk of life-threatening hemorrhage.",
+        "recommendation": "Empirically reduce warfarin dosage by 33-50% upon initiating amiodarone; monitor INR twice weekly until stable."
+    },
+    {
         "pair": ({"apixaban", "rivaroxaban", "dabigatran", "edoxaban"}, {"aspirin", "ibuprofen", "naproxen", "ketorolac", "meloxicam", "diclofenac"}),
         "severity": "CRITICAL",
         "mechanism": "Pharmacodynamic synergism between direct oral anticoagulants (DOACs) and antiplatelet/COX-inhibiting NSAIDs.",

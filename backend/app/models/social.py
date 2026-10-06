@@ -209,10 +209,10 @@ class CurbsideMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Secure doctor-to-doctor curbside direct consultation linked to a clinical case."""
     __tablename__ = "curbside_messages"
 
-    post_id: Mapped[uuid.UUID] = mapped_column(
+    post_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("doctor_posts.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True
     )
     sender_id: Mapped[uuid.UUID] = mapped_column(
@@ -228,6 +228,56 @@ class CurbsideMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         index=True
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    priority: Mapped[str] = mapped_column(String(20), default="routine", server_default="routine")
     is_read: Mapped[bool] = mapped_column(default=False, server_default="false")
+
+
+class DoctorCircle(Base):
+    """Specialty medical communities and doctor circles."""
+    __tablename__ = "doctor_circles"
+
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    icon: Mapped[str] = mapped_column(String(20), nullable=False)
+    specialty: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    tags: Mapped[list] = mapped_column(JSON().with_variant(JSONB, "postgresql"), default=list)
+
+
+class DoctorCircleMember(Base):
+    """Physician membership in doctor circles."""
+    __tablename__ = "doctor_circle_members"
+    __table_args__ = (UniqueConstraint("circle_id", "doctor_id", name="uq_doctor_circle_member"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    circle_id: Mapped[str] = mapped_column(String(100), ForeignKey("doctor_circles.id", ondelete="CASCADE"), nullable=False, index=True)
+    doctor_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("doctors.id", ondelete="CASCADE"), nullable=False, index=True)
+
+
+class CMEEvent(Base):
+    """Accredited Continuing Medical Education and Grand Rounds events."""
+    __tablename__ = "cme_events"
+
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    specialty: Mapped[str] = mapped_column(String(100), nullable=False)
+    date_str: Mapped[str] = mapped_column(String(100), nullable=False)
+    time_str: Mapped[str] = mapped_column(String(100), nullable=False)
+    speaker: Mapped[str] = mapped_column(String(255), nullable=False)
+    speaker_title: Mapped[str] = mapped_column(String(255), nullable=False)
+    cme_credits: Mapped[float] = mapped_column(default=1.0)
+    location: Mapped[str] = mapped_column(String(255), nullable=False)
+    topics: Mapped[list] = mapped_column(JSON().with_variant(JSONB, "postgresql"), default=list)
+
+
+class CMEEventRSVP(Base):
+    """Doctor RSVPs to accredited CME Grand Rounds sessions."""
+    __tablename__ = "cme_event_rsvps"
+    __table_args__ = (UniqueConstraint("event_id", "doctor_id", name="uq_cme_event_rsvp"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id: Mapped[str] = mapped_column(String(100), ForeignKey("cme_events.id", ondelete="CASCADE"), nullable=False, index=True)
+    doctor_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("doctors.id", ondelete="CASCADE"), nullable=False, index=True)
+
 
 

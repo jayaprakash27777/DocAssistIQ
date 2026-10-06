@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable react-hooks/set-state-in-effect */
-/* eslint-disable react/no-unescaped-entities */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
@@ -29,12 +27,15 @@ import {
   Stethoscope,
   ChevronRight,
   AlertCircle,
-  Brain
+  Brain,
+  FileCheck,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useConsultations } from "@/hooks/useConsultations";
-import { getClinicalNote, type ClinicalNoteResponse } from "@/lib/api";
+import { getClinicalNote, listDocumentsForConsultation, type ClinicalNoteResponse, type VerifiedDocumentRecord } from "@/lib/api";
+import { downloadClinicalDocument, downloadConsultationNote } from "@/lib/documentPrinting";
 
 export default function NotesPage() {
   const { toast } = useToast();
@@ -44,6 +45,8 @@ export default function NotesPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "finalized" | "in_review">("all");
   const [selectedConsultationId, setSelectedConsultationId] = useState<string | null>(null);
   const [activeNote, setActiveNote] = useState<ClinicalNoteResponse | null>(null);
+  const [certifiedDocs, setCertifiedDocs] = useState<VerifiedDocumentRecord[]>([]);
+  const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   const [noteLoading, setNoteLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -74,6 +77,7 @@ export default function NotesPage() {
   const handleInspectNote = async (id: string) => {
     setSelectedConsultationId(id);
     setNoteLoading(true);
+    setCertifiedDocs([]);
     try {
       const res = await getClinicalNote(id);
       if (res.ok && res.data) {
@@ -100,10 +104,35 @@ export default function NotesPage() {
           }
         });
       }
+      // Query certified documents for this consultation
+      listDocumentsForConsultation(id)
+        .then((docRes) => {
+          if (docRes.ok && docRes.data?.documents) {
+            setCertifiedDocs(docRes.data.documents);
+          }
+        })
+        .catch(() => {});
     } catch (err: any) {
       toast.error("Failed to load note details: " + (err.message || "Unknown error"));
     } finally {
       setNoteLoading(false);
+    }
+  };
+
+  const handleDownloadCertifiedDoc = async (docType: string, format: "pdf" | "docx") => {
+    if (!selectedConsultationId) return;
+    try {
+      setDownloadingDoc(`${docType}-${format}`);
+      const res = await downloadClinicalDocument(selectedConsultationId, docType, format);
+      if (res.success) {
+        toast.success(`${docType.replace(/_/g, " ")} downloaded as ${format.toUpperCase()}`);
+      } else {
+        toast.error(`Download failed: ${res.error || "Unknown error"}`);
+      }
+    } catch (e: any) {
+      toast.error(`Download failed: ${e.message || "Unknown error"}`);
+    } finally {
+      setDownloadingDoc(null);
     }
   };
 
@@ -119,8 +148,22 @@ export default function NotesPage() {
   };
 
   const handleCopyFormattedNote = (note: ClinicalNoteResponse) => {
+    const rawBody = (note.body as any) || {};
+    if (rawBody._meta?.formatted_ehr_text) {
+      navigator.clipboard.writeText(rawBody._meta.formatted_ehr_text);
+      toast.success("Complete Hospital EHR Note copied to clipboard!");
+      return;
+    }
+
+    const patientHeader = rawBody.patient_encounter_header;
     const lines = [
-      `# DOCASSISTIQ CLINICAL NOTE (SOAP+)`,
+      `# INPATIENT CLINICAL NOTE`,
+      `Patient: ${patientHeader?.patient_name || "Not documented"}`,
+      `MRN/UHID: ${patientHeader?.mrn_uhid || "Pending"}`,
+      `Age/Sex: ${patientHeader?.age_sex || "Not documented"}`,
+      `Admission Date: ${patientHeader?.date_of_admission || "Pending"}`,
+      `Ward: ${patientHeader?.ward_unit || "General Ward"}`,
+      `Consultant: ${patientHeader?.attending_consultant || "Attending Physician"}`,
       `Consultation ID: ${note.consultation_id}`,
       `Created: ${new Date(note.created_at).toLocaleString()}`,
       `Status: ${note.status.toUpperCase()}`,
@@ -129,7 +172,7 @@ export default function NotesPage() {
 
     if (note.body) {
       Object.entries(note.body).forEach(([sec, val]) => {
-        if (sec.startsWith("_")) return;
+        if (sec.startsWith("_") || ["patient_encounter_header", "clinical_timeline", "investigations_list", "differential_candidates"].includes(sec)) return;
         const text = typeof val === "object" && val !== null ? (val as any).text || "" : String(val);
         if (text) {
           lines.push(`## ${sec.toUpperCase().replace(/_/g, " ")}`);
@@ -140,39 +183,80 @@ export default function NotesPage() {
     }
 
     navigator.clipboard.writeText(lines.join("\n"));
-    toast.success("Formatted note copied for EHR!");
+    toast.success("Complete Hospital EHR Note copied to clipboard!");
   };
 
-  const handleDownloadNote = (note: ClinicalNoteResponse) => {
-    const lines = [
-      `# DOCASSISTIQ CLINICAL NOTE`,
-      `Consultation ID: ${note.consultation_id}`,
-      `Created: ${new Date(note.created_at).toLocaleString()}`,
-      `Status: ${note.status.toUpperCase()}`,
-      `Version: v${note.version}`,
-      `Generated by AI: ${note.is_ai_generated ? "Yes (Clinician Validated)" : "No (Manual)"}`,
-      `----------------------------------------`,
-      "",
-    ];
-
-    if (note.body) {
-      Object.entries(note.body).forEach(([sec, val]) => {
-        if (sec.startsWith("_")) return;
-        const text = typeof val === "object" && val !== null ? (val as any).text || "" : String(val);
-        lines.push(`## ${sec.toUpperCase().replace(/_/g, " ")}`);
-        lines.push(text || "None documented");
-        lines.push("");
-      });
+  const handleDownloadNoteFormat = async (note: ClinicalNoteResponse, format: "pdf" | "docx") => {
+    try {
+      setDownloadingDoc(`note-${note.consultation_id}-${format}`);
+      const rawBody = (note.body as any) || {};
+      const patientName = rawBody.patient_encounter_header?.patient_name;
+      const cleanRef = patientName ? patientName.replace(/\s+/g, "_") : undefined;
+      const res = await downloadConsultationNote(note.consultation_id, format, cleanRef);
+      if (res.success) {
+        toast.success(`Clinical note downloaded as ${format.toUpperCase()}`);
+      } else {
+        toast.error(`Download failed: ${res.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      toast.error(`Download failed: ${err.message || "Unknown error"}`);
+    } finally {
+      setDownloadingDoc(null);
     }
+  };
 
-    const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+  const handleQuickDownloadNote = async (e: React.MouseEvent, consultationId: string, format: "pdf" | "docx") => {
+    e.stopPropagation();
+    try {
+      setDownloadingDoc(`quick-${consultationId}-${format}`);
+      const res = await downloadConsultationNote(consultationId, format);
+      if (res.success) {
+        toast.success(`Clinical note downloaded as ${format.toUpperCase()}`);
+      } else {
+        toast.error(`Download failed: ${res.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      toast.error(`Download failed: ${err.message || "Unknown error"}`);
+    } finally {
+      setDownloadingDoc(null);
+    }
+  };
+
+  const handleDownloadMarkdown = (note: ClinicalNoteResponse) => {
+    const rawBody = (note.body as any) || {};
+    const content = rawBody._meta?.formatted_ehr_text || (() => {
+      const patientHeader = rawBody.patient_encounter_header;
+      const lines = [
+        `# INPATIENT CLINICAL NOTE`,
+        `Patient: ${patientHeader?.patient_name || "Not documented"}`,
+        `MRN/UHID: ${patientHeader?.mrn_uhid || "Pending"}`,
+        `Admission: ${patientHeader?.date_of_admission || "Pending"}`,
+        `Consultation ID: ${note.consultation_id}`,
+        `Status: ${note.status.toUpperCase()}`,
+        `Version: v${note.version}`,
+        `----------------------------------------`,
+        "",
+      ];
+      if (note.body) {
+        Object.entries(note.body).forEach(([sec, val]) => {
+          if (sec.startsWith("_") || ["patient_encounter_header", "clinical_timeline", "investigations_list", "differential_candidates"].includes(sec)) return;
+          const text = typeof val === "object" && val !== null ? (val as any).text || "" : String(val);
+          lines.push(`## ${sec.toUpperCase().replace(/_/g, " ")}`);
+          lines.push(text || "None documented");
+          lines.push("");
+        });
+      }
+      return lines.join("\n");
+    })();
+
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `clinical_note_${note.consultation_id.slice(0, 8)}.md`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Clinical note downloaded as Markdown");
+    toast.success("Hospital EHR note exported as Markdown");
   };
 
   const containerVariants: Variants = {
@@ -416,22 +500,30 @@ export default function NotesPage() {
                       </div>
                     </div>
 
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                        isFinal
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
-                          : isDraft
-                          ? "bg-amber-50 text-amber-700 border border-amber-200/80"
-                          : "bg-indigo-50 text-indigo-700 border border-indigo-200/80"
-                      }`}
-                    >
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      {isFinal && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <FileCheck className="w-3 h-3 text-emerald-600" />
+                          <span>Certified Docs</span>
+                        </span>
+                      )}
                       <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          isFinal ? "bg-emerald-500" : isDraft ? "bg-amber-500 animate-pulse" : "bg-indigo-500"
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                          isFinal
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+                            : isDraft
+                            ? "bg-amber-50 text-amber-700 border border-amber-200/80"
+                            : "bg-indigo-50 text-indigo-700 border border-indigo-200/80"
                         }`}
-                      />
-                      {cons.status.toUpperCase()}
-                    </span>
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isFinal ? "bg-emerald-500" : isDraft ? "bg-amber-500 animate-pulse" : "bg-indigo-500"
+                          }`}
+                        />
+                        {cons.status.toUpperCase()}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Body Preview */}
@@ -473,7 +565,7 @@ export default function NotesPage() {
                 </div>
 
                 {/* Card Actions */}
-                <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+                <div className="pt-3 border-t border-slate-100 flex items-center gap-1.5">
                   <Button
                     variant="outline"
                     onClick={() => handleInspectNote(cons.id)}
@@ -481,6 +573,38 @@ export default function NotesPage() {
                   >
                     <Eye className="w-3.5 h-3.5" /> Inspect Note
                   </Button>
+
+                  {/* Direct PDF Download */}
+                  <button
+                    type="button"
+                    onClick={(e) => handleQuickDownloadNote(e, cons.id, "pdf")}
+                    disabled={downloadingDoc !== null}
+                    title="Download Official Hospital PDF"
+                    className="h-9 px-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center justify-center gap-1 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                  >
+                    {downloadingDoc === `quick-${cons.id}-pdf` ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <FileText className="w-3.5 h-3.5 text-rose-600" />
+                    )}
+                    <span>PDF</span>
+                  </button>
+
+                  {/* Direct DOCX Download */}
+                  <button
+                    type="button"
+                    onClick={(e) => handleQuickDownloadNote(e, cons.id, "docx")}
+                    disabled={downloadingDoc !== null}
+                    title="Download Microsoft Word DOCX"
+                    className="h-9 px-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                  >
+                    {downloadingDoc === `quick-${cons.id}-docx` ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5 text-indigo-600" />
+                    )}
+                    <span>DOCX</span>
+                  </button>
 
                   <Link
                     href={`/ai?cid=${cons.id}`}
@@ -550,6 +674,14 @@ export default function NotesPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <Link
+                    href={`/ai?cid=${selectedConsultationId}`}
+                    className="h-8 px-3 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 shadow-2xs transition-all"
+                    title="Ask DocAssist IQ AI about this consultation"
+                  >
+                    <Brain className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Ask AI</span>
+                  </Link>
                   {activeNote && (
                     <>
                       <Button
@@ -559,19 +691,49 @@ export default function NotesPage() {
                       >
                         <Copy className="w-3.5 h-3.5 text-teal-600" /> Copy for EHR
                       </Button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadNoteFormat(activeNote, "pdf")}
+                        disabled={downloadingDoc !== null}
+                        className="h-8 px-3 rounded-xl text-xs font-bold gap-1.5 border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 shadow-2xs flex items-center transition-colors cursor-pointer disabled:opacity-50"
+                        title="Download official clinical note as PDF"
+                      >
+                        {downloadingDoc === `note-${activeNote.consultation_id}-pdf` ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <FileText className="w-3.5 h-3.5 text-rose-600" />
+                        )}
+                        <span>Download PDF</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadNoteFormat(activeNote, "docx")}
+                        disabled={downloadingDoc !== null}
+                        className="h-8 px-3 rounded-xl text-xs font-bold gap-1.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 shadow-2xs flex items-center transition-colors cursor-pointer disabled:opacity-50"
+                        title="Download official clinical note as Microsoft Word DOCX"
+                      >
+                        {downloadingDoc === `note-${activeNote.consultation_id}-docx` ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5 text-indigo-600" />
+                        )}
+                        <span>Download DOCX</span>
+                      </button>
                       <Button
                         variant="outline"
-                        onClick={() => handleDownloadNote(activeNote)}
-                        className="h-8 px-3 rounded-xl text-xs font-bold gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs"
+                        onClick={() => handleDownloadMarkdown(activeNote)}
+                        className="h-8 px-2.5 rounded-xl text-xs font-bold gap-1 border-slate-200 text-slate-600 hover:bg-slate-100 shadow-2xs"
+                        title="Export Markdown text representation"
                       >
-                        <Download className="w-3.5 h-3.5" /> Markdown
+                        <Download className="w-3 h-3 text-slate-500" /> MD
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => handleCopyNote(JSON.stringify(activeNote.body, null, 2), "modal")}
-                        className="h-8 px-3 rounded-xl text-xs font-bold gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs"
+                        className="h-8 px-2.5 rounded-xl text-xs font-bold gap-1 border-slate-200 text-slate-600 hover:bg-slate-100 shadow-2xs"
+                        title="Copy raw JSON data"
                       >
-                        <Copy className="w-3.5 h-3.5" /> JSON
+                        <Copy className="w-3 h-3 text-slate-500" /> JSON
                       </Button>
                     </>
                   )}
@@ -595,6 +757,95 @@ export default function NotesPage() {
                   </div>
                 ) : activeNote ? (
                   <div className="space-y-6">
+                    {/* Patient Encounter Header Card */}
+                    {((activeNote.body as any)?.patient_encounter_header) && (
+                      <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-2">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-700">Patient & Encounter Record</span>
+                          <span className="text-[10px] font-mono text-teal-700 font-bold">UHID: {((activeNote.body as any).patient_encounter_header).mrn_uhid || "Pending"}</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                          <div><span className="text-slate-400 block text-[9px] font-bold">Patient</span><span className="font-bold text-slate-800">{((activeNote.body as any).patient_encounter_header).patient_name || "Not documented"}</span></div>
+                          <div><span className="text-slate-400 block text-[9px] font-bold">Age / Sex</span><span className="font-semibold text-slate-700">{((activeNote.body as any).patient_encounter_header).age_sex || "Not documented"}</span></div>
+                          <div><span className="text-slate-400 block text-[9px] font-bold">Admission Date</span><span className="font-semibold text-slate-700">{((activeNote.body as any).patient_encounter_header).date_of_admission || "Pending"}</span></div>
+                          <div><span className="text-slate-400 block text-[9px] font-bold">Ward / Consultant</span><span className="font-semibold text-slate-700">{((activeNote.body as any).patient_encounter_header).ward_unit || "General Ward"}</span></div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Chronological Clinical Timeline */}
+                    {Array.isArray((activeNote.body as any)?.clinical_timeline) && (activeNote.body as any).clinical_timeline.length > 0 && (
+                      <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                            <Clock className="w-3.5 h-3.5 text-teal-600" />
+                            <span>Chronological Encounter Timeline ({(activeNote.body as any).clinical_timeline.length} Milestones)</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                          {((activeNote.body as any).clinical_timeline as any[]).map((tl, i) => (
+                            <div key={tl.id || i} className="p-2.5 rounded-xl border border-slate-100 bg-slate-50 text-xs space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-slate-800">{tl.stage}: {tl.event}</span>
+                                <span className="font-mono text-[10px] text-slate-400">{tl.timestamp}</span>
+                              </div>
+                              {tl.findings && <p className="text-[11px] text-slate-600"><span className="font-semibold">Findings:</span> {tl.findings}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Active Investigations */}
+                    {Array.isArray((activeNote.body as any)?.investigations_list) && (activeNote.body as any).investigations_list.length > 0 && (
+                      <div className="p-4 rounded-2xl border border-blue-100 bg-blue-50/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900 uppercase tracking-wider">
+                            <Activity className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Investigations & Diagnostic Orders ({(activeNote.body as any).investigations_list.length})</span>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          {((activeNote.body as any).investigations_list as any[]).map((inv, i) => (
+                            <div key={inv.id || i} className="p-2 rounded-xl bg-white border border-slate-200 flex items-center justify-between text-xs">
+                              <div>
+                                <span className="font-bold text-slate-800">{inv.name}</span>
+                                <span className="text-[10px] text-slate-400 ml-2">[{inv.priority}]</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-700">{inv.result || "Pending"}</span>
+                                <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-slate-100 text-slate-700">{inv.status}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AI Differential Candidates */}
+                    {Array.isArray((activeNote.body as any)?.differential_candidates) && (activeNote.body as any).differential_candidates.length > 0 && (
+                      <div className="p-4 rounded-2xl border border-purple-100 bg-purple-50/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-purple-900 uppercase tracking-wider">
+                            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                            <span>AI Differential Reasoning ({(activeNote.body as any).differential_candidates.length} Candidates)</span>
+                          </div>
+                          <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">Rule 85 Reference Only</span>
+                        </div>
+                        <div className="space-y-2">
+                          {((activeNote.body as any).differential_candidates as any[]).map((c, i) => (
+                            <div key={c.id || i} className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-slate-900">{i + 1}. {c.disease}</span>
+                                <span className="text-[10px] font-mono text-purple-700 font-bold">{c.display_score}</span>
+                              </div>
+                              <p className="text-[11px] text-slate-600">{c.rationale}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* SOAP Sections */}
                     <div className="grid grid-cols-1 gap-4">
                       {/* S - Subjective */}
@@ -642,6 +893,77 @@ export default function NotesPage() {
                       </div>
                     </div>
 
+                    {/* Certified Legal Documents Card */}
+                    <div className="p-4 rounded-2xl border border-indigo-100 bg-indigo-50/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs uppercase tracking-wider">
+                          <FileCheck className="w-4 h-4 text-indigo-600" />
+                          <span>Certified Legal Documents ({certifiedDocs.length})</span>
+                        </div>
+                        {certifiedDocs.length > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Digitally Signed
+                          </span>
+                        )}
+                      </div>
+
+                      {certifiedDocs.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic py-1">
+                          No certified legal documents signed yet. You can generate certified discharge summaries, e-prescriptions, or medical certificates in DocAssist IQ AI.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {certifiedDocs.map((doc, idx) => (
+                            <div key={idx} className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-slate-900 truncate">
+                                    {doc.title || doc.document_type.replace(/_/g, " ").toUpperCase()}
+                                  </span>
+                                  <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                    {doc.verification_code}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-0.5">
+                                  Signed by Dr. {doc.doctor_name || "Attending"} • {doc.signed_at_formatted}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadCertifiedDoc(doc.document_type, "pdf")}
+                                  disabled={downloadingDoc !== null}
+                                  className="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  PDF
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadCertifiedDoc(doc.document_type, "docx")}
+                                  disabled={downloadingDoc !== null}
+                                  className="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  DOCX
+                                </button>
+                                <a
+                                  href={`/verify?code=${encodeURIComponent(doc.verification_code)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors flex items-center gap-1 shadow-2xs"
+                                >
+                                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                  Verify
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Metadata Footer in Modal */}
                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex flex-wrap items-center justify-between gap-3 text-slate-500">
                       <div>
@@ -665,14 +987,24 @@ export default function NotesPage() {
                 <span className="text-xs text-slate-400 font-medium">
                   Reference Information — Clinician Review Required
                 </span>
-                <Link href={`/consultations/${selectedConsultationId}`}>
-                  <Button
-                    variant="primary"
-                    className="rounded-xl h-9 px-5 text-xs font-bold gap-2 bg-gradient-to-r from-teal-600 to-indigo-600 text-white"
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/ai?cid=${selectedConsultationId}`}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 shadow-2xs transition-all"
+                    title="Ask DocAssist IQ AI about this consultation"
                   >
-                    Open in Consultation Workspace <ArrowRight className="w-3.5 h-3.5" />
-                  </Button>
-                </Link>
+                    <Brain className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Ask DocAssist IQ AI</span>
+                  </Link>
+                  <Link href={`/consultations/${selectedConsultationId}`}>
+                    <Button
+                      variant="primary"
+                      className="rounded-xl h-9 px-5 text-xs font-bold gap-2 bg-gradient-to-r from-teal-600 to-indigo-600 text-white"
+                    >
+                      Open in Consultation Workspace <ArrowRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </Link>
+                </div>
               </div>
             </motion.div>
           </div>

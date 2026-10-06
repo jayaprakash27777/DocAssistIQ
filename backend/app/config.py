@@ -84,6 +84,14 @@ class Settings(BaseSettings):
     default_llm_model: str = "ii-medical:8b"
     fast_llm_model: str = "llama3.2:latest"
 
+    # Clinical Knowledge & Terminology APIs (Master Gateway)
+    who_icd_client_id: str | None = None
+    who_icd_client_secret: str | None = None
+    umls_api_key: str | None = None
+    ncbi_api_key: str | None = None
+    openfda_api_key: str | None = None
+    bioportal_api_key: str | None = None
+
     # --------------------------------------------------------
     # Startup validation
     # --------------------------------------------------------

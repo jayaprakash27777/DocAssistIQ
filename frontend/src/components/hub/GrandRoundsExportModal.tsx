@@ -24,7 +24,7 @@ export function GrandRoundsExportModal({ post, onClose }: GrandRoundsExportModal
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-teal-600" />
             <span className="text-sm font-black text-slate-900">
-              Grand Rounds Clinical Case Summary (Print / PDF)
+              Case Summary & Export (Print / PDF)
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -51,10 +51,10 @@ export function GrandRoundsExportModal({ post, onClose }: GrandRoundsExportModal
             <div className="flex items-start justify-between">
               <div>
                 <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
-                  DocAssistIQ Multidisciplinary Case Review
+                  DocAssistIQ Doctor Case Review
                 </h1>
                 <p className="text-xs font-medium text-slate-600">
-                  Global Physician Consultation & Peer Consensus Network
+                  Doctor Discussion & Second Opinions
                 </p>
               </div>
               <div className="text-right text-xs text-slate-500 font-mono">
@@ -66,7 +66,7 @@ export function GrandRoundsExportModal({ post, onClose }: GrandRoundsExportModal
             <div className="mt-3 flex items-center gap-2 text-[11px] text-teal-800 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-200">
               <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0" />
               <span>
-                <strong>HIPAA & GDPR Compliant:</strong> Patient identifiers, names, MRNs, and direct timestamps redacted per Safe Harbor standard.
+                <strong>Patient Privacy Protected:</strong> All personal identifiers and patient names removed.
               </span>
             </div>
           </div>
@@ -74,8 +74,8 @@ export function GrandRoundsExportModal({ post, onClose }: GrandRoundsExportModal
           {/* Attending Physician Profile */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div>
-              <span className="block text-[10px] font-bold text-slate-500 uppercase">Attending Author</span>
-              <span className="font-bold text-slate-900">{post.author_name || "Verified Physician"}</span>
+              <span className="block text-[10px] font-bold text-slate-500 uppercase">Author</span>
+              <span className="font-bold text-slate-900">{post.author_name || "Verified Doctor"}</span>
             </div>
             <div>
               <span className="block text-[10px] font-bold text-slate-500 uppercase">Specialty</span>
@@ -86,9 +86,9 @@ export function GrandRoundsExportModal({ post, onClose }: GrandRoundsExportModal
               <span className="font-mono font-bold text-teal-700">{post.author_credentials || "Verified MD"}</span>
             </div>
             <div>
-              <span className="block text-[10px] font-bold text-slate-500 uppercase">Clinical Status</span>
+              <span className="block text-[10px] font-bold text-slate-500 uppercase">Status</span>
               <span className={`font-bold ${post.is_solved ? "text-emerald-700" : "text-rose-700"}`}>
-                {post.is_solved ? "✓ Solved / Outcome Recorded" : "Active Dilemma"}
+                {post.is_solved ? "✓ Solved Case" : "Active Case"}
               </span>
             </div>
           </div>
@@ -99,7 +99,7 @@ export function GrandRoundsExportModal({ post, onClose }: GrandRoundsExportModal
               {post.disease_name}
             </h2>
             <div className="p-4 bg-white rounded-xl border border-slate-200 text-xs leading-relaxed text-slate-800 whitespace-pre-line">
-              <strong className="block text-slate-900 mb-1">Presenting Complaint & Triage Vitals:</strong>
+              <strong className="block text-slate-900 mb-1">Patient Presentation & History:</strong>
               {post.clinical_findings}
             </div>
           </div>
@@ -107,13 +107,13 @@ export function GrandRoundsExportModal({ post, onClose }: GrandRoundsExportModal
           {/* Diagnosis & Workup Details */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <strong className="block text-slate-900 mb-1">Confirmed or Working Diagnosis:</strong>
+              <strong className="block text-slate-900 mb-1">Diagnosis:</strong>
               <p className="text-slate-700">{post.diagnosis}</p>
             </div>
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <strong className="block text-slate-900 mb-1">Deployed Pharmacotherapy:</strong>
+              <strong className="block text-slate-900 mb-1">Medicines Given:</strong>
               <p className="text-slate-700">
-                {post.drugs_used && post.drugs_used.length > 0 ? post.drugs_used.join(", ") : "Standard institutional protocol"}
+                {post.drugs_used && post.drugs_used.length > 0 ? post.drugs_used.join(", ") : "Standard protocol"}
               </p>
             </div>
           </div>
@@ -122,7 +122,7 @@ export function GrandRoundsExportModal({ post, onClose }: GrandRoundsExportModal
           {post.poll_data && (
             <div className="p-4 bg-indigo-50/60 rounded-xl border border-indigo-200 text-xs space-y-2">
               <strong className="block text-indigo-950">
-                Peer Consensus Dilemma Vote ({post.poll_data.total_votes} Clinicians):
+                Doctor Poll Results ({post.poll_data.total_votes} votes):
               </strong>
               <p className="text-indigo-900 font-medium">{post.poll_data.question}</p>
               <div className="grid grid-cols-2 gap-2 pt-1">
@@ -140,7 +140,7 @@ export function GrandRoundsExportModal({ post, onClose }: GrandRoundsExportModal
           {post.treatment_suggestions && post.treatment_suggestions.length > 0 && (
             <div className="space-y-2 text-xs">
               <strong className="block text-slate-900">
-                Multidisciplinary Peer Treatment Regimens ({post.treatment_suggestions.length}):
+                Treatment Suggestions from Colleagues ({post.treatment_suggestions.length}):
               </strong>
               <div className="space-y-2">
                 {post.treatment_suggestions.map((s) => (
@@ -159,15 +159,15 @@ export function GrandRoundsExportModal({ post, onClose }: GrandRoundsExportModal
                       </div>
                       {s.is_adopted && (
                         <span className="text-[10px] bg-emerald-600 text-white font-black px-2 py-0.5 rounded-md">
-                          Adopted Regimen
+                          Chosen Treatment
                         </span>
                       )}
                     </div>
                     <p className="text-slate-700 leading-relaxed">{s.clinical_rationale}</p>
                     <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500 font-medium">
                       <span>By {s.author_name} ({s.author_specialty})</span>
-                      <span>• Evidence: {s.evidence_grade || "Guideline Standard"}</span>
-                      <span>• {s.endorsements_count} Peer Endorsements</span>
+                      <span>• Evidence: {s.evidence_grade || "Standard Guideline"}</span>
+                      <span>• {s.endorsements_count} Colleague Votes</span>
                     </div>
                   </div>
                 ))}
@@ -180,7 +180,7 @@ export function GrandRoundsExportModal({ post, onClose }: GrandRoundsExportModal
             <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-300 text-xs space-y-1">
               <div className="flex items-center gap-1.5 text-emerald-900 font-black">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>48-Hour Definitive Outcome & Follow-Up Resolution:</span>
+                <span>Patient Outcome & Follow-Up:</span>
               </div>
               <p className="text-emerald-950 leading-relaxed pl-5">
                 {post.patient_outcome}

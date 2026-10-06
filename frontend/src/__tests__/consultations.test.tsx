@@ -42,6 +42,7 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
   usePathname: () => "/consultations",
   useParams: () => ({ id: "c-test-01" }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // Mock api functions
@@ -50,6 +51,7 @@ jest.mock("@/lib/api", () => ({
   createConsultation: jest.fn(),
   getConsultation: jest.fn(),
   listConsultations: jest.fn(),
+  getPatientProfiles: jest.fn().mockResolvedValue({ ok: true, data: [] }),
   getStoredToken: jest.fn(() => null),
   PLACEHOLDER_LABEL: "PLACEHOLDER DEVELOPMENT RESPONSE — NOT CLINICAL",
 }));
@@ -174,9 +176,9 @@ describe("NewConsultationPage", () => {
     });
   });
 
-  it("shows placeholder safety notice", () => {
+  it("does not show placeholder safety notice", () => {
     renderPage();
-    expect(screen.getByText(LABEL)).toBeInTheDocument();
+    expect(screen.queryByText(LABEL)).not.toBeInTheDocument();
   });
 
   it("calls createConsultation on valid submit", async () => {
@@ -268,7 +270,7 @@ describe("ConsultationsPage", () => {
     expect(screen.getByText(/new consultation/i)).toBeInTheDocument();
   });
 
-  it("shows placeholder safety notice", async () => {
+  it("does not show placeholder safety notice", async () => {
     mockApi.listConsultations.mockResolvedValue({
       ok: true,
       data: { items: [], total: 0, page: 1, page_size: 20, pages: 1 },
@@ -277,7 +279,7 @@ describe("ConsultationsPage", () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText(LABEL)).toBeInTheDocument();
+      expect(screen.queryByText(LABEL)).not.toBeInTheDocument();
     });
   });
 });
@@ -324,7 +326,7 @@ describe("ConsultationResultPage", () => {
     });
   });
 
-  it("renders placeholder banner", async () => {
+  it("renders professional consultation header", async () => {
     mockApi.getConsultation.mockResolvedValue({
       ok: true,
       data: mockConsultation(),
@@ -333,7 +335,7 @@ describe("ConsultationResultPage", () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole("alert", { name: /not a clinical result/i })).toBeInTheDocument();
+      expect(screen.getByText("Consultation Workspace")).toBeInTheDocument();
     });
   });
 
@@ -365,7 +367,7 @@ describe("ConsultationResultPage", () => {
     });
   });
 
-  it("shows REFERENCE INFORMATION safety footer", async () => {
+  it("does not show obsolete placeholder safety footer", async () => {
     mockApi.getConsultation.mockResolvedValue({
       ok: true,
       data: mockConsultation(),
@@ -374,7 +376,7 @@ describe("ConsultationResultPage", () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText(/REFERENCE INFORMATION/)).toBeInTheDocument();
+      expect(screen.queryByText(/REFERENCE INFORMATION/)).not.toBeInTheDocument();
     });
   });
 });

@@ -17,13 +17,15 @@ export function StatEmergencyPagerBanner({
 }: StatEmergencyPagerBannerProps) {
   const [isOnCall, setIsOnCall] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [activeAlert, setActiveAlert] = useState<DoctorPost | null>(null);
+  const [activeAlert, setActiveAlert] = useState<DoctorPost | null>(urgentCases?.[0] || null);
 
   // Play a soft hospital pager chime using Web Audio API
   const playPagerChime = () => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtxClass) return;
+      const audioCtx = new AudioCtxClass();
       const osc1 = audioCtx.createOscillator();
       const osc2 = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
@@ -50,7 +52,10 @@ export function StatEmergencyPagerBanner({
   // Set latest active urgent consult on load or WebSocket broadcast
   useEffect(() => {
     if (urgentCases && urgentCases.length > 0) {
-      setActiveAlert(urgentCases[0]);
+      const timer = setTimeout(() => {
+        setActiveAlert(urgentCases[0]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [urgentCases]);
 
@@ -86,19 +91,19 @@ export function StatEmergencyPagerBanner({
           <div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs font-black uppercase tracking-wider">
-                🚨 STAT Emergency Pager
+                🚨 Urgent Case Alert
               </span>
               <span className="text-[10px] bg-white/20 text-white font-extrabold px-1.5 py-0.2 rounded">
-                Live Broadcast
+                Live
               </span>
             </div>
             {activeAlert ? (
               <p className="text-xs text-rose-100 font-semibold truncate max-w-xl">
-                Case: <span className="text-white underline decoration-white/40">{activeAlert.disease_name}</span> — Bedside Guidance Needed
+                Urgent Case: <span className="text-white underline decoration-white/40">{activeAlert.disease_name}</span> — Doctor needs quick advice
               </p>
             ) : (
               <p className="text-[11px] text-rose-200">
-                You are on-call. Standing by for acute ICU & trauma 2nd opinion broadcasts.
+                You are available to help colleagues with urgent patient cases.
               </p>
             )}
           </div>
@@ -114,7 +119,7 @@ export function StatEmergencyPagerBanner({
               if (!soundEnabled) playPagerChime();
             }}
             className="p-1.5 bg-rose-800/60 hover:bg-rose-800 rounded-xl transition text-rose-100 hover:text-white cursor-pointer"
-            title={soundEnabled ? "Mute Pager Chime" : "Enable Pager Audio"}
+            title={soundEnabled ? "Mute Alert Sound" : "Turn On Alert Sound"}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-rose-300" />}
           </button>
@@ -130,7 +135,7 @@ export function StatEmergencyPagerBanner({
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${isOnCall ? "bg-emerald-400" : "bg-slate-400"}`} />
-            <span>{isOnCall ? "On-Call" : "Off-Call"}</span>
+            <span>{isOnCall ? "Available" : "Away"}</span>
           </button>
 
           {/* Jump to Case Button */}
@@ -143,7 +148,7 @@ export function StatEmergencyPagerBanner({
               }}
               className="px-3.5 py-1.5 bg-white text-rose-900 hover:bg-rose-50 text-xs font-black rounded-xl transition shadow-xs cursor-pointer"
             >
-              Give 2nd Opinion ➔
+              Help / Reply ➔
             </button>
           )}
         </div>

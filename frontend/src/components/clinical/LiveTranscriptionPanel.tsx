@@ -74,6 +74,21 @@ const confColor = (c: number) =>
 
 type SpeakerMode = "auto" | "doctor" | "patient";
 
+export interface BackendSegment {
+  id?: string;
+  speaker?: string;
+  speaker_label?: string;
+  speaker_id?: string;
+  text?: string;
+  processed_text?: string;
+  raw_text?: string;
+  timestamp?: number | string;
+  start_time?: number;
+  confidence?: number;
+  speaker_confidence?: number;
+  speakerConfidence?: number;
+}
+
 interface Props {
   consultationId?: string;
   onTranscriptReady?: (text: string, segments: TranscriptSegment[]) => void;
@@ -82,7 +97,7 @@ interface Props {
   onStartConsultationRecording?: () => void;
   onStopConsultationRecording?: () => void;
   currentConsultationStatus?: string;
-  backendSegments?: any[];
+  backendSegments?: BackendSegment[];
   backendAsrText?: string;
 }
 
@@ -145,7 +160,7 @@ export default function LiveTranscriptionPanel({
         id: s.id || `backend-${idx}`,
         speaker: (s.speaker || s.speaker_label || (s.speaker_id === "doctor" ? "Doctor" : s.speaker_id === "patient" ? "Patient" : "Unknown")) as SpeakerRole,
         text: s.text || s.processed_text || s.raw_text || "",
-        timestamp: s.timestamp ? Number(s.timestamp) : (Date.now() - (backendSegments.length - idx) * 3000),
+        timestamp: s.timestamp ? Number(s.timestamp) : (s.start_time ? s.start_time * 1000 : idx * 3000),
         isFinal: true,
         confidence: s.confidence || s.speaker_confidence || 0.90,
         speakerConfidence: s.speakerConfidence || s.speaker_confidence || 0.90,
@@ -226,8 +241,17 @@ export default function LiveTranscriptionPanel({
     setIsUploadingAudio(true);
     try {
       const res = await transcribeConsultationAudio(consultationId, file, file.type || "audio/webm");
-      if (res.ok && res.data.segments && res.data.segments.length > 0) {
-        onTranscriptReady?.(res.data.text, res.data.segments as any);
+      if (res.ok && res.data?.segments && res.data.segments.length > 0) {
+        const typedSegments: TranscriptSegment[] = res.data.segments.map((s: { id?: string; speaker?: string; text?: string; timestamp?: number; confidence?: number }, idx: number) => ({
+          id: s.id || `uploaded-${idx}`,
+          speaker: (s.speaker === "doctor" ? "Doctor" : s.speaker === "patient" ? "Patient" : "Unknown") as SpeakerRole,
+          text: s.text || "",
+          timestamp: s.timestamp || idx * 3000,
+          isFinal: true,
+          confidence: s.confidence || 0.9,
+          speakerConfidence: s.confidence || 0.9,
+        }));
+        onTranscriptReady?.(res.data.text, typedSegments);
       }
     } finally {
       setIsUploadingAudio(false);

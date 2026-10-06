@@ -68,7 +68,7 @@ export function CaseOutcomeModal({
             </div>
             <div>
               <h2 className="text-base font-black text-slate-900">
-                Post 48h Patient Outcome & Resolution
+                Share Patient Outcome & Follow-Up
               </h2>
               <p className="text-xs text-slate-500 truncate max-w-xs">
                 Case: {diseaseName}
@@ -92,18 +92,18 @@ export function CaseOutcomeModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-800 mb-1">
-              Patient Clinical Course & Definitive Outcome *
+              How is the patient doing? *
             </label>
             <textarea
               required
               rows={4}
               value={outcome}
               onChange={(e) => setOutcome(e.target.value)}
-              placeholder="e.g. Patient successfully stabilized on adopted IV regimen. Extubated on ICU Day 2. Repeat echocardiogram showed LVEF improved from 28% to 52%. Discharged on guideline-directed therapy..."
+              placeholder="e.g. Patient stabilized nicely on the recommended treatment. Discharged home in good condition..."
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 bg-white outline-none focus:border-teal-600 shadow-2xs resize-none"
             />
             <p className="text-[11px] text-slate-400 mt-1">
-              Share repeat diagnostics, lab trends, histology confirmation, or discharge status to close the clinical loop with peer doctors.
+              Share repeat tests, recovery progress, or discharge status with colleagues.
             </p>
           </div>
 
@@ -117,10 +117,10 @@ export function CaseOutcomeModal({
             <div>
               <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                Mark Clinical Dilemma as &quot;Solved Case&quot;
+                Mark Case as &quot;Solved&quot;
               </span>
               <p className="text-[10px] text-slate-500">
-                Pins this case as an educational reference pearl for the global medical community.
+                Helps colleagues learn from this solved case.
               </p>
             </div>
           </label>
@@ -139,7 +139,7 @@ export function CaseOutcomeModal({
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
             >
               <Activity className="w-3.5 h-3.5" />
-              <span>{isSubmitting ? "Updating..." : "Publish Outcome & Resolve"}</span>
+              <span>{isSubmitting ? "Saving..." : "Save Patient Outcome"}</span>
             </button>
           </div>
         </form>

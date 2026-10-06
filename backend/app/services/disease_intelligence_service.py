@@ -1461,7 +1461,7 @@ async def generate_disease_intelligence(db: AsyncSession, disease_name: str) -> 
         llm_coro = llm_service.generate_json_large(
             user_prompt, system=DEEP_INTELLIGENCE_PROMPT.split("## Multi-Source Context:")[0]
         )
-        data = await asyncio.wait_for(llm_coro, timeout=3.5)
+        data = await asyncio.wait_for(llm_coro, timeout=90.0)  # Extended from 3.5s — LLM generates full clinical profile
         if data:
             log.info("disease_intelligence_llm_ok", disease=disease_name, fields=len(data))
         else:

@@ -5,7 +5,6 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import NoteReviewWorkspace from "@/components/clinical/NoteReviewWorkspace";
-import { PLACEHOLDER_LABEL } from "@/lib/api";
 import { ChevronLeft, Copy, Check, FileCheck, Sparkles, ArrowRight, ShieldCheck, Brain } from "lucide-react";
 import { useToast } from "@/components/shell/ToastProvider";
 
@@ -53,9 +52,6 @@ export default function NoteReviewPage() {
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">
                 Pre-Signature
-              </span>
-              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider hidden sm:inline">
-                {PLACEHOLDER_LABEL}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium hidden md:block">

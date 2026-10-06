@@ -9,7 +9,7 @@ import uuid
 from typing import Any
 
 import structlog
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -41,9 +41,14 @@ VALID_TRANSITIONS = {
 async def create_consultation(
     db: AsyncSession, doctor_id: uuid.UUID, user_id: uuid.UUID, 
     patient_session_id: uuid.UUID | None = None,
-    input_text: str | None = None
+    input_text: str | None = None,
+    patient_id: uuid.UUID | None = None,
 ) -> Consultation:
     """Create a new consultation in the CREATED state."""
+    from app.models.patient import PatientSession
+    from app.models.patient_profile import PatientProfile
+    from app.models.doctor import Doctor
+
     tenant_id = db.info.get("tenant_id")
     if not tenant_id:
         doctor_record = await db.scalar(select(Doctor).where(Doctor.id == doctor_id))
@@ -56,6 +61,35 @@ async def create_consultation(
             if tenant_record:
                 tenant_id = tenant_record.id
                 db.info["tenant_id"] = tenant_id
+
+    # If patient_id is provided, resolve or create the PatientSession
+    if patient_id and not patient_session_id:
+        profile = await db.scalar(select(PatientProfile).where(PatientProfile.id == patient_id))
+        if profile:
+            # Check for existing open session for this profile and doctor
+            sess_stmt = select(PatientSession).where(
+                PatientSession.patient_profile_id == profile.id,
+                PatientSession.doctor_id == doctor_id,
+                PatientSession.status == "open"
+            ).order_by(desc(PatientSession.created_at)).limit(1)
+            open_sess = await db.scalar(sess_stmt)
+            if open_sess:
+                patient_session_id = open_sess.id
+                if input_text:
+                    open_sess.clinical_notes_summary = input_text[:200]
+            else:
+                new_sess = PatientSession(
+                    tenant_id=tenant_id,
+                    doctor_id=doctor_id,
+                    patient_profile_id=profile.id,
+                    patient_ref=profile.patient_ref,
+                    encounter_type="outpatient",
+                    status="open",
+                    clinical_notes_summary=input_text[:200] if input_text else f"Clinical encounter for {profile.patient_ref}",
+                )
+                db.add(new_sess)
+                await db.flush()
+                patient_session_id = new_sess.id
 
     consultation = Consultation(
         doctor_id=doctor_id,
@@ -82,6 +116,8 @@ async def create_consultation(
         "consultation_created",
         consultation_id=str(consultation.id),
         doctor_id=str(doctor_id),
+        patient_session_id=str(patient_session_id) if patient_session_id else None,
+        patient_id=str(patient_id) if patient_id else None,
     )
     # Re-fetch to ensure relationships like findings are eager loaded
     return await get_consultation(db, consultation.id, doctor_id)
@@ -91,10 +127,20 @@ async def get_consultation(
     db: AsyncSession, consultation_id: uuid.UUID, doctor_id: uuid.UUID
 ) -> Consultation:
     """Fetch a consultation by ID; raises 404 if missing or not owned by doctor."""
+    from app.models.patient import PatientSession
     row = await db.scalar(
         select(Consultation)
-        .options(selectinload(Consultation.audit_events), selectinload(Consultation.findings))
-        .where(Consultation.id == consultation_id)
+        .options(
+            selectinload(Consultation.audit_events),
+            selectinload(Consultation.findings),
+            selectinload(Consultation.patient_session).selectinload(PatientSession.patient_profile),
+        )
+        .where(
+            or_(
+                Consultation.id == consultation_id,
+                Consultation.patient_session_id == consultation_id,
+            )
+        )
         .where(Consultation.doctor_id == doctor_id)
     )
     if row is None:
@@ -106,6 +152,7 @@ async def list_consultations(
     db: AsyncSession, doctor_id: uuid.UUID, limit: int = 20, offset: int = 0
 ) -> tuple[list[Consultation], int]:
     """List consultations for a doctor, newest first."""
+    from app.models.patient import PatientSession
     count_stmt = select(func.count()).select_from(Consultation).where(Consultation.doctor_id == doctor_id)
     total_count = await db.scalar(count_stmt) or 0
     
@@ -115,7 +162,10 @@ async def list_consultations(
         .order_by(desc(Consultation.created_at))
         .limit(limit)
         .offset(offset)
-        .options(selectinload(Consultation.findings))
+        .options(
+            selectinload(Consultation.findings),
+            selectinload(Consultation.patient_session).selectinload(PatientSession.patient_profile),
+        )
     )
     result = await db.execute(stmt)
     return list(result.scalars().all()), total_count

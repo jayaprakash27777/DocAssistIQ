@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, Send, Stethoscope, Lock, MessageSquare } from "lucide-react";
 import { CurbsideMessage } from "@/types/social";
 import { getStoredToken } from "@/lib/api";
@@ -33,9 +33,30 @@ export function CurbsideConsultDrawer({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  useEffect(() => {
-    fetchMessages();
+  const fetchMessages = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = getStoredToken();
+      const res = await fetch(`/api/v1/hub/curbside/${postId}/messages`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data);
+      }
+    } catch {
+      // Gracefully start with empty
+    } finally {
+      setLoading(false);
+    }
   }, [postId]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchMessages();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchMessages]);
 
   useEffect(() => {
     scrollToBottom();
@@ -59,24 +80,6 @@ export function CurbsideConsultDrawer({
       unsub();
     };
   }, [postId]);
-
-  const fetchMessages = async () => {
-    setLoading(true);
-    try {
-      const token = getStoredToken();
-      const res = await fetch(`/api/v1/hub/curbside/${postId}/messages`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data);
-      }
-    } catch {
-      // Gracefully start with empty
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,7 +153,7 @@ export function CurbsideConsultDrawer({
           </div>
           <span className="inline-flex items-center gap-1 text-[10px] text-teal-700 font-medium shrink-0">
             <Lock className="w-3 h-3" />
-            Encrypted
+            Private & Secure
           </span>
         </div>
 
@@ -158,7 +161,7 @@ export function CurbsideConsultDrawer({
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8fafc]">
           {loading ? (
             <div className="text-center py-12 text-slate-400 text-xs">
-              Loading curbside consultation history...
+              Loading chat history...
             </div>
           ) : messages.length === 0 ? (
             <div className="text-center py-12 space-y-2">
@@ -166,10 +169,10 @@ export function CurbsideConsultDrawer({
                 <MessageSquare className="w-5 h-5" />
               </div>
               <h4 className="text-xs font-bold text-slate-800">
-                Direct Curbside Consultation
+                Doctor Chat
               </h4>
               <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
-                Connect directly with {authorDoctorName} regarding dosing, diagnostic dilemmas, or inter-hospital transfer coordination.
+                Chat directly with {authorDoctorName} about this case, advice, or patient questions.
               </p>
             </div>
           ) : (

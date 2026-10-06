@@ -33,7 +33,7 @@ interface GraphEdge {
   source_id: string;
   target_id: string;
   relationship: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface DiseaseKnowledgeGraphData {

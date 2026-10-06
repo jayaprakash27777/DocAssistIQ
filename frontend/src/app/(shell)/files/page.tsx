@@ -94,19 +94,10 @@ export default function FilesPage() {
 
     setUploadState({ status: "uploading", progress: 0, name: file.name });
 
-    const interval = setInterval(() => {
-      setUploadState((s) =>
-        s.status === "uploading" && s.progress < 85
-          ? { ...s, progress: s.progress + 12 }
-          : s,
-      );
-    }, 150);
-
     const formData = new FormData();
     formData.append("file", file);
 
     const r = await uploadFile(formData);
-    clearInterval(interval);
 
     if (!r.ok) {
       setUploadState({
@@ -152,7 +143,14 @@ export default function FilesPage() {
       toast.error(r.error.message ?? "Failed to get download link.");
       return;
     }
-    window.open(r.data.download_url, "_blank", "noopener,noreferrer");
+    const link = document.createElement("a");
+    link.href = r.data.download_url;
+    link.download = filename;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   async function handleDelete(fileId: string) {

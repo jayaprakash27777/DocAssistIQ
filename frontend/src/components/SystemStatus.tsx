@@ -65,11 +65,12 @@ export default function SystemStatus() {
 
   useEffect(() => {
     mountedRef.current = true;
-    checkStatus();
+    const timer = setTimeout(checkStatus, 0);
 
     const intervalId = setInterval(checkStatus, 30_000);
     return () => {
       mountedRef.current = false;
+      clearTimeout(timer);
       clearInterval(intervalId);
     };
   }, [checkStatus]);

@@ -95,8 +95,7 @@ async def retrieve_evidence(
     
     for emb, ev, art, src, dist in rows:
         # Baseline threshold: if the nearest neighbor is too far, we consider it insufficient.
-        # Note: text-embedding-3-small mock generates random vectors, so distance might be random.
-        # But we still enforce a structure.
+        # Cosine distance bounded in [0, 2]; filter out distant or unrelated evidence chunks.
         if dist > 1.95:  # Cosine distance bounded in [0, 2]
             continue
             

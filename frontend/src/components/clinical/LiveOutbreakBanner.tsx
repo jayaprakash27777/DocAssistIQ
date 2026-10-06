@@ -13,6 +13,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getStoredToken } from "@/lib/api";
+import { getSharedRealtimeClient } from "@/lib/ws";
 import { Globe, RefreshCw, Radio, Sparkles, MapPin } from "lucide-react";
 import StateOutbreakRadar from "./StateOutbreakRadar";
 
@@ -187,9 +188,25 @@ export function LiveOutbreakBanner() {
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    const timer = setTimeout(() => {
+      fetchStatus();
+    }, 0);
     const iv = setInterval(fetchStatus, 5 * 60 * 1000);
-    return () => clearInterval(iv);
+
+    // Real-time WebSocket listener: 0ms instant discovery propagation
+    const token = TOKEN();
+    const ws = getSharedRealtimeClient(token);
+    const unsub = ws.subscribeMessages((type, payload) => {
+      if (type === "dynamic_disease_discovered" || type === "outbreak_alert") {
+        fetchStatus();
+      }
+    });
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(iv);
+      unsub();
+    };
   }, [fetchStatus]);
 
   if (loading) return null;

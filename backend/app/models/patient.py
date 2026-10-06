@@ -104,6 +104,19 @@ class PatientSession(TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin, Bas
         back_populates="sessions",
     )
 
+    consultations: Mapped[list["Consultation"]] = relationship(  # type: ignore
+        "Consultation",
+        back_populates="patient_session",
+        cascade="all, delete-orphan",
+        order_by="Consultation.created_at.desc()",
+    )
+
+    @property
+    def consultation_id(self) -> uuid.UUID | None:
+        if hasattr(self, "consultations") and self.consultations:
+            return self.consultations[0].id
+        return None
+
     def __repr__(self) -> str:
         return f"<PatientSession id={self.id} status={self.status!r}>"
 

@@ -102,6 +102,38 @@ class Consultation(TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin, Base)
         order_by="ClinicalFinding.created_at",
     )
 
+    patient_session: Mapped["PatientSession | None"] = relationship(  # type: ignore
+        "PatientSession",
+        foreign_keys=[patient_session_id],
+        lazy="selectin",
+    )
+
+    @property
+    def patient_id(self) -> uuid.UUID | None:
+        if self.patient_session:
+            return self.patient_session.patient_profile_id
+        return None
+
+    @property
+    def patient_ref(self) -> str | None:
+        if self.patient_session:
+            return self.patient_session.patient_ref
+        return None
+
+    @property
+    def patient_demographics(self) -> dict[str, Any] | None:
+        if self.patient_session and getattr(self.patient_session, "patient_profile", None):
+            prof = self.patient_session.patient_profile
+            return {
+                "age_group": prof.age_group,
+                "biological_sex": prof.biological_sex,
+            }
+        return None
+
+    @property
+    def input_preview(self) -> str:
+        return (self.input_text or "")[:120]
+
     def __repr__(self) -> str:
         return f"<Consultation id={self.id} status={self.status!r}>"
 

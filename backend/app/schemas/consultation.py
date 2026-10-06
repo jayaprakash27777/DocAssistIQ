@@ -30,19 +30,26 @@ class ConsultationCreate(BaseModel):
         ),
         examples=["Patient presents with chest pain radiating to the left arm."],
     )
+    patient_id: uuid.UUID | None = Field(default=None, description="Linked PatientProfile ID")
+    patient_session_id: uuid.UUID | None = Field(default=None, description="Linked PatientSession ID")
 
 
 class ConsultationResponse(BaseModel):
     """Full consultation record returned to the client."""
 
     id: uuid.UUID
-    user_id: uuid.UUID
+    user_id: uuid.UUID | None = None
+    doctor_id: uuid.UUID | None = None
+    patient_session_id: uuid.UUID | None = None
+    patient_id: uuid.UUID | None = None
+    patient_ref: str | None = None
+    patient_demographics: dict[str, Any] | None = None
     input_text: str
     status: str
-    placeholder_response: str | None
-    is_placeholder: bool = True  # always True in Phase 8
+    placeholder_response: str | None = None
+    is_placeholder: bool = False
     created_at: datetime
-    updated_at: datetime
+    updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -52,8 +59,11 @@ class ConsultationSummary(BaseModel):
 
     id: uuid.UUID
     status: str
-    is_placeholder: bool = True
+    is_placeholder: bool = False
     input_preview: str  # first 120 chars of input_text
+    patient_id: uuid.UUID | None = None
+    patient_ref: str | None = None
+    patient_demographics: dict[str, Any] | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

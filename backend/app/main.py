@@ -237,30 +237,27 @@ def create_app() -> FastAPI:
             if matched_id:
                 consultation_id = str(matched_id)
 
-        # Grounded answering for doctor notes queries or when consultation context is present
-        if consultation_id or notes_text:
-            from app.services.doctor_notes_qa_service import doctor_notes_qa_service
-            try:
-                result = await doctor_notes_qa_service.answer_question(
-                    query=query,
-                    consultation_id=consultation_id,
-                    notes_text=notes_text,
-                    db=db,
-                    top_k=int(body.get("top_k", 5)),
-                )
-                return result
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-                return {"error": str(e), "answer": f"Error: {str(e)}"}
-
-        from app.services.realtime_medical_engine import realtime_medical_answer
-        result = await realtime_medical_answer(
-            query=query,
-            consultation_id=None,
-            top_k=int(body.get("top_k", 5)),
-        )
-        return result
+        # Unified Clinical QA Engine: handles documents, calculators, demographics, 225+ disease monographs, and live evidence
+        from app.services.doctor_notes_qa_service import doctor_notes_qa_service
+        try:
+            result = await doctor_notes_qa_service.answer_question(
+                query=query,
+                consultation_id=consultation_id,
+                notes_text=notes_text,
+                db=db,
+                top_k=int(body.get("top_k", 5)),
+            )
+            return result
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            from app.services.realtime_medical_engine import realtime_medical_answer
+            result = await realtime_medical_answer(
+                query=query,
+                consultation_id=consultation_id,
+                top_k=int(body.get("top_k", 5)),
+            )
+            return result
 
     # ── Public AI NLP Extract (rate-limited for DoS protection) ──────────
     @application.post("/ai/extract", tags=["AI"], operation_id="post_ai_extract_root", include_in_schema=True)

@@ -13,14 +13,16 @@ import CitationVerifier from "@/components/clinical/CitationVerifier";
 import ExplanationPanel from "@/components/clinical/ExplanationPanel";
 import { 
   ShieldCheck, Sparkles, Brain, Check, X, Search, CheckCheck, 
-  FileText, Radio, HelpCircle, Activity, ChevronRight, FileCheck, Download 
+  FileText, Radio, HelpCircle, Activity, ChevronRight, FileCheck, Download, Printer, Loader2 
 } from "lucide-react";
 import { useToast } from "@/components/shell/ToastProvider";
+import { downloadClinicalDocument } from "@/lib/documentPrinting";
 
 type FindingStatusFilter = "all" | "pending" | "confirmed" | "rejected";
 
 export default function NoteReviewWorkspace({ consultationId }: { consultationId: string }) {
   const { toast } = useToast();
+  const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
   const [consultation, setConsultation] = useState<ConsultationResponse | null>(null);
   const [transcript, setTranscript] = useState<TranscriptResponse | null>(null);
   const [documents, setDocuments] = useState<VerifiedDocumentRecord[]>([]);
@@ -441,20 +443,42 @@ export default function NoteReviewWorkspace({ consultationId }: { consultationId
                       Signed by {d.doctor_name?.startsWith("Dr.") ? d.doctor_name : `Dr. ${d.doctor_name || "Attending Clinician"}`} ({d.doctor_specialty}) • {d.signed_at_formatted}
                     </p>
                     <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                      <a
-                        href={`http://localhost:8000/api/v1/consultations/${encodeURIComponent(consultationId)}/documents/${encodeURIComponent(d.document_type)}/pdf`}
-                        download
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors"
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setDownloadingDoc(`${d.document_type}_pdf`);
+                          const res = await downloadClinicalDocument(consultationId, d.document_type, "pdf", d.patient_ref);
+                          if (res.success) {
+                            toast.success(`Downloaded ${d.document_type.replace(/_/g, " ")} PDF`);
+                          } else {
+                            toast.error(`Download failed: ${res.error}`);
+                          }
+                          setDownloadingDoc(null);
+                        }}
+                        disabled={downloadingDoc === `${d.document_type}_pdf`}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 transition-all cursor-pointer shadow-2xs flex items-center gap-1"
                       >
+                        {downloadingDoc === `${d.document_type}_pdf` ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
                         PDF
-                      </a>
-                      <a
-                        href={`http://localhost:8000/api/v1/consultations/${encodeURIComponent(consultationId)}/documents/${encodeURIComponent(d.document_type)}/docx`}
-                        download
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setDownloadingDoc(`${d.document_type}_docx`);
+                          const res = await downloadClinicalDocument(consultationId, d.document_type, "docx", d.patient_ref);
+                          if (res.success) {
+                            toast.success(`Downloaded ${d.document_type.replace(/_/g, " ")} DOCX`);
+                          } else {
+                            toast.error(`Download failed: ${res.error}`);
+                          }
+                          setDownloadingDoc(null);
+                        }}
+                        disabled={downloadingDoc === `${d.document_type}_docx`}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all cursor-pointer shadow-2xs flex items-center gap-1"
                       >
+                        {downloadingDoc === `${d.document_type}_docx` ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
                         DOCX
-                      </a>
+                      </button>
                       <a
                         href={`/verify?code=${encodeURIComponent(d.verification_code)}`}
                         target="_blank"

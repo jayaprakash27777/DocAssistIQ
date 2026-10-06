@@ -18,9 +18,7 @@ export function EmergencyRadarWidget({
   const [urgentCases, setUrgentCases] = useState<DoctorPost[]>(initialCases || []);
 
   useEffect(() => {
-    if (initialCases && initialCases.length > 0) {
-      setUrgentCases(initialCases);
-    } else {
+    if (!initialCases || initialCases.length === 0) {
       const token = getStoredToken();
       fetch("/api/v1/hub/emergency", {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -60,7 +58,7 @@ export function EmergencyRadarWidget({
             <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600" />
           </span>
           <h3 className="font-extrabold text-xs text-rose-950 uppercase tracking-wider">
-            Emergency 2nd Opinions
+            Urgent Cases (Need Advice)
           </h3>
         </div>
         <Link
@@ -80,7 +78,7 @@ export function EmergencyRadarWidget({
           >
             <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
               <span className="font-bold text-rose-700 flex items-center gap-1">
-                <span>🚨 STAT</span>
+                <span>🚨 Urgent</span>
                 <span>•</span>
                 <span>{c.specialty_tags?.[0] || "Critical Care"}</span>
               </span>
@@ -96,10 +94,10 @@ export function EmergencyRadarWidget({
             </p>
             <div className="mt-2 flex items-center justify-between text-[10px]">
               <span className="text-slate-500">
-                by {c.author_name || "Specialist"}
+                by {c.author_name || "Doctor"}
               </span>
               <span className="font-bold text-rose-700 group-hover:underline">
-                Give Opinion ➔
+                Help / Reply ➔
               </span>
             </div>
           </div>

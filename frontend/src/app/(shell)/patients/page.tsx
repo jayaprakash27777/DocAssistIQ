@@ -5,9 +5,34 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { PlusCircle, Search, Users, Activity, ChevronRight, FileText } from "lucide-react";
+import { PlusCircle, Search, Users, Activity, ChevronRight, FileText, AlertTriangle, Brain, FileCheck, ShieldCheck } from "lucide-react";
 import { getPatientProfiles, PatientProfileResponse } from "@/lib/api";
 import { motion, Variants } from "framer-motion";
+
+function extractConditionsList(rawBase: any, keys: string[]): string[] {
+  if (!rawBase || typeof rawBase !== "object") return [];
+  for (const k of keys) {
+    const val = rawBase[k];
+    if (Array.isArray(val)) return val.map(String).map((s) => s.trim()).filter(Boolean);
+    if (typeof val === "string" && val.trim()) {
+      return val.split(/,\s*|\n|;\s*/).map((s) => s.trim()).filter(Boolean);
+    }
+    if (typeof val === "object" && val !== null && !Array.isArray(val)) {
+      const entries = Object.keys(val).filter(Boolean);
+      if (entries.length > 0 && !["allergies", "chronic_conditions", "vitals", "current_medications"].includes(entries[0])) {
+        return entries;
+      }
+    }
+  }
+  // Check if rawBase itself has condition keys
+  const directKeys = Object.keys(rawBase).filter(
+    (k) => !["allergies", "chronic_conditions", "vitals", "blood_type", "code_status", "current_medications"].includes(k)
+  );
+  if (directKeys.length > 0 && keys.includes("conditions")) {
+    return directKeys;
+  }
+  return [];
+}
 
 export default function PatientsDashboard() {
   const [patients, setPatients] = useState<PatientProfileResponse[]>([]);
@@ -34,9 +59,15 @@ export default function PatientsDashboard() {
     fetchPatients();
   }, []);
 
-  const filteredPatients = patients.filter(p => 
-    p.patient_ref.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPatients = patients.filter((p) => {
+    const q = searchQuery.toLowerCase();
+    const matchesRef = p.patient_ref.toLowerCase().includes(q);
+    const allergies = extractConditionsList(p.baseline_conditions, ["allergies", "documented_allergies"]);
+    const chronic = extractConditionsList(p.baseline_conditions, ["chronic_conditions", "active_problems", "conditions"]);
+    const matchesAllergy = allergies.some((a: string) => a.toLowerCase().includes(q));
+    const matchesChronic = chronic.some((c: string) => c.toLowerCase().includes(q));
+    return matchesRef || matchesAllergy || matchesChronic;
+  });
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -141,38 +172,95 @@ export default function PatientsDashboard() {
               <thead>
                 <tr className="bg-[var(--color-neutral-50)]/80 border-b border-[var(--border-default)] text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">
                   <th className="p-5 whitespace-nowrap">Patient Ref</th>
-                  <th className="p-5 whitespace-nowrap">Age Group</th>
-                  <th className="p-5 whitespace-nowrap">Sex</th>
-                  <th className="p-5 whitespace-nowrap">Past Encounters</th>
+                  <th className="p-5 whitespace-nowrap">Demographics</th>
+                  <th className="p-5 whitespace-nowrap">Safety & Allergies</th>
+                  <th className="p-5 whitespace-nowrap">Chronic Conditions</th>
+                  <th className="p-5 whitespace-nowrap">Encounters</th>
                   <th className="p-5 whitespace-nowrap text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-default)]">
-                {filteredPatients.map((patient) => (
-                  <tr
-                    key={patient.id}
-                    className="hover:bg-white transition-colors group relative"
-                  >
-                    <td className="p-5">
-                      <Link href={`/patients/${patient.id}`} className="font-bold text-[var(--color-primary-700)] group-hover:text-[var(--color-primary-600)] transition-colors flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-[var(--color-primary-400)]" />
-                        {patient.patient_ref}
-                      </Link>
-                    </td>
-                    <td className="p-5 font-medium text-[var(--text-secondary)]">{patient.age_group || "—"}</td>
-                    <td className="p-5 font-medium text-[var(--text-secondary)] capitalize">{patient.biological_sex || "—"}</td>
-                    <td className="p-5">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[var(--color-primary-50)] text-[var(--color-primary-700)] border border-[var(--color-primary-200)] shadow-sm">
-                        {patient.sessions.length} session{patient.sessions.length !== 1 ? 's' : ''}
-                      </span>
-                    </td>
-                    <td className="p-5 text-right">
-                      <Link href={`/patients/${patient.id}`} className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--color-neutral-100)] text-[var(--text-secondary)] group-hover:bg-[var(--color-primary-50)] group-hover:text-[var(--color-primary-600)] transition-colors">
-                        <ChevronRight className="w-5 h-5" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {filteredPatients.map((patient) => {
+                  const allergies = extractConditionsList(patient.baseline_conditions, ["allergies", "documented_allergies"]);
+                  const chronic = extractConditionsList(patient.baseline_conditions, ["chronic_conditions", "active_problems", "conditions"]);
+                  const latestSessionId = patient.sessions?.[0]?.id;
+
+                  return (
+                    <tr
+                      key={patient.id}
+                      className="hover:bg-white transition-colors group relative"
+                    >
+                      <td className="p-5">
+                        <Link href={`/patients/${patient.id}`} className="font-bold text-[var(--color-primary-700)] group-hover:text-[var(--color-primary-600)] transition-colors flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-[var(--color-primary-400)] shrink-0" />
+                          <span className="font-mono tracking-tight">{patient.patient_ref}</span>
+                        </Link>
+                      </td>
+                      <td className="p-5 font-medium text-[var(--text-secondary)] text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <span>{patient.age_group || "Adult"}</span>
+                          <span className="text-slate-300">•</span>
+                          <span className="capitalize">{patient.biological_sex || "—"}</span>
+                        </div>
+                      </td>
+                      <td className="p-5">
+                        {allergies.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 items-center">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-xs">
+                              <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                              {allergies.slice(0, 2).join(", ")}
+                              {allergies.length > 2 && ` +${allergies.length - 2}`}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                            NKDA
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-5">
+                        {chronic.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 items-center max-w-xs">
+                            {chronic.slice(0, 2).map((c, i) => (
+                              <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                {c}
+                              </span>
+                            ))}
+                            {chronic.length > 2 && (
+                              <span className="text-[11px] text-slate-400 font-medium">+{chronic.length - 2} more</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[var(--text-tertiary)] italic">None documented</span>
+                        )}
+                      </td>
+                      <td className="p-5">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[var(--color-primary-50)] text-[var(--color-primary-700)] border border-[var(--color-primary-200)] shadow-xs">
+                          {patient.sessions.length} encounter{patient.sessions.length !== 1 ? 's' : ''}
+                        </span>
+                      </td>
+                      <td className="p-5 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <Link
+                            href={`/ai?patient_ref=${encodeURIComponent(patient.patient_ref)}${latestSessionId ? `&cid=${latestSessionId}` : ''}`}
+                            title={`Consult DocAssist IQ AI regarding ${patient.patient_ref}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-xs transition-colors"
+                          >
+                            <Brain className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Ask AI</span>
+                          </Link>
+                          <Link
+                            href={`/patients/${patient.id}`}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--color-neutral-100)] text-[var(--text-secondary)] hover:bg-[var(--color-primary-50)] hover:text-[var(--color-primary-600)] transition-colors"
+                          >
+                            <ChevronRight className="w-5 h-5" />
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

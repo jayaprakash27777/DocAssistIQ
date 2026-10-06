@@ -1,22 +1,22 @@
-"""DocAssistIQ LLM Service — Massive Upgrade (God-Level Resilience v3).
+"""DocAssistIQ LLM Service — Nuclear-Level Upgrade v4 (God-Level Clinical AI).
 
-Designed for clinical enterprise use with ZERO downtime tolerance:
+ARCHITECTURE: Enterprise Clinical AI with ZERO restriction policy:
 
 RELIABILITY ARCHITECTURE:
-1. Circuit Breaker — after 5 consecutive failures (was 3), LLM calls are
-   short-circuited for 90s (was 60s) to prevent cascade failure.
-2. Per-call Timeout — FAST 30s, NORMAL 40s, LONG 60s (all increased for
-   better multi-source data compilation on low-end hardware).
-3. Smart Fallback — ALL callers receive a valid, rich response even when
-   LLM is down. Falls back to structured KB + merged API data.
-4. Exponential Backoff Retry — one internal retry at 15s budget.
-5. Token Budget Enforcement — 4096 ctx / 800 output for richer answers.
-6. generate_json_with_fallback() — merges LLM output with static KB so
-   partial LLM answers are still enriched with known data.
+1. Circuit Breaker — after 10 consecutive failures, LLM calls short-circuit for 30s.
+2. Per-call Timeout — FAST 90s, NORMAL 180s, LONG 300s (extended for large clinical notes).
+3. Smart Fallback — ALL callers receive a valid, rich response even when LLM is down.
+4. Exponential Backoff Retry — internal retry with 30s budget.
+5. Token Budget — 16384 ctx / 4096 output for comprehensive, complete clinical answers.
+6. generate_json_with_fallback() — merges LLM output with static KB so partial answers are enriched.
+7. ZERO RESTRICTIONS: Handles any clinical question, any length note, any specialty.
+8. UNRESTRICTED MEDICAL KNOWLEDGE: No topic filtering, no hallucination guardrails beyond evidence citation.
 
-Hardware targets: llama3.2 on 8-16GB RAM, CPU or RTX 3050/4060.
-Temperature = 0.0 everywhere for fully deterministic, reproducible output.
+Hardware targets: llama3.2, ii-medical:8b, medllama3:8b on 8-32GB RAM or GPU.
+Temperature = 0.1 for creative-but-accurate medical reasoning.
 """
+
+
 
 import asyncio
 import httpx
@@ -29,24 +29,24 @@ from typing import Dict, Any, Optional, Callable
 log = structlog.get_logger(__name__)
 
 # ---------------------------------------------------------------------------
-# Per-call timeouts — calibrated for local 8B model on modern hardware
+# Per-call timeouts — Nuclear-Level extended for large clinical notes & complex cases
 # ---------------------------------------------------------------------------
-TIMEOUT_FAST_S   = 60.0   # JSON compact / narrator
-TIMEOUT_NORMAL_S = 130.0  # Standard JSON / text generation for 8B model
-TIMEOUT_LONG_S   = 180.0  # Complex clinical cases / multi-source
- 
-# Token limits — tuned for comprehensive clinical decision support
-MAX_SYSTEM_PROMPT_CHARS = 4000
-MAX_USER_PROMPT_CHARS   = 6000
-MAX_COMBINED_CHARS      = 10000
-MAX_TOKENS_JSON         = 800
-MAX_TOKENS_NARRATIVE    = 1000
- 
+TIMEOUT_FAST_S   = 90.0    # JSON compact / narrator — increased for complex notes
+TIMEOUT_NORMAL_S = 180.0   # Standard JSON / text generation — handles 4K-token notes
+TIMEOUT_LONG_S   = 300.0   # Long-form clinical documents, discharge summaries
+
+# Token limits — Nuclear-Level: No artificial restrictions on medical answers
+MAX_SYSTEM_PROMPT_CHARS = 8000   # Extended system prompts for rich clinical context
+MAX_USER_PROMPT_CHARS   = 16000  # Handle long doctor notes, multi-page records
+MAX_COMBINED_CHARS      = 24000  # Combined context for complex multi-source synthesis
+MAX_TOKENS_JSON         = 2048   # Rich structured JSON with complete clinical data
+MAX_TOKENS_NARRATIVE    = 4096   # Long-form narrative for comprehensive answers
+
 # ---------------------------------------------------------------------------
-# Circuit Breaker — tolerant thresholds for local 8B model
+# Circuit Breaker — Tolerant thresholds for clinical continuity
 # ---------------------------------------------------------------------------
-_CB_FAILURE_THRESHOLD = 8      # Trip after 8 consecutive failures
-_CB_RECOVERY_SECONDS  = 20     # Attempt recovery after 20s
+_CB_FAILURE_THRESHOLD = 10     # Trip after 10 consecutive failures (more tolerant)
+_CB_RECOVERY_SECONDS  = 30     # Attempt recovery after 30s
 
 class _CircuitBreaker:
     """Simple in-process circuit breaker to prevent cascade LLM failures."""
@@ -215,9 +215,16 @@ class OllamaService:
         """Alias for generate() for backward compatibility with literature scanners."""
         return await self.generate(prompt, system=system, model=model)
 
-    async def generate(self, prompt: str, system: str = "", model: str | None = None, max_tokens: int | None = None, temperature: float = 0.0) -> str:
-        """Text generation. Returns empty string on failure (never raises)."""
+    async def generate(self, prompt: str, system: str = "", model: str | None = None, max_tokens: int | None = None, temperature: float = 0.1) -> str:
+        """
+        Nuclear-level text generation — handles any question, any length, any clinical specialty.
+        Zero restrictions: answers any medical question comprehensively.
+        Returns empty string on complete failure (never raises).
+        """
         target_model = await self.get_effective_model(model)
+        # Auto-scale context based on prompt size
+        prompt_len = len(prompt) + len(system)
+        ctx_size = 32768 if prompt_len > 8000 else (16384 if prompt_len > 4000 else 8192)
         payload = {
             "model": target_model,
             "prompt": prompt,
@@ -226,14 +233,16 @@ class OllamaService:
             "options": {
                 "temperature": temperature,
                 "num_predict": max_tokens or MAX_TOKENS_NARRATIVE,
-                "num_ctx": 4096,  # increased from 2048
+                "num_ctx": ctx_size,
+                "repeat_penalty": 1.1,
             },
         }
+        timeout = TIMEOUT_LONG_S if prompt_len > 8000 else TIMEOUT_NORMAL_S
         try:
-            data = await asyncio.wait_for(self._post(payload, TIMEOUT_NORMAL_S), timeout=TIMEOUT_NORMAL_S + 2)
+            data = await asyncio.wait_for(self._post(payload, timeout), timeout=timeout + 5)
             return data.get("response", "").strip()
         except asyncio.TimeoutError:
-            log.warning("llm_generate_timeout")
+            log.warning("llm_generate_timeout", prompt_len=prompt_len)
             return ""
         except Exception as e:
             err_msg = f"{type(e).__name__}: {e}" if str(e) else type(e).__name__
@@ -242,27 +251,31 @@ class OllamaService:
 
     async def generate_json(self, prompt: str, system: str = "", model: str | None = None) -> Dict[str, Any]:
         """
-        JSON generation. Returns {} on failure (never raises).
-        Callers MUST handle empty dict as 'LLM unavailable' and use static fallback.
+        Nuclear-level JSON generation — handles complex multi-system queries.
+        Returns {} on failure (never raises).
         """
         target_model = await self.get_effective_model(model)
+        prompt_safe = _truncate_prompt(prompt, MAX_USER_PROMPT_CHARS)
+        system_safe = _truncate_prompt(system, MAX_SYSTEM_PROMPT_CHARS)
+        prompt_len = len(prompt_safe) + len(system_safe)
+        ctx_size = 16384 if prompt_len > 4000 else 8192
         payload = {
             "model": target_model,
-            "prompt": _truncate_prompt(prompt, MAX_USER_PROMPT_CHARS),
-            "system": _truncate_prompt(system, MAX_SYSTEM_PROMPT_CHARS),
+            "prompt": prompt_safe,
+            "system": system_safe,
             "stream": False,
             "format": "json",
             "options": {
-                "temperature": 0.0,
+                "temperature": 0.05,
                 "num_predict": MAX_TOKENS_JSON,
-                "num_ctx": 4096,  # increased from 2048
-                "top_k": 10,
-                "top_p": 0.9,
+                "num_ctx": ctx_size,
+                "top_k": 15,
+                "top_p": 0.92,
             },
         }
         raw = "{}"
         try:
-            data = await asyncio.wait_for(self._post(payload, TIMEOUT_NORMAL_S), timeout=TIMEOUT_NORMAL_S + 2)
+            data = await asyncio.wait_for(self._post(payload, TIMEOUT_NORMAL_S), timeout=TIMEOUT_NORMAL_S + 5)
             raw = data.get("response", "{}")
             m = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", raw)
             return json.loads(m.group(1) if m else raw)
@@ -285,13 +298,16 @@ class OllamaService:
         max_output_tokens: int = MAX_TOKENS_JSON,
     ) -> Dict[str, Any]:
         """
-        Hardware-safe compact JSON generation (< 900 token budget).
-        Enforces strict prompt truncation + hard timeout.
+        Nuclear-Level compact JSON generation — God-Level accuracy for differential diagnosis.
+        Supports large prompts with rich clinical context up to 16K tokens.
         Returns {} on failure — never raises.
         """
         target_model = await self.get_effective_model(model or self.fast_model)
         system_safe = _truncate_prompt(system, MAX_SYSTEM_PROMPT_CHARS)
         prompt_safe = _truncate_prompt(prompt, MAX_USER_PROMPT_CHARS)
+        prompt_len = len(prompt_safe) + len(system_safe)
+        # Adaptive context: large for complex prompts
+        ctx_size = 16384 if prompt_len > 4000 else (8192 if prompt_len > 2000 else 4096)
 
         payload = {
             "model": target_model,
@@ -300,11 +316,12 @@ class OllamaService:
             "stream": False,
             "format": "json",
             "options": {
-                "temperature": 0.0,
+                "temperature": 0.05,   # Slightly above 0 for better open-domain coverage
                 "num_predict": max_output_tokens,
-                "num_ctx": 4096,  # increased from 2048
-                "top_k": 10,
-                "top_p": 0.9,
+                "num_ctx": ctx_size,   # Adaptive — was fixed 4096
+                "top_k": 15,
+                "top_p": 0.92,
+                "repeat_penalty": 1.05,
             },
         }
         raw = "{}"
@@ -333,13 +350,16 @@ class OllamaService:
         model: str | None = None,
     ) -> Dict[str, Any]:
         """
-        Extended-context JSON for disease intelligence / complex queries.
-        Allows up to 5000 context chars and 60s timeout.
+        Nuclear-level extended-context JSON for disease intelligence, complex queries.
+        Supports up to 24K context chars and handles large clinical documents.
         Returns {} on failure — never raises.
         """
         target_model = await self.get_effective_model(model)
-        system_safe = _truncate_prompt(system, 3000)   # was 2000
-        prompt_safe = _truncate_prompt(prompt, 2000)   # was 1500
+        # Nuclear-level: do not truncate aggressively — allow full context
+        system_safe = _truncate_prompt(system, MAX_SYSTEM_PROMPT_CHARS)
+        prompt_safe = _truncate_prompt(prompt, MAX_USER_PROMPT_CHARS)
+        prompt_len = len(prompt_safe) + len(system_safe)
+        ctx_size = 32768 if prompt_len > 12000 else (16384 if prompt_len > 6000 else 8192)
 
         payload = {
             "model": target_model,
@@ -348,23 +368,24 @@ class OllamaService:
             "stream": False,
             "format": "json",
             "options": {
-                "temperature": 0.0,
-                "num_predict": 1200,   # was 1000
-                "num_ctx": 8192,       # was 4096 — double the context
-                "top_k": 10,
-                "top_p": 0.9,
+                "temperature": 0.05,
+                "num_predict": MAX_TOKENS_JSON,    # Full 2048 tokens for rich JSON
+                "num_ctx": ctx_size,                # Adaptive context scaling
+                "top_k": 15,
+                "top_p": 0.92,
+                "repeat_penalty": 1.05,
             },
         }
         raw = "{}"
         try:
-            data = await asyncio.wait_for(self._post(payload, TIMEOUT_LONG_S), timeout=TIMEOUT_LONG_S + 2)
+            data = await asyncio.wait_for(self._post(payload, TIMEOUT_LONG_S), timeout=TIMEOUT_LONG_S + 10)
             raw = data.get("response", "{}")
             m = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", raw)
             result = json.loads(m.group(1) if m else raw)
-            log.info("llm_large_json_ok", tokens=data.get("eval_count", "?"))
+            log.info("llm_large_json_ok", tokens=data.get("eval_count", "?"), ctx_size=ctx_size)
             return result
         except asyncio.TimeoutError:
-            log.warning("llm_large_timeout")
+            log.warning("llm_large_timeout", prompt_len=prompt_len)
             return {}
         except json.JSONDecodeError:
             log.warning("llm_large_parse_failed", raw=raw[:200])
@@ -408,17 +429,22 @@ class OllamaService:
             return fallback
 
     async def generate_narrator(self, short_prompt: str, model: str | None = None) -> str:
-        """Ultra-short 1-2 sentence clinical narrative. Returns '' on failure."""
+        """Clinical narrative generation — comprehensive, evidence-based. Returns '' on failure."""
         target_model = await self.get_effective_model(model or self.fast_model)
         payload = {
             "model": target_model,
-            "prompt": short_prompt[:800],  # was 600
-            "system": "You are a senior physician. Write 1-2 concise clinical sentences. Be specific. No preamble.",
+            "prompt": short_prompt[:3000],  # Extended to handle complex cases
+            "system": (
+                "You are a Senior Consultant Physician. Provide a precise, clinically accurate, "
+                "evidence-based narrative explanation. Be comprehensive but concise. "
+                "Include pathophysiological rationale. No preamble or disclaimers."
+            ),
             "stream": False,
             "options": {
-                "temperature": 0.0,
+                "temperature": 0.1,
                 "num_predict": MAX_TOKENS_NARRATIVE,
-                "num_ctx": 2048,
+                "num_ctx": 8192,
+                "repeat_penalty": 1.05,
             },
         }
         try:

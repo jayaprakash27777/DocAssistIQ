@@ -6,41 +6,40 @@ import { ragQuery, type RAGResponse, type RAGQueryRequest } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, Sparkles, ChevronDown, ChevronUp, Stethoscope, AlertTriangle, Info, ShieldCheck, Search, Activity, BookOpen, Terminal, CheckCircle2 } from "lucide-react";
 
-const LOADING_PHASES = [
-  { icon: Search, text: "Vectorizing clinical query..." },
-  { icon: BookOpen, text: "Scanning approved medical literature..." },
-  { icon: Activity, text: "Cross-referencing knowledge graph..." },
-  { icon: ShieldCheck, text: "Synthesizing evidence-based response..." }
-];
-
 export default function RAGAssistant() {
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [loadingPhase, setLoadingPhase] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const [result, setResult] = useState<RAGResponse | null>(null);
   const [showReasoning, setShowReasoning] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [result, loading, showReasoning, loadingPhase]);
+  }, [result, loading, showReasoning]);
 
+  // Real-time elapsed stopwatch during live query execution
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (loading) {
-      setLoadingPhase(0);
-      interval = setInterval(() => {
-        setLoadingPhase(prev => (prev < LOADING_PHASES.length - 1 ? prev + 1 : prev));
-      }, 1500);
+    if (!loading) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
     }
-    return () => clearInterval(interval);
+    const start = performance.now();
+    timerRef.current = setInterval(() => {
+      setElapsedMs(Math.round(performance.now() - start));
+    }, 50);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [loading]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim() || loading) return;
 
+    setElapsedMs(0);
     setLoading(true);
     setResult(null);
     setShowReasoning(true);
@@ -149,36 +148,38 @@ export default function RAGAssistant() {
               exit={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
               className="bg-white rounded-3xl p-8 shadow-xl overflow-hidden relative border border-slate-100"
             >
+              {/* Indeterminate live pulse progress line */}
               <div className="absolute top-0 left-0 right-0 h-1 bg-slate-100 overflow-hidden">
                 <motion.div 
-                  className="h-full bg-[var(--color-primary-500)]"
-                  initial={{ width: "0%" }}
-                  animate={{ width: `${((loadingPhase + 1) / Object.keys(LOADING_PHASES).length) * 100}%` }}
-                  transition={{ duration: 0.5 }}
+                  className="h-full bg-gradient-to-r from-indigo-500 via-primary-500 to-teal-400"
+                  animate={{ x: ["-100%", "100%"] }}
+                  transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
+                  style={{ width: "60%" }}
                 />
               </div>
               
-              <div className="flex flex-col gap-6 relative z-10">
-                {LOADING_PHASES.map((phase, idx) => {
-                  const PhaseIcon = phase.icon;
-                  const isActive = idx === loadingPhase;
-                  const isDone = idx < loadingPhase;
-                  
-                  return (
-                    <div key={idx} className={`flex items-center gap-4 transition-all duration-300 ${isActive ? 'opacity-100' : isDone ? 'opacity-60' : 'opacity-40'}`}>
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        isActive ? 'bg-[var(--color-primary-50)] text-[var(--color-primary-600)] border border-[var(--color-primary-200)]' : 
-                        isDone ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 
-                        'bg-slate-50 text-slate-400 border border-slate-100'
-                      }`}>
-                        {isDone ? <CheckCircle2 className="w-5 h-5" /> : isActive ? <Loader2 className="w-5 h-5 animate-spin" /> : <PhaseIcon className="w-5 h-5" />}
-                      </div>
-                      <span className={`font-mono text-sm tracking-wide ${isActive ? 'text-[var(--color-primary-700)] font-bold' : isDone ? 'text-emerald-700/70' : 'text-slate-400'}`}>
-                        {phase.text}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+                    <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">Querying Knowledge Base & Neural Reranker</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-mono font-semibold border border-indigo-200">
+                        {(elapsedMs / 1000).toFixed(1)}s
                       </span>
                     </div>
-                  );
-                })}
+                    <p className="text-xs text-slate-500 mt-1">
+                      Executing pgvector cosine similarity search, BM25 keyword matching, and evidence extraction...
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200/60 self-start sm:self-center">
+                  <Activity className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
+                  <span>Real-time LLM inference active</span>
+                </div>
               </div>
             </motion.div>
           )}
@@ -281,7 +282,7 @@ export default function RAGAssistant() {
                                   </span>
                                 </div>
                                 <p className="text-slate-600 text-sm leading-relaxed ml-9 relative before:content-[''] before:absolute before:-left-3 before:top-2 before:w-1 before:h-1 before:bg-slate-300 before:rounded-full">
-                                  "{cit.claim}"
+                                  &ldquo;{cit.claim}&rdquo;
                                 </p>
                               </div>
                               <div className="flex flex-col items-end gap-2 shrink-0">

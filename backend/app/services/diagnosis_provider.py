@@ -286,7 +286,7 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
                     ),
                     return_exceptions=True,
                 ),
-                timeout=1.5,
+                timeout=6.0,  # Extended from 1.5s — allows WHO/outbreak APIs to respond
             )
         except asyncio.TimeoutError:
             log.warning("intelligence_fetch_timeout")
@@ -318,13 +318,14 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
             countries_visited=countries_visited,
             days_since_return=days_since_return,
             live_geo_bonuses=live_geo_bonuses,
-            top_n=5,
+            top_n=8,  # Top 8 candidates for comprehensive differential — narrowed to 5 at output
         )
 
         log.info(
             "deterministic_scoring_done",
             top_disease=scored_candidates[0].disease if scored_candidates else "none",
             top_score=scored_candidates[0].score if scored_candidates else 0,
+            candidates_found=len(scored_candidates),
         )
 
         if not scored_candidates:
@@ -339,10 +340,13 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
 
         patient_context_short = (
             f"{demographics_str}. "
-            f"Symptoms: {', '.join(patient_symptoms[:8])}. "
+            f"Symptoms: {', '.join(patient_symptoms[:15])}. "
+            f"Negated: {', '.join(negated_symptoms[:5]) if negated_symptoms else 'None'}. "
             f"Travel: {', '.join(countries_visited) if countries_visited else 'None'}. "
             f"Days since return: {days_since_return or 'Unknown'}. "
-            f"Duration: {duration_str[:50]}. Severity: {severity_str[:40]}."
+            f"Duration: {duration_str[:80]}. Severity: {severity_str[:60]}. "
+            f"Medications: {medications_str[:120] if medications_str else 'None'}. "
+            f"History: {history_str[:150] if history_str else 'None'}."
         )
 
         compact_prompt = clinical_reasoning_engine.build_deterministic_answer(
@@ -361,32 +365,41 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
             )
 
         # ------------------------------------------------------------------ #
-        # ------------------------------------------------------------------ #
-        # 5. LLM Narrator & Open-Domain Diagnostic Generalization
+        # 5. LLM Narrator & Open-Domain Diagnostic Generalization (God-Level)
         # ------------------------------------------------------------------ #
         llm_result: dict = {}
         try:
             llm_prompt = (
                 f"{compact_prompt}\n\n"
                 "CLINICAL INSTRUCTIONS:\n"
-                "1. For the pre-ranked candidates above, provide a 1-sentence clinical rationale explaining why the symptoms match.\n"
-                "2. OPEN-DOMAIN DIAGNOSIS: If the patient's presentation strongly indicates another medical condition not listed in the pre-ranked candidates (e.g. Gout, Celiac Disease, Multiple Sclerosis, Parkinson's, Cholecystitis, Trigeminal Neuralgia, etc.), you MAY include up to 2 additional candidates in 'open_domain_candidates'.\n"
+                "1. For each pre-ranked candidate above, provide a 1-2 sentence evidence-based clinical rationale "
+                "explaining the symptom-disease match including pathophysiological mechanism.\n"
+                "2. OPEN-DOMAIN DIAGNOSIS: You MUST actively consider ALL medical conditions. If the patient's "
+                "constellation of symptoms suggests other important diagnoses not in the pre-ranked list "
+                "(e.g. autoimmune, oncological, neurological, rare tropical diseases, syndromic presentations), "
+                "add up to 3 additional candidates in 'open_domain_candidates' with confidence scores.\n"
+                "3. Consider outbreak matches: if symptoms + travel history fit any known outbreak pattern, "
+                "flag it with is_outbreak_match: true.\n"
+                "4. Provide supporting_findings that directly map to the patient's documented symptoms.\n"
                 "Format as JSON:\n"
                 "{\n"
-                '  "candidates": [{"disease": "...", "explanation_reference": "...", "supporting_findings": [...]}]'
+                '  "candidates": [{"disease": "...", "explanation_reference": "1-2 sentence rationale", "supporting_findings": ["...", "..."]}]'
                 ',\n'
-                '  "open_domain_candidates": [{"disease": "...", "score": 0.85, "rationale": "...", "supporting_findings": [...]}]\n'
+                '  "open_domain_candidates": [{"disease": "...", "score": 0.85, "rationale": "evidence-based explanation", "supporting_findings": ["..."], "is_outbreak_match": false}]\n'
                 "}"
             )
             llm_result = await llm_service.generate_json_compact(
                 prompt=llm_prompt,
                 system=(
-                    "You are a master diagnostic physician. Provide precise, evidence-grounded differential diagnosis. "
-                    "Explain pre-ranked candidates and suggest unlisted open-domain diagnoses if indicated. Return valid JSON only."
+                    "You are DocAssistIQ — a God-Level Senior Consultant Physician with expertise in all specialties. "
+                    "Your differential diagnosis is clinically accurate, evidence-based, and considers ALL possible "
+                    "medical conditions including rare diseases, tropical diseases, autoimmune disorders, and outbreaks. "
+                    "You consider the COMPLETE symptom picture, travel history, demographics, and medication context. "
+                    "NEVER miss a critical diagnosis. Return valid JSON only. No preamble or disclaimers."
                 ),
-                max_output_tokens=650,
+                max_output_tokens=1500,  # Extended for comprehensive open-domain candidates
             )
-            log.info("llm_narrator_success")
+            log.info("llm_narrator_success", candidates=len(llm_result.get("candidates", [])))
         except Exception as e:
             log.warning("llm_narrator_failed_using_deterministic", error=str(e))
 
@@ -495,7 +508,7 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
             log.warning("open_domain_engine_integration_error", error=str(e))
 
         top_candidates.sort(key=lambda x: x.score, reverse=True)
-        top_candidates = top_candidates[:5]
+        top_candidates = top_candidates[:6]  # Extended from 5 to 6 for richer differential
 
         # Check active India & global epidemic outbreak surveillance
         outbreak_matches: List[dict] = []
@@ -551,7 +564,7 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
             log.warning("outbreak_surveillance_matching_failed", error=str(ob_err))
 
         top_candidates.sort(key=lambda x: x.score, reverse=True)
-        top_candidates = top_candidates[:5]
+        top_candidates = top_candidates[:6]  # Return top 6 for comprehensive differential
 
         return DifferentialDiagnosisResponse(
             consultation_id=str(rep.consultation_id),
@@ -560,8 +573,8 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
             missing_critical_info=missing_critical_info,
             provider_metadata={
                 "provider": "OllamaDiagnosisProvider",
-                "version": "3.0-GodLevel",
-                "architecture": "deterministic_precompute_plus_llm_narrator",
+                "version": "4.0-NuclearGodLevel",
+                "architecture": "deterministic_precompute_plus_llm_narrator_plus_open_domain",
                 "model": llm_service.default_model,
                 "top_disease": scored_candidates[0].disease if scored_candidates else "unknown",
                 "top_score": scored_candidates[0].score if scored_candidates else 0,
@@ -574,8 +587,10 @@ class OllamaDiagnosisProvider(DiagnosisProvider):
                 "current_date": current_date,
                 "llm_narrator_active": bool(llm_lookup),
                 "deterministic_scoring": True,
+                "candidates_evaluated": len(scored_candidates),
+                "outbreak_surveillance": "active",
             },
-            top_candidates=top_candidates[:5],
+            top_candidates=top_candidates[:6],
             outbreak_detected=bool(outbreak_matches),
             outbreak_matches=outbreak_matches,
             outbreak_summary=outbreak_summary,

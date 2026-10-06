@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.config import get_settings
+from app.services.auth_service import hash_password
 from app.models.user import User
 from app.models.doctor import Doctor
 from app.models.provenance import Source, Article, Evidence
@@ -49,7 +50,7 @@ async def seed_data():
         doc1_user = User(
             id=uuid.uuid4(),
             email=f"dr.jenkins_{uuid.uuid4().hex[:6]}@hospital.org",
-            password_hash="$2b$12$dummyhashfordemonstrationonly",
+            password_hash=hash_password("DoctorPass123!"),
             full_name="Dr. Sarah Jenkins, MD",
             role="doctor",
             is_active=True,
@@ -60,7 +61,7 @@ async def seed_data():
         doc2_user = User(
             id=uuid.uuid4(),
             email=f"dr.chen_{uuid.uuid4().hex[:6]}@hospital.org",
-            password_hash="$2b$12$dummyhashfordemonstrationonly",
+            password_hash=hash_password("DoctorPass123!"),
             full_name="Dr. Robert Chen, MD, PhD",
             role="doctor",
             is_active=True,

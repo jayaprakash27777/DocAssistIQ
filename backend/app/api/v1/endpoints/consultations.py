@@ -4,6 +4,7 @@ Provides a validated state machine for the consultation lifecycle.
 """
 
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
@@ -71,6 +72,7 @@ async def get_optional_doctor_profile(
 
 
 class ConsultationCreateRequest(BaseModel):
+    patient_id: uuid.UUID | None = None
     patient_session_id: uuid.UUID | None = None
     input_text: str | None = None
 
@@ -100,9 +102,13 @@ class ClinicalFindingResponse(BaseModel):
 class ConsultationResponse(BaseModel):
     id: uuid.UUID
     doctor_id: uuid.UUID
-    patient_session_id: uuid.UUID | None
+    patient_session_id: uuid.UUID | None = None
+    patient_id: uuid.UUID | None = None
+    patient_ref: str | None = None
+    patient_demographics: dict[str, Any] | None = None
     status: str
     input_text: str
+    input_preview: str | None = None
     created_at: Any
     updated_at: Any
     findings: list[ClinicalFindingResponse] = []
@@ -126,7 +132,7 @@ async def create_consultation(
 ):
     """Create a new consultation in the CREATED state."""
     consultation = await consultation_service.create_consultation(
-        db, doctor.id, user.id, payload.patient_session_id, payload.input_text
+        db, doctor.id, user.id, payload.patient_session_id, payload.input_text, patient_id=payload.patient_id
     )
     
     await log_event(
@@ -395,6 +401,393 @@ async def generate_consultation_note(
     )
     return note
 
+class NoteInvestigationOrderRequest(BaseModel):
+    name: str
+    category: Optional[str] = "Laboratory"
+    priority: Optional[str] = "Routine"
+    rationale: Optional[str] = None
+
+class NoteInvestigationResultRequest(BaseModel):
+    result: str
+    flag: Optional[str] = "Normal"
+    reported_at: Optional[str] = None
+
+class NoteDifferentialActionRequest(BaseModel):
+    action: str  # 'accept' | 'reject' | 'rule_out'
+    comment: Optional[str] = None
+
+@router.post("/{consultation_id}/investigations/order", response_model=ClinicalNoteResponse)
+async def order_investigation_in_note(
+    consultation_id: uuid.UUID,
+    payload: NoteInvestigationOrderRequest,
+    user: User = Depends(require_permission("consultation", "read")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Orders an investigation directly within the clinical note and appends to timeline."""
+    consultation = await consultation_service.get_consultation(db, consultation_id, doctor.id)
+    note = await note_service.get_clinical_note(db, consultation_id)
+    if not note:
+        note = await note_generator_service.draft_note_from_findings(db, consultation_id, user.id)
+
+    current_body = dict(note.body) if note.body else {}
+    inv_list = list(current_body.get("investigations_list", []))
+    tl_list = list(current_body.get("clinical_timeline", []))
+
+    now_str = datetime.now(timezone.utc).strftime("%d %b %Y, %I:%M %p")
+    new_id = f"inv-{uuid.uuid4().hex[:6]}"
+
+    new_inv = {
+        "id": new_id,
+        "name": payload.name.strip(),
+        "category": payload.category or "Laboratory",
+        "priority": payload.priority or "Routine",
+        "status": "Ordered",
+        "ordered_at": now_str,
+        "reported_at": None,
+        "result": "Pending",
+        "flag": "Pending",
+        "rationale": payload.rationale or f"Clinician ordered {payload.priority or 'Routine'} diagnostic investigation.",
+        "source": "clinician"
+    }
+    inv_list.append(new_inv)
+
+    new_tl = {
+        "id": f"tl-{uuid.uuid4().hex[:6]}",
+        "timestamp": now_str,
+        "stage": "Investigations Ordered",
+        "event": f"Investigation Ordered: {payload.name.strip()}",
+        "findings": f"Priority: {payload.priority or 'Routine'}. Category: {payload.category or 'Laboratory'}.",
+        "actions": f"Diagnostic order dispatched to {payload.category or 'Laboratory'}. Rationale: {payload.rationale or 'Clinical indication'}.",
+        "response": "Awaiting specimen collection and laboratory processing.",
+        "source": "clinician"
+    }
+    tl_list.append(new_tl)
+
+    current_body["investigations_list"] = inv_list
+    current_body["clinical_timeline"] = tl_list
+
+    inv_lines = []
+    for inv in inv_list:
+        status_lbl = f"[{inv.get('status', 'Ordered').upper()}]"
+        res_desc = f" — {inv.get('result')}" if inv.get("status") == "Reported" else " — Pending"
+        inv_lines.append(f"• {inv.get('name')} {status_lbl}{res_desc}")
+    if "investigations" not in current_body or not isinstance(current_body["investigations"], dict):
+        current_body["investigations"] = {"text": "\n".join(inv_lines), "status": "draft"}
+    else:
+        current_body["investigations"]["text"] = "\n".join(inv_lines)
+
+    from app.services.note_generator import _format_full_hospital_note_text
+    if "_meta" not in current_body or not isinstance(current_body["_meta"], dict):
+        current_body["_meta"] = {}
+    current_body["_meta"]["formatted_ehr_text"] = _format_full_hospital_note_text(current_body)
+
+    note.body = current_body
+    note.version += 1
+    note.last_edited_by_id = user.id
+    note.is_ai_generated = False
+    await db.commit()
+    await db.refresh(note)
+    return note
+
+@router.post("/{consultation_id}/investigations/{investigation_id}/result", response_model=ClinicalNoteResponse)
+async def record_investigation_result_in_note(
+    consultation_id: uuid.UUID,
+    investigation_id: str,
+    payload: NoteInvestigationResultRequest,
+    user: User = Depends(require_permission("consultation", "read")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Records results for an investigation, updates timeline, and triggers AI differential update."""
+    consultation = await consultation_service.get_consultation(db, consultation_id, doctor.id)
+    note = await note_service.get_clinical_note(db, consultation_id)
+    if not note:
+        note = await note_generator_service.draft_note_from_findings(db, consultation_id, user.id)
+
+    current_body = dict(note.body) if note.body else {}
+    inv_list = list(current_body.get("investigations_list", []))
+    tl_list = list(current_body.get("clinical_timeline", []))
+    diff_list = list(current_body.get("differential_candidates", []))
+
+    now_str = payload.reported_at or datetime.now(timezone.utc).strftime("%d %b %Y, %I:%M %p")
+    target_name = "Investigation"
+
+    for inv in inv_list:
+        if inv.get("id") == investigation_id:
+            inv["status"] = "Reported"
+            inv["result"] = payload.result
+            inv["flag"] = payload.flag or "Normal"
+            inv["reported_at"] = now_str
+            target_name = inv.get("name", "Investigation")
+            break
+
+    tl_list.append({
+        "id": f"tl-{uuid.uuid4().hex[:6]}",
+        "timestamp": now_str,
+        "stage": "Results Received",
+        "event": f"Result Reported: {target_name}",
+        "findings": f"{payload.result} (Flag: {payload.flag or 'Normal'})",
+        "actions": f"Reviewed by {getattr(user, 'full_name', None) or 'Attending Physician'}.",
+        "response": "Integrated into diagnostic reasoning.",
+        "source": "clinician"
+    })
+
+    from app.services.clinical_reasoning_engine import clinical_reasoning_engine
+    from app.services.diagnosis_provider import _enrich_candidate_actions
+    from app.models.clinical import ClinicalFinding
+
+    active_symptoms = []
+    findings_q = await db.scalars(select(ClinicalFinding).where(ClinicalFinding.consultation_id == consultation_id))
+    for f in findings_q.all():
+        if not f.negated:
+            active_symptoms.append(f.canonical_concept or f.value)
+
+    res_tokens = payload.result.lower().replace(":", " ").replace(",", " ").split()
+    for tok in res_tokens:
+        if len(tok) >= 4 and tok not in ["negative", "normal", "within", "range", "units", "clear"]:
+            active_symptoms.append(tok)
+    active_symptoms.append(target_name.lower())
+
+    scored = clinical_reasoning_engine.score_all_diseases(
+        patient_symptoms=active_symptoms,
+        negated_symptoms=[],
+        countries_visited=[],
+        days_since_return=10,
+        top_n=5
+    )
+
+    updated_diffs = []
+    prev_status = {d.get("disease", "").lower(): (d.get("clinician_status"), d.get("clinician_comment")) for d in diff_list if isinstance(d, dict)}
+
+    for i, sc in enumerate(scored):
+        actions = _enrich_candidate_actions(sc.disease)
+        match_pct = min(int(round(sc.score * 65 + 30)), 98) if sc.score > 0 else 50
+        tier = "Primary Consideration" if i == 0 else ("Secondary Differential" if i < 3 else "Rule Out Consideration")
+        d_lower = sc.disease.lower()
+        cl_stat = prev_status.get(d_lower, ("suggested", None))[0] or "suggested"
+        cl_com = prev_status.get(d_lower, ("suggested", None))[1]
+
+        updated_diffs.append({
+            "id": f"diff-{i+1}",
+            "disease": sc.disease,
+            "score": round(float(sc.score), 3),
+            "display_score": f"{match_pct}% Match",
+            "tier": tier,
+            "rationale": sc.explanation_hint or f"Clinical presentation and investigation findings consistent with {sc.disease}.",
+            "supporting_findings": sc.supporting_findings or [target_name],
+            "contradicting_findings": sc.missing_expected_findings,
+            "recommended_tests": (actions.get("immediate_tests", [])[:3] + actions.get("recommended_investigations", [])[:2]) or ["Follow-up diagnostic testing"],
+            "first_line_treatment": actions.get("first_line_treatment", "Guideline-directed medical therapy"),
+            "clinician_status": cl_stat,
+            "clinician_comment": cl_com
+        })
+
+    top_cand = updated_diffs[0]["disease"] if updated_diffs else "Primary Differential"
+    tl_list.append({
+        "id": f"tl-{uuid.uuid4().hex[:6]}",
+        "timestamp": now_str,
+        "stage": "AI Differential Update",
+        "event": f"AI Differential Updated with Investigation Findings (v2)",
+        "findings": f"Differential re-evaluated following receipt of {target_name}. Leading working diagnosis: {top_cand}.",
+        "actions": "Previous differential entries preserved in chronological timeline audit.",
+        "response": "Clinical reasoning evolution documented.",
+        "source": "ai_decision_support"
+    })
+
+    current_body["investigations_list"] = inv_list
+    current_body["clinical_timeline"] = tl_list
+    current_body["differential_candidates"] = updated_diffs
+
+    inv_lines = [f"• {inv.get('name')} [{inv.get('status', 'Ordered').upper()}] — {inv.get('result') if inv.get('status') == 'Reported' else 'Pending'}" for inv in inv_list]
+    if "investigations" in current_body and isinstance(current_body["investigations"], dict):
+        current_body["investigations"]["text"] = "\n".join(inv_lines)
+
+    diff_lines = [f"{i}. {c['disease']} ({c['tier']} — {c['display_score']})\n   Why considered: {c['rationale']}\n   Supporting: {', '.join(c['supporting_findings'])}\n   Contradicting/absent: {', '.join(c['contradicting_findings'])}" for i, c in enumerate(updated_diffs, 1)]
+    if "differential_diagnosis" in current_body and isinstance(current_body["differential_diagnosis"], dict):
+        current_body["differential_diagnosis"]["text"] = "\n\n".join(diff_lines)
+
+    from app.services.note_generator import _format_full_hospital_note_text
+    if "_meta" not in current_body or not isinstance(current_body["_meta"], dict):
+        current_body["_meta"] = {}
+    current_body["_meta"]["formatted_ehr_text"] = _format_full_hospital_note_text(current_body)
+
+    note.body = current_body
+    note.version += 1
+    note.last_edited_by_id = user.id
+    note.is_ai_generated = False
+    await db.commit()
+    await db.refresh(note)
+    return note
+
+@router.post("/{consultation_id}/differential/{candidate_id}/action", response_model=ClinicalNoteResponse)
+async def perform_differential_action_in_note(
+    consultation_id: uuid.UUID,
+    candidate_id: str,
+    payload: NoteDifferentialActionRequest,
+    user: User = Depends(require_permission("consultation", "read")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Doctor accepts or rejects a differential candidate, updating working assessment and timeline."""
+    consultation = await consultation_service.get_consultation(db, consultation_id, doctor.id)
+    note = await note_service.get_clinical_note(db, consultation_id)
+    if not note:
+        note = await note_generator_service.draft_note_from_findings(db, consultation_id, user.id)
+
+    current_body = dict(note.body) if note.body else {}
+    diff_list = list(current_body.get("differential_candidates", []))
+    tl_list = list(current_body.get("clinical_timeline", []))
+
+    now_str = datetime.now(timezone.utc).strftime("%d %b %Y, %I:%M %p")
+    target_disease = "Differential Candidate"
+
+    for cand in diff_list:
+        if cand.get("id") == candidate_id or cand.get("disease", "").lower() == candidate_id.lower():
+            cand["clinician_status"] = payload.action  # "accepted" | "rejected" | "rule_out"
+            cand["clinician_comment"] = payload.comment
+            target_disease = cand.get("disease", "Diagnosis")
+            break
+
+    action_label = "Confirmed as Working Diagnosis" if payload.action == "accept" else ("Ruled Out / Rejected" if payload.action in ("reject", "rule_out") else "Clinician Evaluated")
+
+    tl_list.append({
+        "id": f"tl-{uuid.uuid4().hex[:6]}",
+        "timestamp": now_str,
+        "stage": "Clinician Decision",
+        "event": f"Differential {action_label}: {target_disease}",
+        "findings": payload.comment or f"Clinician authenticated action: {payload.action.upper()}.",
+        "actions": "Working diagnostic record and clinician assessment updated.",
+        "response": f"Clinician authenticated by {getattr(user, 'full_name', None) or 'Attending Physician'}.",
+        "source": "clinician"
+    })
+
+    if payload.action == "accept":
+        if "assessment" in current_body and isinstance(current_body["assessment"], dict):
+            cur_ass = current_body["assessment"].get("text", "")
+            if target_disease not in cur_ass:
+                addition = f"Confirmed Working Diagnosis: {target_disease}."
+                current_body["assessment"]["text"] = f"{cur_ass}\n\n{addition}".strip() if cur_ass else addition
+
+    current_body["differential_candidates"] = diff_list
+    current_body["clinical_timeline"] = tl_list
+
+    from app.services.note_generator import _format_full_hospital_note_text
+    if "_meta" not in current_body or not isinstance(current_body["_meta"], dict):
+        current_body["_meta"] = {}
+    current_body["_meta"]["formatted_ehr_text"] = _format_full_hospital_note_text(current_body)
+
+    note.body = current_body
+    note.version += 1
+    note.last_edited_by_id = user.id
+    note.is_ai_generated = False
+    await db.commit()
+    await db.refresh(note)
+    return note
+
+@router.post("/{consultation_id}/differential/rerun", response_model=ClinicalNoteResponse)
+async def rerun_differential_in_note(
+    consultation_id: uuid.UUID,
+    user: User = Depends(require_permission("consultation", "read")),
+    doctor: Doctor = Depends(get_current_doctor_profile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Re-runs the clinical reasoning engine from active findings and reported test results."""
+    consultation = await consultation_service.get_consultation(db, consultation_id, doctor.id)
+    note = await note_service.get_clinical_note(db, consultation_id)
+    if not note:
+        note = await note_generator_service.draft_note_from_findings(db, consultation_id, user.id)
+
+    current_body = dict(note.body) if note.body else {}
+    inv_list = list(current_body.get("investigations_list", []))
+    tl_list = list(current_body.get("clinical_timeline", []))
+    diff_list = list(current_body.get("differential_candidates", []))
+
+    now_str = datetime.now(timezone.utc).strftime("%d %b %Y, %I:%M %p")
+
+    from app.services.clinical_reasoning_engine import clinical_reasoning_engine
+    from app.services.diagnosis_provider import _enrich_candidate_actions
+    from app.models.clinical import ClinicalFinding
+
+    active_symptoms = []
+    findings_q = await db.scalars(select(ClinicalFinding).where(ClinicalFinding.consultation_id == consultation_id))
+    for f in findings_q.all():
+        if not f.negated:
+            active_symptoms.append(f.canonical_concept or f.value)
+
+    for inv in inv_list:
+        if inv.get("status") == "Reported":
+            active_symptoms.append(inv.get("name", "").lower())
+            res_words = inv.get("result", "").lower().split()
+            for w in res_words:
+                if len(w) >= 4 and w not in ["normal", "negative", "clear", "pending"]:
+                    active_symptoms.append(w)
+
+    scored = clinical_reasoning_engine.score_all_diseases(
+        patient_symptoms=active_symptoms or ["fever"],
+        negated_symptoms=[],
+        countries_visited=[],
+        days_since_return=10,
+        top_n=5
+    )
+
+    prev_status = {d.get("disease", "").lower(): (d.get("clinician_status"), d.get("clinician_comment")) for d in diff_list if isinstance(d, dict)}
+    updated_diffs = []
+    for i, sc in enumerate(scored):
+        actions = _enrich_candidate_actions(sc.disease)
+        match_pct = min(int(round(sc.score * 65 + 30)), 98) if sc.score > 0 else 50
+        tier = "Primary Consideration" if i == 0 else ("Secondary Differential" if i < 3 else "Rule Out Consideration")
+        d_lower = sc.disease.lower()
+        cl_stat = prev_status.get(d_lower, ("suggested", None))[0] or "suggested"
+        cl_com = prev_status.get(d_lower, ("suggested", None))[1]
+
+        updated_diffs.append({
+            "id": f"diff-{i+1}",
+            "disease": sc.disease,
+            "score": round(float(sc.score), 3),
+            "display_score": f"{match_pct}% Match",
+            "tier": tier,
+            "rationale": sc.explanation_hint or f"Clinical presentation and reported investigations consistent with {sc.disease}.",
+            "supporting_findings": sc.supporting_findings or active_symptoms[:4],
+            "contradicting_findings": sc.missing_expected_findings,
+            "recommended_tests": (actions.get("immediate_tests", [])[:3] + actions.get("recommended_investigations", [])[:2]) or ["Follow-up diagnostic testing"],
+            "first_line_treatment": actions.get("first_line_treatment", "Guideline-directed medical therapy"),
+            "clinician_status": cl_stat,
+            "clinician_comment": cl_com
+        })
+
+    top_cand = updated_diffs[0]["disease"] if updated_diffs else "Primary Consideration"
+    tl_list.append({
+        "id": f"tl-{uuid.uuid4().hex[:6]}",
+        "timestamp": now_str,
+        "stage": "AI Differential Update",
+        "event": "AI Diagnostic Engine Re-evaluated",
+        "findings": f"Differential re-computed using all active findings and test results. Leading candidate: {top_cand}.",
+        "actions": "Chronological timeline entry recorded; previous entries preserved.",
+        "response": "Clinical reasoning updated.",
+        "source": "ai_decision_support"
+    })
+
+    current_body["differential_candidates"] = updated_diffs
+    current_body["clinical_timeline"] = tl_list
+
+    diff_lines = [f"{i}. {c['disease']} ({c['tier']} — {c['display_score']})\n   Why considered: {c['rationale']}\n   Supporting: {', '.join(c['supporting_findings'])}\n   Contradicting/absent: {', '.join(c['contradicting_findings'])}" for i, c in enumerate(updated_diffs, 1)]
+    if "differential_diagnosis" in current_body and isinstance(current_body["differential_diagnosis"], dict):
+        current_body["differential_diagnosis"]["text"] = "\n\n".join(diff_lines)
+
+    from app.services.note_generator import _format_full_hospital_note_text
+    if "_meta" not in current_body or not isinstance(current_body["_meta"], dict):
+        current_body["_meta"] = {}
+    current_body["_meta"]["formatted_ehr_text"] = _format_full_hospital_note_text(current_body)
+
+    note.body = current_body
+    note.version += 1
+    note.last_edited_by_id = user.id
+    note.is_ai_generated = False
+    await db.commit()
+    await db.refresh(note)
+    return note
+
 class FindingReviewRequest(BaseModel):
     action: str  # 'confirm' or 'reject'
 
@@ -569,11 +962,13 @@ async def get_differential_diagnosis(
             )
 
     # Run full precision AI diagnosis (instant deterministic + LLM narrative & open-domain)
+    # Timeout: 120s allows LLM narrator to generate explanations (20-90s on most hardware)
+    # Deterministic scoring is instant (<5ms); LLM only writes 1-2 sentence narratives
     provider = OllamaDiagnosisProvider()
     try:
         response = await asyncio.wait_for(
             provider.generate_differential(db, rep),
-            timeout=12.0,  # real-time budget: deterministic instant + fast LLM narrative
+            timeout=120.0,  # Extended from 12s — LLM narrator needs 20-90s on consumer hardware
         )
     except asyncio.TimeoutError:
         # Fast deterministic fallback enriched with open-domain medical intelligence
@@ -756,6 +1151,7 @@ class RealtimePredictionResponse(BaseModel):
 
 
 @router.post("/predict-realtime", response_model=RealtimePredictionResponse)
+@router.post("/realtime-predict", response_model=RealtimePredictionResponse, include_in_schema=False)
 async def predict_realtime_endpoint(
     payload: RealtimePredictionRequest,
     doctor: Optional[Doctor] = Depends(get_optional_doctor_profile),
@@ -886,8 +1282,8 @@ async def export_consultation(
     if not consultation or consultation.doctor_id != doctor.id:
         raise HTTPException(status_code=404, detail="Consultation not found")
         
-    if consultation.status not in ["finalized", "amended"]:
-        raise HTTPException(status_code=400, detail="Only finalized consultations can be exported")
+    # Allow active, draft, under_review, and finalized consultations to be exported
+    # The export service formats draft notes with appropriate DRAFT/IN-REVIEW indicators
 
     # Fetch the note data
     note_data = None
@@ -920,6 +1316,14 @@ async def export_consultation(
             media_type="application/pdf",
             headers={"Content-Disposition": f'attachment; filename="consultation_{consultation_id}.pdf"'}
         )
+    elif fmt == "docx":
+        from fastapi import Response
+        docx_bytes = export_service.generate_docx(consultation, note_data)
+        return Response(
+            content=docx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="consultation_{consultation_id}.docx"'}
+        )
     elif fmt in ("markdown", "md"):
         from fastapi import Response
         md_text = export_service.generate_markdown(consultation, note_data)
@@ -929,7 +1333,7 @@ async def export_consultation(
             headers={"Content-Disposition": f'attachment; filename="consultation_{consultation_id}.md"'}
         )
     else:
-        raise HTTPException(status_code=400, detail="Unsupported format. Supported: 'fhir' (FHIR R4 Bundle), 'fhir-docref', 'pdf', 'markdown'")
+        raise HTTPException(status_code=400, detail="Unsupported format. Supported: 'fhir' (FHIR R4 Bundle), 'fhir-docref', 'pdf', 'docx', 'markdown'")
 
 @router.get("/{consultation_id}/audit")
 async def get_consultation_audit(
@@ -1317,6 +1721,7 @@ async def generate_certified_clinical_document(
 
     return {
         "status": "success",
+        "consultation_id": str(consultation_id),
         "document_type": doc_type,
         "title": doc_data["title"],
         "subtitle": doc_data["subtitle"],

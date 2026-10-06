@@ -1,14 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { getInvestigationsForDisease, InvestigationResponse } from "@/lib/api";
+import { getInvestigationsForDisease, InvestigationResponse, orderInvestigationInNote } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { noteKeys } from "@/hooks/useConsultations";
+import { toast } from "react-hot-toast";
 import FeedbackButtons from "./FeedbackButtons";
 import { motion, AnimatePresence } from "framer-motion";
 import ClinicalLoader from "./ClinicalLoader";
-import { AlertTriangle, AlertCircle, FileText, CheckCircle2, BookOpen } from "lucide-react";
+import { AlertTriangle, AlertCircle, FileText, CheckCircle2, BookOpen, Plus, Check, Loader2 } from "lucide-react";
 
 function getPriorityStyle(priority: string = "") {
   const p = (priority || "").toUpperCase();
@@ -25,7 +27,40 @@ function getPriorityStyle(priority: string = "") {
 }
 
 const Section = ({ title, items, color, icon: Icon, consultationId, disease }: { title: string, items: any[], color: string, icon: any, consultationId: string, disease: string }) => {
+  const queryClient = useQueryClient();
+  const [orderingMap, setOrderingMap] = useState<Record<string, boolean>>({});
+  const [orderedMap, setOrderedMap] = useState<Record<string, boolean>>({});
+
   if (items.length === 0) return null;
+
+  const handleOrderTest = async (testName: string, priority: string, rationale?: string) => {
+    setOrderingMap(prev => ({ ...prev, [testName]: true }));
+    try {
+      const priorityClean = priority.toUpperCase().includes("STAT") || priority.toUpperCase().includes("HIGH")
+        ? "STAT"
+        : priority.toUpperCase().includes("URGENT")
+        ? "Urgent"
+        : "Routine";
+      const res = await orderInvestigationInNote(consultationId, {
+        name: testName,
+        category: "Laboratory",
+        priority: priorityClean,
+        rationale: rationale || `Clinician ordered from diagnostic panel for ${disease}`,
+      });
+      if (res.ok) {
+        queryClient.setQueryData(noteKeys.detail(consultationId), res.data);
+        setOrderedMap(prev => ({ ...prev, [testName]: true }));
+        toast.success(`Ordered ${testName} into patient's note!`);
+      } else {
+        toast.error(res.error?.message || "Failed to order investigation");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to order investigation");
+    } finally {
+      setOrderingMap(prev => ({ ...prev, [testName]: false }));
+    }
+  };
+
   return (
     <div className="mb-6 last:mb-0">
       <h6 className={`text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${color}`}>
@@ -36,10 +71,14 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
       </h6>
       <div className="space-y-2.5">
         {items.map((item: any, idx: number) => {
+          const testName = item.name || item.investigation_name;
           const pStyle = getPriorityStyle(item.priority);
+          const isOrdering = orderingMap[testName];
+          const isOrdered = orderedMap[testName];
+
           // Rich drag payload for clinical note
           const dragText = [
-            `${item.priority || "RECOMMENDED"}: ${item.name || item.investigation_name}`,
+            `${item.priority || "RECOMMENDED"}: ${testName}`,
             item.rationale ? `  Rationale: ${item.rationale}` : "",
             item.evidence  ? `  Evidence: ${item.evidence}` : "",
             item.safety_flags?.length ? `  ⚠️ Safety: ${item.safety_flags.join("; ")}` : "",
@@ -47,7 +86,7 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
 
           return (
             <motion.div
-              key={`${item.investigation_name || item.name}-${idx}`}
+              key={`${testName}-${idx}`}
               draggable={true}
               onDragStart={(e) => {
                 const de = (e as unknown as DragEvent);
@@ -66,7 +105,7 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-3">
                     <span className={`font-bold text-sm ${pStyle.text} leading-tight`}>
-                      {item.name || item.investigation_name}
+                      {testName}
                     </span>
                     <span className={`flex-shrink-0 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${pStyle.border} ${pStyle.text} bg-white/80`}>
                       {item.priority || "RECOMMENDED"}
@@ -91,12 +130,44 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
                       ))}
                     </div>
                   )}
+
+                  {/* Real-time Order Action */}
+                  <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-slate-200/50">
+                    <button
+                      type="button"
+                      onClick={() => handleOrderTest(testName, item.priority || "Urgent", item.rationale)}
+                      disabled={isOrdering || isOrdered}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:cursor-default ${
+                        isOrdered
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          : "bg-blue-600 hover:bg-blue-700 text-white"
+                      }`}
+                    >
+                      {isOrdered ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Ordered into Note</span>
+                        </>
+                      ) : isOrdering ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Ordering...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Order Test into Note</span>
+                        </>
+                      )}
+                    </button>
+                    <span className="text-[10px] text-slate-400 font-medium">Or drag into SOAP note</span>
+                  </div>
                 </div>
               </div>
 
               <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <FeedbackButtons
-                  suggestionId={`inv-${consultationId}-${disease}-${item.name || item.investigation_name}`}
+                  suggestionId={`inv-${consultationId}-${disease}-${testName}`}
                   suggestionType="investigation"
                   suggestionContext={item}
                 />
@@ -108,6 +179,7 @@ const Section = ({ title, items, color, icon: Icon, consultationId, disease }: {
     </div>
   );
 };
+
 
 export default function InvestigationPanel({ consultationId, disease, competing = [] }: { consultationId: string, disease: string, competing?: string[] }) {
   const [data, setData] = useState<InvestigationResponse | null>(null);
@@ -128,7 +200,7 @@ export default function InvestigationPanel({ consultationId, disease, competing 
       setLoading(false);
     }
     load();
-  }, [consultationId, disease]);
+  }, [consultationId, disease, competing]);
 
   if (loading) {
     return <ClinicalLoader label={`Evaluating workup for ${disease}...`} messages={["Reviewing clinical presentation", "Analyzing standard of care guidelines", "Synthesizing investigation panel", "Finalizing recommendations"]} />;

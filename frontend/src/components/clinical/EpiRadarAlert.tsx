@@ -5,7 +5,7 @@ import { getEpiRadar, EpiRadarResponse } from "@/lib/api";
 import { Radar, Users, MapPin, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function EpiRadarAlert({ consultationId, trigger }: { consultationId: string, trigger?: any }) {
+export default function EpiRadarAlert({ consultationId, trigger }: { consultationId: string, trigger?: unknown }) {
   const [data, setData] = useState<EpiRadarResponse | null>(null);
   const [dismissed, setDismissed] = useState(false);
 

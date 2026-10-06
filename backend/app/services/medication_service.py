@@ -1461,8 +1461,8 @@ class MedicationProvider:
             medicine_context = ""
             if db is not None:
                 try:
-                    rag_context = await asyncio.wait_for(retrieve_medical_context(db, f"{disease_name} treatments", top_k=3), timeout=1.5)
-                    medicine_context = await asyncio.wait_for(retrieve_medicine_context(db, f"{disease_name} indications", top_k=5), timeout=1.5)
+                    rag_context = await asyncio.wait_for(retrieve_medical_context(db, f"{disease_name} treatments", top_k=3), timeout=8.0)
+                    medicine_context = await asyncio.wait_for(retrieve_medicine_context(db, f"{disease_name} indications", top_k=5), timeout=8.0)
                 except Exception:
                     pass
             
@@ -1501,7 +1501,7 @@ Return ONLY valid JSON matching this exact schema:
 }}"""
             user_prompt = "Generate medication suggestions based on the context. Return ONLY the JSON."
             llm_task = llm_service.generate_json(user_prompt, system=system_prompt)
-            data = await asyncio.wait_for(llm_task, timeout=3.5)
+            data = await asyncio.wait_for(llm_task, timeout=90.0)  # Extended from 3.5s — LLM needs 20-90s
             suggestions = []
             for item in data.get("medications", []):
                 suggestions.append(MedicationSuggestion(**item, safety_decision=None))  # type: ignore

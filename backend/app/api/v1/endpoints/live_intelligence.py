@@ -130,7 +130,8 @@ async def get_state_outbreaks(
     """
     try:
         from app.services.india_outbreak_surveillance import get_all_state_outbreaks
-        return get_all_state_outbreaks(
+        return await asyncio.to_thread(
+            get_all_state_outbreaks,
             state_filter=state,
             query_filter=query,
             alert_level_filter=alert_level,
@@ -155,19 +156,21 @@ async def get_live_feeds_status(refresh: Optional[bool] = False):
             fetch_all_live_public_health_alerts,
             _LIVE_SURVEILLANCE_CACHE,
         )
-        if refresh:
-            fetch_all_live_public_health_alerts(force_refresh=True)
-        elif not _LIVE_SURVEILLANCE_CACHE.get("global_alerts"):
-            fetch_all_live_public_health_alerts(force_refresh=False)
+        def _get_status():
+            if refresh:
+                fetch_all_live_public_health_alerts(force_refresh=True)
+            elif not _LIVE_SURVEILLANCE_CACHE.get("global_alerts"):
+                fetch_all_live_public_health_alerts(force_refresh=False)
 
-        return {
-            "status": "ok",
-            "last_synced_at": _LIVE_SURVEILLANCE_CACHE.get("last_synced_iso"),
-            "total_global_alerts": len(_LIVE_SURVEILLANCE_CACHE.get("global_alerts", [])),
-            "indian_states_tracked": len(_LIVE_SURVEILLANCE_CACHE.get("rootnet_cases", {})),
-            "sources_health": _LIVE_SURVEILLANCE_CACHE.get("sources_health", {}),
-            "data_authenticity": "100% Live APIs (Zero Mock / Zero Fake Data)",
-        }
+            return {
+                "status": "ok",
+                "last_synced_at": _LIVE_SURVEILLANCE_CACHE.get("last_synced_iso"),
+                "total_global_alerts": len(_LIVE_SURVEILLANCE_CACHE.get("global_alerts", [])),
+                "indian_states_tracked": len(_LIVE_SURVEILLANCE_CACHE.get("rootnet_cases", {})),
+                "sources_health": _LIVE_SURVEILLANCE_CACHE.get("sources_health", {}),
+                "data_authenticity": "100% Live APIs (Zero Mock / Zero Fake Data)",
+            }
+        return await asyncio.to_thread(_get_status)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

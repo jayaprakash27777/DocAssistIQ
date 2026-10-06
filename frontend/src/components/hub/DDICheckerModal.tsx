@@ -1,7 +1,7 @@
 "use client";
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
+import { getStoredToken } from "@/lib/api";
 
 export interface DDIItem {
   drug1: string;
@@ -13,10 +13,9 @@ export interface DDIItem {
   evidence_level: string;
 }
 
-interface DDICheckerModalProps {
+  interface DDICheckerModalProps {
   onClose: () => void;
   initialDrugs?: string[];
-  isNightMode?: boolean;
 }
 
 const COMMON_DRUGS = [
@@ -128,18 +127,72 @@ const KNOWN_DDI_RULES: Array<{
 export function DDICheckerModal({
   onClose,
   initialDrugs = ["Ticagrelor", "Aspirin"],
-  isNightMode = false,
 }: DDICheckerModalProps) {
   const [selectedDrugs, setSelectedDrugs] = useState<string[]>(initialDrugs);
   const [searchQuery, setSearchQuery] = useState("");
-  const [interactions, setInteractions] = useState<DDIItem[]>([]);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [serverInteractions, setServerInteractions] = useState<DDIItem[]>([]);
+  const [acbScore, setAcbScore] = useState<number | null>(null);
+  const [isEvaluatingServer, setIsEvaluatingServer] = useState(false);
 
-  // Compute interactions whenever selectedDrugs changes
   useEffect(() => {
+    let active = true;
+    const fetchServerDDI = async () => {
+      if (selectedDrugs.length < 2) {
+        setServerInteractions([]);
+        setAcbScore(null);
+        return;
+      }
+      setIsEvaluatingServer(true);
+      try {
+        const token = getStoredToken();
+        const res = await fetch("/api/v1/hub/ddi-check", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ drugs: selectedDrugs }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (active) {
+            if (Array.isArray(data.interactions)) {
+              setServerInteractions(data.interactions);
+            }
+            if (data.anticholinergic_burden?.total_acb_score !== undefined) {
+              setAcbScore(data.anticholinergic_burden.total_acb_score);
+            }
+          }
+        }
+      } catch {
+        // Fallback safely to client rules
+      } finally {
+        if (active) setIsEvaluatingServer(false);
+      }
+    };
+    fetchServerDDI();
+    return () => {
+      active = false;
+    };
+  }, [selectedDrugs]);
+
+  // Unified interactions: combines local CPIC rules + server live polypharmacy evaluation
+  const interactions: DDIItem[] = useMemo(() => {
     const list = selectedDrugs.map((d) => d.toLowerCase().trim());
     const results: DDIItem[] = [];
+    const seen = new Set<string>();
 
+    // 1. Process server interactions
+    for (const s of serverInteractions) {
+      const key = [s.drug1.toLowerCase(), s.drug2.toLowerCase()].sort().join("::");
+      if (!seen.has(key)) {
+        seen.add(key);
+        results.push(s);
+      }
+    }
+
+    // 2. Process local known high-alert rules
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
         const d1 = list[i];
@@ -148,24 +201,28 @@ export function DDICheckerModal({
         for (const rule of KNOWN_DDI_RULES) {
           const [r1, r2] = rule.pair;
           if (
-            (d1.includes(r1) || r1.includes(d1)) && (d2.includes(r2) || r2.includes(d2)) ||
-            (d1.includes(r2) || r2.includes(d1)) && (d2.includes(r1) || r1.includes(d2))
+            ((d1.includes(r1) || r1.includes(d1)) && (d2.includes(r2) || r2.includes(d2))) ||
+            ((d1.includes(r2) || r2.includes(d1)) && (d2.includes(r1) || r1.includes(d2)))
           ) {
-            results.push({
-              drug1: d1.charAt(0).toUpperCase() + d1.slice(1),
-              drug2: d2.charAt(0).toUpperCase() + d2.slice(1),
-              severity: rule.severity,
-              mechanism: rule.mechanism,
-              clinical_effect: rule.clinical_effect,
-              recommendation: rule.recommendation,
-              evidence_level: rule.evidence_level,
-            });
+            const key = [d1, d2].sort().join("::");
+            if (!seen.has(key)) {
+              seen.add(key);
+              results.push({
+                drug1: d1.charAt(0).toUpperCase() + d1.slice(1),
+                drug2: d2.charAt(0).toUpperCase() + d2.slice(1),
+                severity: rule.severity,
+                mechanism: rule.mechanism,
+                clinical_effect: rule.clinical_effect,
+                recommendation: rule.recommendation,
+                evidence_level: rule.evidence_level,
+              });
+            }
           }
         }
       }
     }
-    setInteractions(results);
-  }, [selectedDrugs]);
+    return results;
+  }, [selectedDrugs, serverInteractions]);
 
   const addDrug = (drugName: string) => {
     const trimmed = drugName.trim();
@@ -212,51 +269,47 @@ export function DDICheckerModal({
     setTimeout(() => setCopyFeedback(false), 2500);
   };
 
-  const bgModal = isNightMode
-    ? "bg-slate-900/95 border-slate-800 text-slate-100"
-    : "bg-white border-slate-200 text-slate-900";
-
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        className={`relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border shadow-2xl overflow-hidden ${bgModal}`}
+        className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="p-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+        <div className="p-5 border-b border-slate-200/80 flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xl">💊</span>
-              <h2 className="text-lg font-black tracking-tight">
-                Drug-Drug Interaction (DDI) Safety Engine
+              <h2 className="text-lg font-black tracking-tight text-slate-900">
+                Medicine Safety & Interaction Checker
               </h2>
-              <span className="text-[10px] bg-teal-50 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-2 py-0.5 rounded-full font-bold">
-                Clinical Tier 1
+              <span className="text-[10px] bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full font-bold">
+                Safety Checker
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Real-time pairwise pharmacokinetic screening, CYP450 metabolism & bleeding risk alerts.
+            <p className="text-xs text-slate-500 mt-0.5">
+              Check if two or more medications can be safely taken together.
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
           >
             ✕
           </button>
         </div>
 
         {/* Selected Drugs Chips & Add Bar */}
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-3">
+        <div className="p-4 border-b border-slate-100 space-y-3">
           {/* Active Chips */}
           <div className="flex flex-wrap gap-1.5 min-h-[32px] items-center">
             {selectedDrugs.map((d) => (
               <span
                 key={d}
-                className="px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-xs font-bold flex items-center gap-1.5 shadow-2xs"
+                className="px-2.5 py-1 rounded-xl bg-teal-50 text-teal-800 border border-teal-200 text-xs font-bold flex items-center gap-1.5 shadow-2xs"
               >
                 <span>{d}</span>
                 <button
@@ -270,7 +323,17 @@ export function DDICheckerModal({
             ))}
             {selectedDrugs.length === 0 && (
               <span className="text-xs text-slate-400 italic">
-                Select or type medications below to check for adverse interactions...
+                Type medicine names below to check for interactions...
+              </span>
+            )}
+            {acbScore !== null && (
+              <span className="px-2.5 py-1 rounded-xl bg-purple-50 text-purple-800 border border-purple-200 text-xs font-bold flex items-center gap-1 shadow-2xs">
+                🧠 Sedation / Confusion Risk: {acbScore >= 3 ? "High" : acbScore >= 1 ? "Moderate" : "Low"}
+              </span>
+            )}
+            {isEvaluatingServer && (
+              <span className="px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold flex items-center gap-1.5 animate-pulse">
+                ⚡ Checking safety database...
               </span>
             )}
           </div>
@@ -283,7 +346,7 @@ export function DDICheckerModal({
               </span>
               <input
                 type="text"
-                placeholder="Type generic drug name and press enter (e.g. Sildenafil, Warfarin)..."
+                placeholder="Type a medicine name (e.g. Aspirin, Warfarin) and press enter..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -291,7 +354,7 @@ export function DDICheckerModal({
                     addDrug(searchQuery);
                   }
                 }}
-                className="w-full pl-8 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs outline-none focus:border-teal-500 shadow-xs"
+                className="w-full pl-8 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-teal-500 shadow-xs"
               />
             </div>
             <button
@@ -312,7 +375,7 @@ export function DDICheckerModal({
               <button
                 key={d}
                 onClick={() => addDrug(d)}
-                className="text-[10px] font-bold px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-teal-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors whitespace-nowrap cursor-pointer"
+                className="text-[10px] font-bold px-2 py-0.5 rounded-lg border border-slate-200 hover:bg-teal-50 text-slate-600 transition-colors whitespace-nowrap cursor-pointer"
               >
                 +{d}
               </button>
@@ -327,10 +390,10 @@ export function DDICheckerModal({
             <div
               className={`p-4 rounded-2xl border flex items-center justify-between gap-3 ${
                 hasContraindication
-                  ? "bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-900 text-rose-900 dark:text-rose-100"
+                  ? "bg-rose-50 border-rose-300 text-rose-900"
                   : hasMajor
-                  ? "bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-900 text-amber-900 dark:text-amber-100"
-                  : "bg-teal-50 dark:bg-teal-950/60 border-teal-300 dark:border-teal-900 text-teal-900 dark:text-teal-100"
+                  ? "bg-amber-50 border-amber-300 text-amber-900"
+                  : "bg-teal-50 border-teal-300 text-teal-900"
               }`}
             >
               <div className="flex items-center gap-3">
@@ -340,33 +403,31 @@ export function DDICheckerModal({
                 <div>
                   <h4 className="font-extrabold text-sm">
                     {hasContraindication
-                      ? "STRICT CONTRAINDICATION DETECTED"
+                      ? "DANGEROUS: DO NOT COMBINE"
                       : hasMajor
-                      ? "MAJOR PHARMACOKINETIC INTERACTION"
-                      : "MODERATE CLINICAL INTERACTION"}
+                      ? "MAJOR WARNING: USE CAUTION"
+                      : "NOTICE: MONITOR PATIENT"}
                   </h4>
                   <p className="text-xs opacity-90 mt-0.5">
-                    {interactions.length} pairwise alert(s) identified among the {selectedDrugs.length}{" "}
-                    prescribed agents.
+                    {interactions.length} warning(s) found between the {selectedDrugs.length} selected medicines.
                   </p>
                 </div>
               </div>
 
               <button
                 onClick={copyReport}
-                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 transition-colors cursor-pointer shadow-xs whitespace-nowrap"
+                className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-800 hover:bg-slate-50 transition-colors cursor-pointer shadow-xs whitespace-nowrap"
               >
                 {copyFeedback ? "Copied ✓" : "Copy Report"}
               </button>
             </div>
           ) : (
-            <div className="p-4 rounded-2xl border bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100 flex items-center gap-3">
+            <div className="p-4 rounded-2xl border bg-emerald-50 border-emerald-200 text-emerald-900 flex items-center gap-3">
               <span className="text-2xl">✅</span>
               <div>
-                <h4 className="font-extrabold text-sm">No Major Interaction Detected</h4>
-                <p className="text-xs text-emerald-800 dark:text-emerald-200 mt-0.5">
-                  The selected combination does not trigger high-risk pharmacokinetic or lethal
-                  synergy contraindications in the DocAssistIQ knowledge engine.
+                <h4 className="font-extrabold text-sm">Safe: No Dangerous Interaction Found</h4>
+                <p className="text-xs text-emerald-800 mt-0.5">
+                  The selected medicines do not have any known major harmful interactions.
                 </p>
               </div>
             </div>
@@ -377,39 +438,43 @@ export function DDICheckerModal({
             {interactions.map((int, i) => (
               <div
                 key={i}
-                className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 shadow-xs space-y-2.5"
+                className="p-4 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-2.5"
               >
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-slate-900 dark:text-slate-100">
-                      {int.drug1} ↔ {int.drug2}
+                    <span className="text-xs font-black text-slate-900">
+                      {int.drug1} + {int.drug2}
                     </span>
                     <span
                       className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
                         int.severity === "CONTRAINDICATED"
-                          ? "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200"
+                          ? "bg-rose-100 text-rose-800"
                           : int.severity === "MAJOR"
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                          : "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-teal-100 text-teal-800"
                       }`}
                     >
-                      {int.severity}
+                      {int.severity === "CONTRAINDICATED"
+                        ? "DO NOT COMBINE"
+                        : int.severity === "MAJOR"
+                        ? "HIGH RISK"
+                        : "CAUTION"}
                     </span>
                   </div>
                   <span className="text-[10px] text-slate-400 font-mono">{int.evidence_level}</span>
                 </div>
 
                 <div className="text-xs space-y-1.5">
-                  <p className="text-slate-600 dark:text-slate-300">
-                    <strong className="text-slate-800 dark:text-slate-100">Mechanism: </strong>
+                  <p className="text-slate-600">
+                    <strong className="text-slate-800">How they interact: </strong>
                     {int.mechanism}
                   </p>
-                  <p className="text-slate-600 dark:text-slate-300">
-                    <strong className="text-slate-800 dark:text-slate-100">Clinical Effect: </strong>
+                  <p className="text-slate-600">
+                    <strong className="text-slate-800">Possible side effects: </strong>
                     {int.clinical_effect}
                   </p>
-                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700 text-teal-900 dark:text-teal-200">
-                    <strong className="text-slate-900 dark:text-white">Guideline Action: </strong>
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-teal-900">
+                    <strong className="text-slate-900">Recommended action: </strong>
                     {int.recommendation}
                   </div>
                 </div>

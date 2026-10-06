@@ -379,6 +379,17 @@ class OutbreakScanner:
                     "headline": alert.get("title", "")[:100],
                     "confidence": profile.get("_confidence", "low"),
                 })
+                # Real-time WebSocket broadcast to all connected clinical browser tabs
+                try:
+                    from app.api.v1.endpoints.ws import manager
+                    await manager.broadcast("dynamic_disease_discovered", {
+                        "disease_name": disease_name,
+                        "severity": profile.get("severity", "high"),
+                        "source": alert.get("source"),
+                        "headline": alert.get("title", "")[:100],
+                    })
+                except Exception as ex:
+                    log.debug("ws_outbreak_broadcast_skipped", error=str(ex))
 
     async def _fetch(self, name: str, url: str) -> List[dict]:
         """Fetch alerts from an RSS feed or REST API."""

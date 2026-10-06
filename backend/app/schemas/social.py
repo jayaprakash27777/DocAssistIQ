@@ -270,10 +270,12 @@ class DDICheckResponse(BaseModel):
 # ─── Doctor-to-Doctor Curbside Consult Messenger (Facebook Messenger Style) ───
 
 class CurbsideMessageCreate(BaseModel):
-    peer_doctor_id: str
+    peer_doctor_id: Optional[str] = None
+    receiver_id: Optional[uuid.UUID] = None
     content: str
     priority: str = "routine"  # routine | stat
     case_id: Optional[str] = None
+    post_id: Optional[uuid.UUID] = None
     has_voice_note: bool = False
     voice_duration: Optional[int] = None
 
@@ -284,12 +286,42 @@ class CurbsideMessageResponse(BaseModel):
     sender_name: str
     sender_specialty: str
     content: str
-    priority: str
+    priority: str = "routine"
     case_id: Optional[str] = None
     case_title: Optional[str] = None
+    post_id: Optional[str] = None
     has_voice_note: bool = False
     voice_duration: Optional[int] = None
     created_at: datetime
     is_read: bool = True
+
+
+
+class DoctorCircleResponse(BaseModel):
+    id: str
+    name: str
+    icon: str
+    specialty: str
+    description: str
+    member_count: int
+    weekly_cases_count: int
+    is_joined: bool
+    tags: List[str]
+
+
+class CMEEventResponse(BaseModel):
+    id: str
+    title: str
+    specialty: str
+    date: str
+    time: str
+    speaker: str
+    speaker_title: str
+    cme_credits: float
+    location: str
+    rsvp_count: int
+    is_attending: bool
+    topics: List[str]
+
 
 

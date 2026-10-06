@@ -27,7 +27,8 @@ import {
   ShieldCheck, Activity, Stethoscope, Pill, FlaskConical,
   RefreshCw, Info, CheckCircle2, Clock, Globe, ShieldAlert, MapPin,
   FileText, Download, Shield, Tag, AtSign, X, CheckCircle, ExternalLink,
-  ChevronRight, UserCheck, Calendar, FileBadge, Printer, FileCheck
+  ChevronRight, UserCheck, Calendar, FileBadge, Printer, FileCheck,
+  Calculator, HeartPulse, Scissors, Hospital, Scan, Home, FileCode
 } from "lucide-react";
 import {
   ragQuery,
@@ -43,40 +44,51 @@ import {
 } from "@/lib/api";
 import { useToast } from "@/components/shell/ToastProvider";
 import StateOutbreakRadar from "@/components/clinical/StateOutbreakRadar";
+import { printClinicalDocument, downloadClinicalDocument } from "@/lib/documentPrinting";
 
 // ── Constants ─────────────────────────────────────────────────────
 
 const QUICK_ASKS = [
-  { icon: Stethoscope, label: "Chest pain DDx", query: "What are the differential diagnoses for acute chest pain with radiation to left arm?" },
-  { icon: Pill, label: "Antibiotic choice", query: "What is the first-line antibiotic for community-acquired pneumonia in an adult without comorbidities?" },
-  { icon: FlaskConical, label: "Lab interpretation", query: "How do I interpret a high D-dimer with a normal troponin in a chest pain patient?" },
-  { icon: Activity, label: "ECG findings", query: "What are the ECG findings in ST-elevation myocardial infarction (STEMI)?" },
-  { icon: AlertTriangle, label: "Red flags", query: "What are the red flag symptoms in a patient presenting with headache that require urgent investigation?" },
-  { icon: Brain, label: "Neurological exam", query: "How do I assess for signs of meningitis on clinical examination?" },
+  { icon: AlertTriangle, label: "DKA Protocol", query: "What is the emergency management protocol for diabetic ketoacidosis (DKA)? Include fluid resuscitation, insulin, electrolyte replacement and monitoring." },
+  { icon: ShieldAlert, label: "Anaphylaxis Mx", query: "What is the immediate first-line management protocol for severe anaphylaxis? Include epinephrine dosing, airway management and monitoring." },
+  { icon: Clock, label: "Sepsis Hour-1", query: "What are the core steps of the Surviving Sepsis Campaign Hour-1 bundle? Include blood cultures, antibiotics, lactate and fluid resuscitation." },
+  { icon: Stethoscope, label: "Dengue Warning Signs", query: "What are the cardinal diagnostic symptoms and red-flag warning signs of dengue fever? When is ICU admission indicated?" },
+  { icon: Brain, label: "Stroke Thrombolysis", query: "What are the indications, contraindications and time windows for acute ischemic stroke thrombolysis with IV tPA?" },
+  { icon: HeartPulse, label: "STEMI Protocol", query: "What is the complete emergency management of STEMI? Include DAPT, anticoagulation, primary PCI timing and cardiogenic shock management." },
+  { icon: Activity, label: "PE Risk Assessment", query: "How do you risk-stratify pulmonary embolism using Well's score, PESI and troponin? When is thrombolysis indicated?" },
+  { icon: Calculator, label: "Calculate BMI", query: "Calculate BMI for 80kg 180cm" },
+  { icon: Activity, label: "Calculate MAP", query: "Calculate MAP for BP 130/85" },
+  { icon: FileText, label: "CURB-65 Score", query: "Calculate CURB-65 pneumonia severity score — explain each criterion and what score triggers ICU admission." },
+  { icon: HeartPulse, label: "CHA2DS2-VASc", query: "Calculate CHA2DS2-VASc stroke risk score in atrial fibrillation — when to anticoagulate?" },
+  { icon: Brain, label: "Glasgow Coma Scale", query: "What are the Glasgow Coma Scale (GCS) criteria and how do you grade traumatic brain injury severity?" },
+  { icon: Activity, label: "Normal Vitals by Age", query: "What are normal vital signs reference ranges by age group — neonate, infant, child, adolescent, adult, elderly?" },
+  { icon: Pill, label: "CAP Antibiotics", query: "What is the first-line antibiotic choice for community-acquired pneumonia in adults — outpatient vs inpatient vs ICU?" },
+  { icon: FlaskConical, label: "Hyperkalemia Tx", query: "What is the step-by-step emergency management of severe hyperkalemia? Include calcium, insulin-dextrose, salbutamol and dialysis indications." },
+  { icon: Stethoscope, label: "Hypertensive Crisis", query: "How do you differentiate hypertensive urgency vs emergency? What are the first-line IV agents and target BP reduction rates?" },
+  { icon: Brain, label: "Status Epilepticus", query: "What is the step-by-step emergency management of status epilepticus? Include benzodiazepine dosing and second-line agents." },
+  { icon: ShieldCheck, label: "Malaria Treatment", query: "What is the WHO-recommended treatment for severe Plasmodium falciparum malaria including IV artesunate dosing and complications management?" },
 ];
 
 const CONSULTATION_QUICK_ACTIONS = [
   { icon: FileText, label: "Discharge Summary", prompt: "Generate certified discharge summary with digital signature", color: "indigo" },
   { icon: Pill, label: "E-Prescription", prompt: "Generate official certified electronic prescription with digital signature", color: "emerald" },
   { icon: FileBadge, label: "Medical Certificate", prompt: "Generate official medical certificate for patient with digital signature", color: "purple" },
-  { icon: Activity, label: "Treatment Plan", prompt: "Generate comprehensive care and treatment plan document with digital signature", color: "emerald" },
-  { icon: UserCheck, label: "Patient Profile", prompt: "what is the patient profile and chronic conditions", color: "blue" },
-  { icon: Clock, label: "Audit Timeline", prompt: "what is the consultation timeline and audit history", color: "amber" },
+  { icon: Scissors, label: "Operative Note", prompt: "Generate official certified operative and surgical procedure report with digital signature", color: "rose" },
+  { icon: Hospital, label: "Triage & Transfer", prompt: "Generate emergency department triage and clinical transfer summary with digital signature", color: "amber" },
+  { icon: Scan, label: "Radiology Order", prompt: "Generate diagnostic radiology and clinical imaging requisition order with digital signature", color: "teal" },
+  { icon: Home, label: "Discharge Instructions", prompt: "Generate patient discharge instructions and home care guide with digital signature", color: "blue" },
+  { icon: FileCheck, label: "Doctor Note", prompt: "Generate comprehensive clinical consultation summary report with digital signature", color: "indigo" },
+  { icon: Activity, label: "Care Plan", prompt: "Generate comprehensive care and treatment plan document with digital signature", color: "emerald" },
   { icon: ExternalLink, label: "Referral Letter", prompt: "Generate specialist clinical referral letter with digital signature", color: "rose" },
   { icon: FlaskConical, label: "Lab Requisition", prompt: "Generate diagnostic and laboratory investigation requisition order with digital signature", color: "teal" },
-  { icon: FileText, label: "Profile Report", prompt: "Generate certified patient profile report with digital signature", color: "violet" },
-  { icon: ShieldCheck, label: "Timeline Certificate", prompt: "Generate certified encounter timeline certificate with digital signature", color: "cyan" },
+  { icon: UserCheck, label: "Patient Profile", prompt: "Generate certified patient profile report with digital signature", color: "violet" },
+  { icon: ShieldCheck, label: "Timeline Audit", prompt: "Generate certified encounter timeline certificate with digital signature", color: "cyan" },
+  { icon: Calculator, label: "Calculate BMI", prompt: "Calculate BMI for 80kg 180cm", color: "indigo" },
+  { icon: Activity, label: "Calculate MAP", prompt: "Calculate MAP for BP 130/85", color: "emerald" },
   { icon: UserCheck, label: "Assigned Doctor", prompt: "Who is the assigned doctor for this consultation?", color: "sky" },
-  { icon: Calendar, label: "Admission Date", prompt: "What is the encounter date, admission timestamp, and clinical status?", color: "orange" },
+  { icon: Calendar, label: "Encounter Details", prompt: "What is the encounter date, admission timestamp, and clinical status?", color: "orange" },
   { icon: Pill, label: "Medications", prompt: "What are the current medications and prescriptions?", color: "pink" },
   { icon: Stethoscope, label: "Differential Diagnosis", prompt: "What are the differential diagnoses and clinical findings for this patient?", color: "indigo" },
-];
-
-const LOADING_PHASES = [
-  { icon: Search, text: "Searching PubMed & clinical KB…" },
-  { icon: BookOpen, text: "Retrieving MedlinePlus evidence…" },
-  { icon: Activity, text: "Cross-referencing clinical data…" },
-  { icon: ShieldCheck, text: "Synthesizing answer…" },
 ];
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -425,9 +437,11 @@ function DiseaseCard({ data }: { data: DiseaseIntelligenceResponse }) {
 function ClinicalDocumentCard({
   doc,
   onPreview,
+  onAmend,
 }: {
   doc: GeneratedClinicalDocument;
   onPreview?: (doc: GeneratedClinicalDocument) => void;
+  onAmend?: (doc: GeneratedClinicalDocument) => void;
 }) {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [showSections, setShowSections] = useState(false);
@@ -436,26 +450,24 @@ function ClinicalDocumentCard({
   const handleDownload = async (format: "pdf" | "docx") => {
     try {
       setDownloading(format);
-      const url = format === "pdf" ? doc.pdf_download_url : doc.docx_download_url;
-      const rawUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const fullUrl = url.startsWith("http") ? url : `${rawUrl.replace(/\/api\/v1\/?$/, "")}${url.startsWith("/") ? "" : "/"}${url}`;
-
-      const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-      const res = await fetch(fullUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      const cleanDocType = doc.document_type.replace(/_/g, "-");
-      a.download = `${cleanDocType}_${doc.patient?.patient_ref || "patient"}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(blobUrl);
-      toast.success(`${cleanDocType} downloaded successfully`);
+      const cid = doc.consultation_id || (doc.pdf_download_url ? doc.pdf_download_url.split("/consultations/")[1]?.split("/")[0] : "");
+      const res = await downloadClinicalDocument(
+        cid,
+        doc.document_type,
+        format,
+        doc.patient?.patient_ref
+      );
+      if (res.success) {
+        const cleanDocType = doc.document_type.replace(/_/g, " ").toUpperCase();
+        toast.success(`${cleanDocType} downloaded as ${format.toUpperCase()} successfully`);
+      } else {
+        if (format === "pdf") {
+          toast.info("Generating instant print & PDF dialog...");
+          printClinicalDocument(doc);
+        } else {
+          toast.error(`Download error: ${res.error || "Could not retrieve document"}`);
+        }
+      }
     } catch (e: any) {
       toast.error(`Download failed: ${e.message || "Unknown error"}`);
     } finally {
@@ -571,10 +583,10 @@ function ClinicalDocumentCard({
         </div>
       </div>
 
-      {/* Action Download & Preview Buttons */}
-      <div className="px-4 py-3 bg-white flex flex-wrap items-center justify-between gap-2">
+      {/* Action Download, Print & Preview Buttons */}
+      <div className="px-4 py-3 bg-white flex flex-wrap items-center justify-between gap-2 border-t border-slate-100">
         <span className="text-[11px] text-slate-500 font-medium">Certified clinical document:</span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {onPreview && (
             <button
               type="button"
@@ -585,6 +597,28 @@ function ClinicalDocumentCard({
               Preview Document
             </button>
           )}
+
+          {onAmend && (
+            <button
+              type="button"
+              onClick={() => onAmend(doc)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-all cursor-pointer shadow-2xs active:scale-95"
+              title="Amend or refine this document with clinical updates"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-purple-600" />
+              <span>Amend / Refine</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => printClinicalDocument(doc)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 transition-all cursor-pointer shadow-2xs active:scale-95"
+            title="Print certified document directly"
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-600" />
+            <span>Print</span>
+          </button>
 
           <button
             type="button"
@@ -632,9 +666,11 @@ function ClinicalDocumentCard({
 function AssistantMessage({
   msg,
   onPreview,
+  onAmend,
 }: {
   msg: Message;
   onPreview?: (doc: GeneratedClinicalDocument) => void;
+  onAmend?: (doc: GeneratedClinicalDocument) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [showCitations, setShowCitations] = useState(false);
@@ -711,7 +747,13 @@ function AssistantMessage({
           <FormattedClinicalContent content={msg.content} />
 
           {/* Generated Clinical Document Card */}
-          {msg.generatedDocument && <ClinicalDocumentCard doc={msg.generatedDocument} onPreview={onPreview} />}
+          {msg.generatedDocument && (
+            <ClinicalDocumentCard
+              doc={msg.generatedDocument}
+              onPreview={onPreview}
+              onAmend={onAmend}
+            />
+          )}
 
           {/* Disease data card */}
           {disease && <DiseaseCard data={disease} />}
@@ -820,26 +862,24 @@ function DocumentPreviewModal({
   const handleDownload = async (format: "pdf" | "docx") => {
     try {
       setDownloading(format);
-      const url = format === "pdf" ? doc.pdf_download_url : doc.docx_download_url;
-      const rawUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const fullUrl = url.startsWith("http") ? url : `${rawUrl.replace(/\/api\/v1\/?$/, "")}${url.startsWith("/") ? "" : "/"}${url}`;
-
-      const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-      const res = await fetch(fullUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      const cleanDocType = doc.document_type.replace(/_/g, "-");
-      a.download = `${cleanDocType}_${doc.patient?.patient_ref || "patient"}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(blobUrl);
-      toast.success(`${cleanDocType} downloaded successfully`);
+      const cid = doc.consultation_id || (doc.pdf_download_url ? doc.pdf_download_url.split("/consultations/")[1]?.split("/")[0] : "");
+      const res = await downloadClinicalDocument(
+        cid,
+        doc.document_type,
+        format,
+        doc.patient?.patient_ref
+      );
+      if (res.success) {
+        const cleanDocType = doc.document_type.replace(/_/g, " ").toUpperCase();
+        toast.success(`${cleanDocType} downloaded as ${format.toUpperCase()} successfully`);
+      } else {
+        if (format === "pdf") {
+          toast.info("Opening instant print dialog...");
+          printClinicalDocument(doc);
+        } else {
+          toast.error(`Download error: ${res.error || "Could not retrieve document"}`);
+        }
+      }
     } catch (e: any) {
       toast.error(`Download failed: ${e.message || "Unknown error"}`);
     } finally {
@@ -848,7 +888,7 @@ function DocumentPreviewModal({
   };
 
   const handlePrint = () => {
-    window.print();
+    printClinicalDocument(doc);
   };
 
   useEffect(() => {
@@ -864,30 +904,6 @@ function DocumentPreviewModal({
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-xs p-4 overflow-y-auto cursor-pointer"
     >
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #clinical-document-paper, #clinical-document-paper * {
-            visibility: visible !important;
-          }
-          #clinical-document-paper {
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            padding: 24px !important;
-            margin: 0 !important;
-            box-shadow: none !important;
-            border: none !important;
-            background: white !important;
-            color: black !important;
-            z-index: 999999 !important;
-          }
-        }
-      `}</style>
       <motion.div
         onClick={(e) => e.stopPropagation()}
         initial={{ opacity: 0, scale: 0.95 }}
@@ -1108,21 +1124,12 @@ function ConsultationDocumentsModal({
   const handleDownload = async (docType: string, format: "pdf" | "docx") => {
     try {
       setDownloading(`${docType}-${format}`);
-      const rawUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const rootUrl = rawUrl.replace(/\/api\/v1\/?$/, "");
-      const downloadEndpoint = `${rootUrl}/api/v1/clinical-documents/export/${encodeURIComponent(consultationId)}/${encodeURIComponent(docType)}/${format}`;
-      const res = await fetch(downloadEndpoint);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = `${docType}_${consultationId.slice(0, 8)}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(blobUrl);
-      toast.success(`${docType.replace(/_/g, " ")} downloaded successfully`);
+      const res = await downloadClinicalDocument(consultationId, docType, format);
+      if (res.success) {
+        toast.success(`${docType.replace(/_/g, " ")} downloaded successfully`);
+      } else {
+        toast.error(`Download failed: ${res.error || "Unknown error"}`);
+      }
     } catch (e: any) {
       toast.error(`Download failed: ${e.message || "Unknown error"}`);
     } finally {
@@ -1645,65 +1652,66 @@ function PatientSnapshotBar({
   const allergies = p?.allergies || [];
 
   return (
-    <div className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-indigo-50/90 via-white to-slate-50 border border-indigo-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+    <div className="w-full px-4 py-2.5 rounded-2xl bg-white border border-indigo-200/80 shadow-2xs flex items-center justify-between gap-3 text-xs">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
           <Tag className="w-4 h-4" />
         </div>
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-mono font-bold text-indigo-900 bg-indigo-100/70 px-2 py-0.5 rounded text-xs">
+            <span className="font-mono font-bold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-100">
               {p?.patient_ref || `@${taggedConsultation.id.slice(0, 8)}`}
             </span>
             <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
               {timelineSummary?.status || taggedConsultation.status || "Active"}
             </span>
-            <span className="text-slate-500 text-[11px]">
-              Age: <strong>{p?.age_group || "Adult"}</strong> • Sex: <strong>{p?.biological_sex || "Not specified"}</strong>
+            <span className="text-slate-500 text-[11px] hidden sm:inline">
+              Age: <strong className="text-slate-700">{p?.age_group || "Adult"}</strong> • Sex: <strong className="text-slate-700">{p?.biological_sex || "Not specified"}</strong>
             </span>
+            {d?.full_name && (
+              <span className="text-[11px] text-slate-500 hidden md:inline truncate max-w-[180px]">
+                • Dr: <strong className="text-slate-700">{d.full_name.startsWith("Dr.") ? d.full_name : `Dr. ${d.full_name}`}</strong>
+              </span>
+            )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-            {chronic.slice(0, 3).map((c: string, i: number) => (
-              <span key={i} className="text-[10px] font-medium px-2 py-0.2 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+          <div className="flex items-center gap-1.5 mt-1 overflow-hidden">
+            {chronic.slice(0, 2).map((c: string, i: number) => (
+              <span key={i} className="text-[10px] font-medium px-2 py-0.2 rounded-md bg-slate-100 text-slate-700 border border-slate-200 truncate max-w-[140px]">
                 {c}
               </span>
             ))}
             {allergies.length > 0 && (
-              <span className="text-[10px] font-bold px-2 py-0.2 rounded-md bg-rose-50 text-rose-700 border border-rose-200">
+              <span className="text-[10px] font-bold px-2 py-0.2 rounded-md bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
                 Allergy: {allergies[0]}
-              </span>
-            )}
-            {d?.full_name && (
-              <span className="text-[10px] text-slate-500 ml-1">
-                Doctor: {d.full_name.startsWith("Dr.") ? d.full_name : `Dr. ${d.full_name}`} {d.specialty ? `(${d.specialty})` : ""}
               </span>
             )}
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={onOpenProfile}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition-all cursor-pointer shadow-2xs"
         >
           <UserCheck className="w-3.5 h-3.5 text-indigo-600" />
-          Patient Profile
+          <span className="hidden sm:inline">Patient Profile</span>
+          <span className="sm:hidden">Profile</span>
         </button>
         <button
           onClick={onOpenTimeline}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition-all cursor-pointer shadow-2xs"
         >
           <Clock className="w-3.5 h-3.5 text-amber-600" />
-          Timeline ({timelineSummary?.audit_events?.length || 0})
+          <span className="hidden sm:inline">Timeline</span> ({timelineSummary?.audit_events?.length || 0})
         </button>
         <button
           onClick={onOpenDocuments}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition-all cursor-pointer shadow-2xs"
         >
           <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
-          Documents ({documentsCount})
+          <span className="hidden sm:inline">Documents</span> ({documentsCount})
         </button>
         <button
           onClick={onClearTag}
@@ -1725,7 +1733,7 @@ function AIPageContent() {
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingPhase, setLoadingPhase] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const [isLongRunning, setIsLongRunning] = useState(false);
   const [mode, setMode] = useState<QueryMode>(() => {
     const tabParam = searchParams.get("tab") || searchParams.get("mode");
@@ -1746,6 +1754,7 @@ function AIPageContent() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [consultationDocs, setConsultationDocs] = useState<VerifiedDocumentRecord[]>([]);
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  const [showQuickPrompts, setShowQuickPrompts] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -1773,15 +1782,24 @@ function AIPageContent() {
     }
   }, [searchParams]);
 
-  // Auto-tag consultation if URL param contains consultation_id or cid
+  // Auto-tag consultation if URL param contains consultation_id, cid, or patient_ref
   useEffect(() => {
     const cid = searchParams.get("consultation_id") || searchParams.get("cid");
+    const patientRef = searchParams.get("patient_ref");
     if (cid) {
       const match = allConsultations.find(c => c.id === cid);
       if (match) {
         setTaggedConsultation(match);
       } else {
         setTaggedConsultation({ id: cid, status: "active" });
+      }
+    } else if (patientRef && allConsultations.length > 0) {
+      const match = allConsultations.find(
+        c => (c.patient_ref && c.patient_ref.toLowerCase() === patientRef.toLowerCase()) ||
+             (c.patient_id && c.patient_id.toLowerCase() === patientRef.toLowerCase())
+      );
+      if (match) {
+        setTaggedConsultation(match);
       }
     }
   }, [searchParams, allConsultations]);
@@ -1842,13 +1860,14 @@ function AIPageContent() {
     return () => clearTimeout(timer);
   }, [loading]);
 
-  // Loading phase animation
+  // Real-time elapsed stopwatch during live query execution
   useEffect(() => {
     if (!loading) return;
-    setLoadingPhase(0);
+    setElapsedMs(0);
+    const start = performance.now();
     const interval = setInterval(() => {
-      setLoadingPhase(prev => (prev < LOADING_PHASES.length - 1 ? prev + 1 : prev));
-    }, 1800);
+      setElapsedMs(Math.round(performance.now() - start));
+    }, 50);
     return () => clearInterval(interval);
   }, [loading]);
 
@@ -1984,7 +2003,7 @@ function AIPageContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: qText, top_k: 5 }),
-        signal: AbortSignal.timeout(90000),
+        signal: AbortSignal.timeout(180000),
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       return resp.json();
@@ -2032,7 +2051,14 @@ function AIPageContent() {
               insufficient_evidence: false,
               fallback_used: aiData.fallback_used || false,
             },
+            generatedDocument: aiData.generated_document,
+            consultationId: aiData.consultation_id || activeCid,
           });
+          if (aiData.generated_document && activeCid) {
+            listDocumentsForConsultation(activeCid).then((r) => {
+              if (r.ok && r.data?.documents) setConsultationDocs(r.data.documents);
+            }).catch(() => {});
+          }
         } catch {
           // Fallback to authenticated RAG
           const res = await ragQuery({ query: trimmed, top_k: 5, filters: { only_approved: false } });
@@ -2056,8 +2082,6 @@ function AIPageContent() {
       handleSubmit(query);
     }
   }, [query, handleSubmit]);
-
-  const PhaseIcon = LOADING_PHASES[loadingPhase].icon;
 
   const filteredMentionConsultations = allConsultations.filter(c => {
     if (!mentionFilter) return true;
@@ -2177,7 +2201,7 @@ function AIPageContent() {
       )}
 
       {/* ── Chat / Outbreak Content area ────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-52 space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6 space-y-6">
         {mode === "outbreaks" ? (
           <StateOutbreakRadar
             onSelectOutbreakForDiagnosis={(queryText) => {
@@ -2192,45 +2216,42 @@ function AIPageContent() {
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4"
+                className="flex flex-col items-center justify-center min-h-[55vh] text-center px-4"
               >
                 <motion.div
-                  animate={{ y: [0, -6, 0] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6"
+                  animate={{ 
+                    y: [0, -8, 0],
+                    rotate: [0, 5, -5, 0],
+                  }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  className="w-20 h-20 rounded-3xl flex items-center justify-center mb-5"
                   style={{
-                    background: "linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)",
-                    border: "1px solid rgba(99,102,241,0.15)",
-                    boxShadow: "0 8px 32px rgba(99,102,241,0.12)",
+                    background: "linear-gradient(135deg, #eef2ff 0%, #faf5ff 50%, #eff6ff 100%)",
+                    border: "1.5px solid rgba(99,102,241,0.2)",
+                    boxShadow: "0 12px 40px rgba(99,102,241,0.15), 0 4px 16px rgba(99,102,241,0.08)",
                   }}
                 >
-                  <Brain className="w-9 h-9 text-indigo-500" />
+                  <Brain className="w-10 h-10 text-indigo-500" />
                 </motion.div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-2">DocAssist IQ AI</h2>
+                <div className="flex items-center gap-2 mb-2">
+                  <h2 className="text-2xl font-bold text-slate-800">DocAssist IQ</h2>
+                  <span
+                    className="text-xs font-bold px-2.5 py-1 rounded-full"
+                    style={{
+                      background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                      color: "white",
+                      fontSize: "10px",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    GOD-LEVEL AI
+                  </span>
+                </div>
 
                 {taggedConsultation ? (
                   <div className="w-full max-w-2xl flex flex-col items-center">
-                    <div className="mb-6 p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 text-left w-full shadow-xs">
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <div className="flex items-center gap-2">
-                          <Tag className="w-4 h-4 text-indigo-600" />
-                          <span className="text-sm font-bold text-indigo-950">
-                            Active Encounter: <span className="font-mono text-indigo-700">@{taggedConsultation.id.slice(0, 8)}...</span>
-                          </span>
-                        </div>
-                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
-                          taggedConsultation.status === "completed" ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
-                        }`}>
-                          {taggedConsultation.status || "active"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600 line-clamp-2">
-                        {taggedConsultation.input_preview || "Real-time encounter record linked. Ready for clinical inquiries and signed documents."}
-                      </p>
-                    </div>
-
                     <p className="text-xs text-slate-500 mb-4 font-semibold uppercase tracking-wider">
-                      Encounter Quick Actions & Certified Documents
+                      Encounter Quick Inquiries &amp; Certified Documents
                     </p>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 w-full">
@@ -2256,10 +2277,10 @@ function AIPageContent() {
                   </div>
                 ) : (
                   <>
-                    <p className="text-sm text-slate-500 mb-6 max-w-md leading-relaxed">
+                    <p className="text-sm text-slate-500 mb-6 max-w-lg leading-relaxed">
                       {mode === "rag"
-                        ? "Ask clinical questions, or tag an encounter with @[Consultation ID] to generate certified Discharge Summaries, Medical Certificates, and inquire about patient details."
-                        : "Enter a disease name to get a full 20+ field clinical intelligence profile."}
+                        ? "Ask any clinical question — protocols, pharmacology, scores, differentials, or patient management. I am trained to handle any medical specialty without restrictions."
+                        : "Enter a disease name to get a full clinical intelligence profile with treatment protocols, investigations, red flags, and evidence-based guidelines."}
                     </p>
 
                     {/* Tag consultation CTA button */}
@@ -2351,7 +2372,18 @@ function AIPageContent() {
                     </motion.div>
                   );
                 }
-                return <AssistantMessage key={msg.id} msg={msg} onPreview={setPreviewDoc} />;
+                return (
+                  <AssistantMessage
+                    key={msg.id}
+                    msg={msg}
+                    onPreview={setPreviewDoc}
+                    onAmend={(docToAmend) => {
+                      const docName = docToAmend.title || docToAmend.document_type.replace(/_/g, " ");
+                      setQuery(`Update the ${docName} to include: `);
+                      inputRef.current?.focus();
+                    }}
+                  />
+                );
               })}
             </AnimatePresence>
 
@@ -2369,35 +2401,32 @@ function AIPageContent() {
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
                 <div
-                  className="rounded-2xl px-4 py-3 flex items-center gap-3"
-                  style={{ background: "rgba(255,255,255,0.9)", border: "1px solid rgba(0,0,0,0.08)" }}
+                  className="rounded-2xl px-4 py-3 flex items-center gap-3 relative overflow-hidden"
+                  style={{ background: "rgba(255,255,255,0.95)", border: "1px solid rgba(0,0,0,0.08)" }}
                 >
-                  <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                  <Loader2 className="w-4 h-4 animate-spin text-indigo-500 shrink-0" />
                   <div>
-                    <AnimatePresence mode="wait">
-                      <motion.span
-                        key={loadingPhase}
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        className="text-sm font-medium text-slate-600 flex items-center gap-2"
-                      >
-                        <PhaseIcon className="w-3.5 h-3.5 text-indigo-400" />
-                        {LOADING_PHASES[loadingPhase].text}
-                      </motion.span>
-                    </AnimatePresence>
-                    <div className="flex gap-1 mt-1.5">
-                      {LOADING_PHASES.map((_, i) => (
-                        <div
-                          key={i}
-                          className="h-1 rounded-full transition-all duration-500"
-                          style={{
-                            width: i <= loadingPhase ? "24px" : "8px",
-                            background: i <= loadingPhase ? "#4f46e5" : "#e2e8f0",
-                          }}
-                        />
-                      ))}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5 text-indigo-500" />
+                        {mode === "disease"
+                          ? "Executing Real-Time Disease Intelligence Analysis…"
+                          : "Querying Vector Knowledge Base & Evidence Synthesis…"}
+                      </span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-mono font-semibold border border-indigo-200">
+                        {(elapsedMs / 1000).toFixed(1)}s
+                      </span>
                     </div>
+
+                    <div className="w-48 h-1 bg-slate-100 rounded-full overflow-hidden mt-2 relative">
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-teal-400 rounded-full"
+                        animate={{ x: ["-100%", "100%"] }}
+                        transition={{ repeat: Infinity, duration: 1.4, ease: "easeInOut" }}
+                        style={{ width: "60%" }}
+                      />
+                    </div>
+
                     {isLongRunning && (
                       <motion.p
                         initial={{ opacity: 0, y: 3 }}
@@ -2420,71 +2449,49 @@ function AIPageContent() {
       {/* ── Input bar & Floating Autocomplete ───────────────── */}
       {mode !== "outbreaks" && (
         <div
-          className="px-4 py-4 shrink-0 relative"
+          className="px-4 py-3 shrink-0 relative"
           style={{
-            background: "rgba(248,250,252,0.95)",
+            background: "rgba(248,250,252,0.98)",
             backdropFilter: "blur(20px)",
-            borderTop: "1px solid rgba(0,0,0,0.07)",
+            borderTop: "1px solid rgba(0,0,0,0.08)",
           }}
         >
-          {/* Active Tagged Consultation Bar */}
-          {taggedConsultation && (
-            <div className="mb-2 px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-50 via-white to-purple-50 border border-indigo-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <Tag className="w-3.5 h-3.5 text-white" />
+          {/* Floating Quick Prompts Popover (Floats ABOVE input, NEVER permanently blocks chat) */}
+          {taggedConsultation && showQuickPrompts && (
+            <div className="absolute bottom-full mb-3 left-4 right-4 bg-white/95 backdrop-blur-xl border border-indigo-200 rounded-2xl shadow-2xl p-3 z-30 max-h-64 overflow-y-auto">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 px-1">
+                <div className="flex items-center gap-2 text-xs font-bold text-indigo-900">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Encounter Quick Prompts &amp; Certified Documents</span>
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-indigo-950">
-                      Encounter: <span className="font-mono text-indigo-700">@{taggedConsultation.id.slice(0, 8)}...</span>
-                    </span>
-                    <span className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded-full ${
-                      taggedConsultation.status === "completed" ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
-                    }`}>
-                      {taggedConsultation.status || "active"}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 truncate max-w-md">
-                    {taggedConsultation.input_preview || "Live encounter linked. Click quick actions or ask clinical questions."}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
-                  onClick={handleClearTag}
-                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                  title="Untag consultation"
+                  onClick={() => setShowQuickPrompts(false)}
+                  className="text-slate-400 hover:text-slate-600 text-xs p-1 rounded cursor-pointer"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Quick Action Pills when Tagged */}
-          {taggedConsultation && (
-            <div className="mb-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-indigo-500" /> Actions:
-              </span>
-              {CONSULTATION_QUICK_ACTIONS.map((action, i) => {
-                const Icon = action.icon;
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => handleSubmit(action.prompt)}
-                    disabled={loading}
-                    className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-900 transition-all shadow-2xs flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer"
-                  >
-                    <Icon className="w-3 h-3 text-indigo-600" />
-                    {action.label}
-                  </button>
-                );
-              })}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                {CONSULTATION_QUICK_ACTIONS.map((action, i) => {
+                  const Icon = action.icon;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setShowQuickPrompts(false);
+                        handleSubmit(action.prompt);
+                      }}
+                      disabled={loading}
+                      className="p-2 rounded-xl text-left text-xs font-semibold bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-900 transition-all flex items-center gap-1.5 cursor-pointer truncate"
+                    >
+                      <Icon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <span className="truncate">{action.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -2550,31 +2557,42 @@ function AIPageContent() {
           )}
 
           {/* Safety disclaimer */}
-          <p className="text-center text-[10px] text-slate-400 mb-2 font-medium uppercase tracking-wide">
+          <p className="text-center text-[10px] text-slate-400 mb-1.5 font-medium uppercase tracking-wide">
             ⚕️ AI suggestions require clinician review — not a substitute for professional judgement
           </p>
 
           <div
-            className="flex items-end gap-2.5 rounded-2xl p-2.5"
+            className="flex items-end gap-2 rounded-2xl p-2"
             style={{
               background: "#fff",
               border: "1.5px solid rgba(79,70,229,0.2)",
               boxShadow: "0 0 0 4px rgba(79,70,229,0.05), 0 4px 16px rgba(0,0,0,0.06)",
             }}
           >
-            {/* Tag picker button inside input */}
-            <button
-              type="button"
-              onClick={() => setShowTagModal(true)}
-              title="Tag or change consultation encounter"
-              className={`p-2 rounded-xl transition-all flex items-center justify-center shrink-0 cursor-pointer ${
-                taggedConsultation
-                  ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                  : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
-              }`}
-            >
-              <AtSign className="w-4 h-4" />
-            </button>
+            {/* Tag chip or Tag button inside input */}
+            {taggedConsultation ? (
+              <div className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-mono font-bold shrink-0 shadow-2xs">
+                <Tag className="w-3.5 h-3.5 text-indigo-600" />
+                <span>@{taggedConsultation.id.slice(0, 8)}</span>
+                <button
+                  type="button"
+                  onClick={handleClearTag}
+                  className="text-slate-400 hover:text-rose-600 ml-0.5 p-0.5 rounded cursor-pointer transition-colors"
+                  title="Untag consultation"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowTagModal(true)}
+                title="Tag or change consultation encounter"
+                className="p-2.5 rounded-xl transition-all flex items-center justify-center shrink-0 cursor-pointer bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+              >
+                <AtSign className="w-4 h-4" />
+              </button>
+            )}
 
             <textarea
               ref={inputRef}
@@ -2590,7 +2608,7 @@ function AIPageContent() {
                   ? "Ask a clinical question or type @ to tag a consultation… (e.g. @a994e... or What causes STEMI?)"
                   : "Enter a disease name… (e.g. Tuberculosis, Dengue fever, STEMI)"
               }
-              className="flex-1 resize-none outline-none text-sm text-slate-800 placeholder-slate-400 bg-transparent leading-relaxed"
+              className="flex-1 resize-none outline-none text-sm text-slate-800 placeholder-slate-400 bg-transparent leading-relaxed py-1.5"
               style={{ maxHeight: "120px", minHeight: "24px" }}
               onInput={e => {
                 const el = e.currentTarget;
@@ -2598,6 +2616,20 @@ function AIPageContent() {
                 el.style.height = Math.min(el.scrollHeight, 120) + "px";
               }}
             />
+
+            {taggedConsultation && (
+              <button
+                type="button"
+                onClick={() => setShowQuickPrompts(!showQuickPrompts)}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 shadow-2xs transition-all shrink-0 cursor-pointer"
+                title="Toggle quick consultation prompts"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="hidden sm:inline">Prompts</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showQuickPrompts ? "rotate-180" : ""}`} />
+              </button>
+            )}
+
             <motion.button
               whileTap={{ opacity: 0.9 }}
               whileHover={{ y: -1 }}

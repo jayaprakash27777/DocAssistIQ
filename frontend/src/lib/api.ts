@@ -430,14 +430,24 @@ export interface ConsultationResponse {
   id: string;
   doctor_id: string;
   patient_session_id: string | null;
+  patient_profile_id?: string | null;
+  patient_id?: string | null;
+  patient_ref?: string | null;
+  patient_demographics?: {
+    age_group?: string | null;
+    biological_sex?: string | null;
+    baseline_conditions?: Record<string, any>;
+  } | null;
   status: string;
   input_text: string;
+  input_preview?: string | null;
   created_at: string;
   updated_at: string;
   findings: ClinicalFindingResponse[];
 }
 
 export interface ConsultationCreateRequest {
+  patient_id?: string | null;
   patient_session_id?: string | null;
   input_text?: string;
 }
@@ -453,6 +463,13 @@ export interface ConsultationSummary {
   is_placeholder: boolean;
   input_preview: string;
   created_at: string;
+  patient_id?: string | null;
+  patient_ref?: string | null;
+  patient_demographics?: {
+    age_group?: string | null;
+    biological_sex?: string | null;
+    baseline_conditions?: Record<string, any>;
+  } | null;
 }
 
 export interface SimilarCaseResponse {
@@ -1519,6 +1536,7 @@ export interface GeneratedClinicalDocument {
   title: string;
   subtitle: string;
   document_id: string;
+  consultation_id?: string;
   formatted_date: string;
   leave_period?: string;
   patient: {
@@ -1663,8 +1681,64 @@ export interface ClinicalNoteResponse {
 }
 
 export interface ClinicalNoteUpdate {
-  body: Record<string, NoteSection>;
+  body: Record<string, NoteSection | any>;
   version: number;
+}
+
+export interface NotePatientEncounterHeader {
+  patient_name: string;
+  mrn_uhid: string;
+  dob_age: string;
+  sex: string;
+  age_sex: string;
+  date_of_admission: string;
+  date_of_discharge: string;
+  encounter_type: string;
+  ward_unit: string;
+  attending_consultant: string;
+  author: string;
+  date_time_of_note: string;
+  chief_complaint: string;
+}
+
+export interface NoteTimelineMilestone {
+  id: string;
+  timestamp: string;
+  stage: string;
+  event: string;
+  findings: string;
+  actions: string;
+  response: string;
+  source: "clinician" | "ai_decision_support";
+}
+
+export interface NoteInvestigationItem {
+  id: string;
+  name: string;
+  category: string;
+  priority: "STAT" | "Urgent" | "Routine" | string;
+  status: "Ordered" | "Specimen Collected" | "In-Progress" | "Reported" | "Pending" | string;
+  ordered_at: string;
+  reported_at: string | null;
+  result: string;
+  flag: "Normal" | "Abnormal" | "Critical" | "Pending" | string;
+  rationale?: string;
+  source?: string;
+}
+
+export interface NoteDifferentialCandidate {
+  id: string;
+  disease: string;
+  score: number;
+  display_score: string;
+  tier: "Primary Consideration" | "Secondary Differential" | "Rule Out Consideration" | string;
+  rationale: string;
+  supporting_findings: string[];
+  contradicting_findings: string[];
+  recommended_tests: string[];
+  first_line_treatment: string;
+  clinician_status: "suggested" | "accepted" | "rejected" | "ruled_out" | string;
+  clinician_comment?: string | null;
 }
 
 export async function getClinicalNote(
@@ -1686,6 +1760,76 @@ export async function updateClinicalNote(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     },
+  );
+}
+
+export async function orderInvestigationInNote(
+  consultation_id: string,
+  payload: { name: string; category?: string; priority?: string; rationale?: string }
+): Promise<ApiResult<ClinicalNoteResponse>> {
+  return authedFetch<ClinicalNoteResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/investigations/order`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function recordInvestigationResultInNote(
+  consultation_id: string,
+  investigation_id: string,
+  payload: { result: string; flag?: string; reported_at?: string }
+): Promise<ApiResult<ClinicalNoteResponse>> {
+  return authedFetch<ClinicalNoteResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/investigations/${investigation_id}/result`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function performDifferentialActionInNote(
+  consultation_id: string,
+  candidate_id: string,
+  payload: { action: "accept" | "reject" | "rule_out"; comment?: string }
+): Promise<ApiResult<ClinicalNoteResponse>> {
+  return authedFetch<ClinicalNoteResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/differential/${candidate_id}/action`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function rerunDifferentialInNote(
+  consultation_id: string
+): Promise<ApiResult<ClinicalNoteResponse>> {
+  return authedFetch<ClinicalNoteResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/differential/rerun`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+}
+
+export async function generateConsultationNote(
+  consultation_id: string,
+  payload?: { transcript_text?: string; transcript_segments?: any[] }
+): Promise<ApiResult<ClinicalNoteResponse>> {
+  return authedFetch<ClinicalNoteResponse>(
+    `${BASE_URL}/api/v1/consultations/${consultation_id}/notes/generate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    }
   );
 }
 
@@ -2161,6 +2305,8 @@ export interface PatientSessionResponse {
   encounter_type: string;
   status: string;
   clinical_notes_summary?: string | null;
+  consultation_id?: string | null;
+  created_at?: string | null;
 }
 
 export interface PatientProfileResponse {
@@ -2659,6 +2805,30 @@ export async function listDocumentsForPatient(
   return authedFetch<{ patient_ref: string; total: number; documents: VerifiedDocumentRecord[] }>(
     `${BASE_URL}/api/v1/documents/patient/${encodeURIComponent(patientRef)}`,
   );
+}
+
+export async function getRecentVerifiedDocuments(
+  limit: number = 50,
+): Promise<ApiResult<{ total: number; documents: VerifiedDocumentRecord[] }>> {
+  return fetchWithTimeout<{ total: number; documents: VerifiedDocumentRecord[] }>(
+    `${BASE_URL}/api/v1/documents/registry/recent?limit=${limit}`,
+  );
+}
+
+export async function getRegistryStats(): Promise<
+  ApiResult<{
+    total_registered: number;
+    verified_valid: number;
+    integrity_rate: string;
+    by_document_type: Record<string, number>;
+  }>
+> {
+  return fetchWithTimeout<{
+    total_registered: number;
+    verified_valid: number;
+    integrity_rate: string;
+    by_document_type: Record<string, number>;
+  }>(`${BASE_URL}/api/v1/documents/registry/stats`);
 }
 
 

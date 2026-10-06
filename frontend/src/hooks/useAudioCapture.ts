@@ -19,7 +19,12 @@ export type AudioCaptureState =
   | "processing" 
   | "unavailable";
 
-export function useAudioCapture() {
+export interface AudioCaptureOptions {
+  timesliceMs?: number;
+  onAudioChunk?: (base64Chunk: string, rawBlob: Blob) => void;
+}
+
+export function useAudioCapture(options?: AudioCaptureOptions) {
   const [state, setState] = useState<AudioCaptureState>("idle");
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -28,6 +33,9 @@ export function useAudioCapture() {
   const [isSilent, setIsSilent] = useState<boolean>(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [speechPreview, setSpeechPreview] = useState<string>("");
+
+  const optionsRef = useRef<AudioCaptureOptions | undefined>(options);
+  optionsRef.current = options;
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -239,10 +247,22 @@ export function useAudioCapture() {
         stop();
       };
 
-      // Accumulate audio chunks locally for post-consultation transcription batch
+      // Accumulate audio chunks locally and stream in real time to WebSocket
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
           recordedChunksRef.current.push(e.data);
+
+          if (optionsRef.current?.onAudioChunk) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const res = reader.result as string;
+              if (res) {
+                const b64 = res.includes(",") ? res.split(",")[1] : res;
+                optionsRef.current?.onAudioChunk?.(b64, e.data);
+              }
+            };
+            reader.readAsDataURL(e.data);
+          }
         }
       };
 
@@ -256,8 +276,8 @@ export function useAudioCapture() {
         setState("processing");
       };
 
-      // Record chunks every 3 seconds for safe memory buffering
-      recorder.start(3000); 
+      // Stream chunks every 1 second (1000ms) for sub-second real-time ASR streaming
+      recorder.start(optionsRef.current?.timesliceMs || 1000); 
       
     } catch (err: any) {
       console.error("Audio capture error:", err);

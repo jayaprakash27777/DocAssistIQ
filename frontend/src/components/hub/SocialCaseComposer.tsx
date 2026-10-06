@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { QuotedPostSummary, DoctorPost } from "@/types/social";
-import { getStoredToken } from "@/lib/api";
+import { getStoredToken, uploadFile } from "@/lib/api";
+import { useToast } from "@/components/shell/ToastProvider";
 
 interface SocialCaseComposerProps {
   onClose: () => void;
@@ -35,6 +36,7 @@ export function SocialCaseComposer({
   quotedPost,
   onClearQuote,
 }: SocialCaseComposerProps) {
+  const { toast } = useToast();
   const [diseaseName, setDiseaseName] = useState("");
   const [clinicalFindings, setClinicalFindings] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
@@ -58,6 +60,7 @@ export function SocialCaseComposer({
     sanitized = sanitized.replace(/\b\d{10}\b/g, "[PHONE-REDACTED]");
     sanitized = sanitized.replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, "[DATE]");
     setClinicalFindings(sanitized);
+    toast.info("HIPAA Safe Harbor scrub applied: Patient identifiers redacted.");
   };
 
   const handleAddPollOption = () => {
@@ -81,6 +84,7 @@ export function SocialCaseComposer({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!diseaseName.trim() || !clinicalFindings.trim() || !diagnosis.trim() || !treatmentPlan.trim()) {
+      toast.info("Please fill in disease name, clinical findings, diagnosis, and treatment plan.");
       return;
     }
 
@@ -112,7 +116,19 @@ export function SocialCaseComposer({
           },
           files
         );
+        toast.success("Clinical case successfully published to Global Physician Network");
       } else {
+        let attachmentIds: string[] = [];
+        if (files.length > 0) {
+          for (const f of files) {
+            const formData = new FormData();
+            formData.append("file", f);
+            const upRes = await uploadFile(formData);
+            if (upRes.ok && upRes.data?.file?.id) {
+              attachmentIds.push(upRes.data.file.id);
+            }
+          }
+        }
         const token = getStoredToken();
         const payload = {
           disease_name: diseaseName.trim(),
@@ -125,6 +141,7 @@ export function SocialCaseComposer({
           poll_question: showPoll && pollQuestion.trim() ? pollQuestion.trim() : undefined,
           poll_options: showPoll ? pollOptions.filter((o) => o.trim().length > 0) : undefined,
           quoted_post_id: quotedPost?.id,
+          attachment_ids: attachmentIds,
         };
         const res = await fetch("/api/v1/hub/posts", {
           method: "POST",
@@ -137,11 +154,17 @@ export function SocialCaseComposer({
         if (res.ok) {
           const newPost = await res.json();
           if (onPostCreated) onPostCreated(newPost);
+          toast.success("Clinical case successfully published to Global Physician Network");
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          toast.error(errData.detail || "Failed to publish case. Please verify your physician status.");
+          return;
         }
       }
       onClose();
     } catch (err) {
       console.error("Failed to submit case:", err);
+      toast.error("An unexpected error occurred while publishing the case.");
     } finally {
       setIsSubmitting(false);
     }
@@ -154,10 +177,10 @@ export function SocialCaseComposer({
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div>
             <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <span>✍️ Share Clinical Case with Global Doctors</span>
+              <span>✍️ Share a Patient Case</span>
             </h2>
             <p className="text-xs text-slate-500">
-              Verified peer discussion, multidisciplinary review, and treatment consensus.
+              Get advice and second opinions from verified doctor colleagues.
             </p>
           </div>
           <button
@@ -199,10 +222,10 @@ export function SocialCaseComposer({
               <span className="text-xl">🚨</span>
               <div>
                 <p className="text-xs font-black text-slate-900">
-                  Request Emergency STAT 2nd Opinion
+                  Urgent Case: Need Fast Advice
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  Alert on-call specialists globally for urgent acute guidance.
+                  Highlight this case so colleagues see and reply quickly.
                 </p>
               </div>
             </div>
@@ -218,12 +241,12 @@ export function SocialCaseComposer({
           {/* Condition / Presentation Title */}
           <div>
             <label className="block text-xs font-extrabold text-slate-800 mb-1">
-              Disease / Condition Dilemma *
+              Case Title or Condition *
             </label>
             <input
               type="text"
               required
-              placeholder="e.g. Atypical Takotsubo with Cardiogenic Shock & LVOTO"
+              placeholder="e.g. Chest pain with unclear ECG changes"
               value={diseaseName}
               onChange={(e) => setDiseaseName(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-900 outline-none focus:border-teal-600 shadow-2xs"
@@ -234,7 +257,7 @@ export function SocialCaseComposer({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-extrabold text-slate-800">
-                Patient Presentation & History *
+                Patient Story & Symptoms *
               </label>
               <button
                 type="button"
@@ -242,13 +265,13 @@ export function SocialCaseComposer({
                 className="text-[11px] font-bold text-teal-700 hover:text-teal-900 hover:underline cursor-pointer flex items-center gap-1"
                 title="Automatically strip names, MRNs, and phone numbers"
               >
-                <span>🛡️ Scrub PHI (HIPAA Sanitize)</span>
+                <span>🛡️ Remove Patient Names (Keep Private)</span>
               </button>
             </div>
             <textarea
               required
               rows={3}
-              placeholder="Describe age, symptoms, vital signs, acute triggers, and hospital day..."
+              placeholder="Describe age, key symptoms, test results, and what happened..."
               value={clinicalFindings}
               onChange={(e) => setClinicalFindings(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 outline-none focus:border-teal-600 shadow-2xs resize-none"
@@ -259,12 +282,12 @@ export function SocialCaseComposer({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-extrabold text-slate-800 mb-1">
-                Diagnosis / Differential *
+                Suspected Diagnosis *
               </label>
               <textarea
                 required
                 rows={2}
-                placeholder="Confirmed or differential diagnostic considerations..."
+                placeholder="What do you suspect or want to rule out?..."
                 value={diagnosis}
                 onChange={(e) => setDiagnosis(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 outline-none focus:border-teal-600 shadow-2xs resize-none"
@@ -272,12 +295,12 @@ export function SocialCaseComposer({
             </div>
             <div>
               <label className="block text-xs font-extrabold text-slate-800 mb-1">
-                Current Treatment & Plan *
+                Current Treatment & Next Steps *
               </label>
               <textarea
                 required
                 rows={2}
-                placeholder="Initiated therapy, monitoring, response, and clinical questions..."
+                placeholder="Medicines given, patient response, and questions for colleagues..."
                 value={treatmentPlan}
                 onChange={(e) => setTreatmentPlan(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 outline-none focus:border-teal-600 shadow-2xs resize-none"
@@ -289,11 +312,11 @@ export function SocialCaseComposer({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Drugs Used (comma separated)
+                Medicines Given (comma separated)
               </label>
               <input
                 type="text"
-                placeholder="e.g. Norepinephrine, Vasopressin, Hydrocortisone"
+                placeholder="e.g. Aspirin, Heparin, Metoprolol"
                 value={drugsInput}
                 onChange={(e) => setDrugsInput(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 outline-none focus:border-teal-600 shadow-2xs"
@@ -301,11 +324,11 @@ export function SocialCaseComposer({
             </div>
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Specialty Tags & #Hashtags
+                Topics & Specialty Tags
               </label>
               <input
                 type="text"
-                placeholder="e.g. #Cardiology #CriticalCare #Shock"
+                placeholder="e.g. #Cardiology #Emergency #ChestPain"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 outline-none focus:border-teal-600 shadow-2xs"
@@ -316,7 +339,7 @@ export function SocialCaseComposer({
           {/* File Attachments Upload (DICOM / ECG / X-Ray) */}
           <div>
             <label className="block text-[11px] font-bold text-slate-700 mb-1">
-              Attach Imaging & Diagnostic Scans (X-Ray, CT, ECG, Histology)
+              Attach Images or Scans (X-Ray, CT, ECG)
             </label>
             <input
               type="file"
@@ -327,7 +350,7 @@ export function SocialCaseComposer({
             />
             {files.length > 0 && (
               <p className="text-[10px] text-teal-700 font-semibold mt-1">
-                {files.length} file(s) selected for upload
+                {files.length} file(s) selected
               </p>
             )}
           </div>
@@ -339,14 +362,14 @@ export function SocialCaseComposer({
               onClick={() => setShowPoll(!showPoll)}
               className="text-xs font-bold text-teal-700 hover:underline cursor-pointer flex items-center gap-1.5"
             >
-              <span>{showPoll ? "✕ Remove Consensus Poll" : "🗳️ + Attach Clinical Consensus Poll"}</span>
+              <span>{showPoll ? "✕ Remove Poll" : "🗳️ + Add a Doctor Poll"}</span>
             </button>
 
             {showPoll && (
               <div className="mt-2 p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
                 <input
                   type="text"
-                  placeholder="Poll Question: e.g. Which vasopressor should be initiated next?"
+                  placeholder="Poll Question: e.g. What would you do next?"
                   value={pollQuestion}
                   onChange={(e) => setPollQuestion(e.target.value)}
                   className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs bg-white outline-none focus:border-teal-600"
@@ -388,7 +411,7 @@ export function SocialCaseComposer({
               disabled={isSubmitting || !diseaseName.trim() || !clinicalFindings.trim()}
               className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-black shadow-sm transition-all disabled:opacity-50 cursor-pointer"
             >
-              {isSubmitting ? "Publishing Case..." : isUrgent ? "🚨 Broadcast STAT Case" : "Share Case to Hub"}
+              {isSubmitting ? "Sharing Case..." : isUrgent ? "🚨 Share Urgent Case" : "Share Case"}
             </button>
           </div>
         </form>

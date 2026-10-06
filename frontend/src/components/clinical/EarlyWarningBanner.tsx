@@ -5,7 +5,7 @@ import { getEarlyWarning, EarlyWarningResponse } from "@/lib/api";
 import { AlertOctagon, Activity, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function EarlyWarningBanner({ consultationId, trigger }: { consultationId: string, trigger?: any }) {
+export default function EarlyWarningBanner({ consultationId, trigger }: { consultationId: string, trigger?: unknown }) {
   const [data, setData] = useState<EarlyWarningResponse | null>(null);
   const [expanded, setExpanded] = useState(false);
 

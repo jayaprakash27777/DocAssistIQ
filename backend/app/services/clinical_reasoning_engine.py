@@ -2198,44 +2198,59 @@ class ClinicalReasoningEngine:
         for i, c in enumerate(candidates[:5]):
             marker = "🥇" if i == 0 else f"#{i+1}"
             incub_note = f" [Incubation: {c.incubation_fit}]" if c.incubation_fit != "UNKNOWN" else ""
-            geo_note = " [Geographic match]" if c.geographic_match else ""
+            geo_note = " [Geographic match \u2713]" if c.geographic_match else ""
+            hemorrhagic_note = " [Hemorrhagic fever]" if c.hemorrhagic else ""
+            supporting_str = ", ".join(c.supporting_findings[:5]) if c.supporting_findings else "General presentation"
+            missing_str = ", ".join(c.missing_expected_findings[:3]) if c.missing_expected_findings else "None"
+            contra_str = ", ".join(c.contradicting_information[:2]) if c.contradicting_information else "None"
             candidate_lines.append(
-                f"{marker} {c.disease} (score={c.score:.2f}){incub_note}{geo_note}"
-                f"\n   Hints: {c.explanation_hint}"
+                f"{marker} {c.disease} (score={c.score:.3f}){incub_note}{geo_note}{hemorrhagic_note}"
+                f"\n   Supporting: {supporting_str}"
+                f"\n   Missing: {missing_str}"
+                f"\n   Contradicting: {contra_str}"
+                f"\n   Hint: {c.explanation_hint}"
             )
 
         cluster_str = ", ".join(active_clusters) if active_clusters else "None"
-        travel_str = f"{days_since_return} days since return from {', '.join(countries_visited)}" if countries_visited else "No travel"
-        prompt = f"""You are a master diagnostic physician. A clinical reasoning engine has pre-ranked the top candidates:
-
-PATIENT: {patient_context_short[:250]}
-TRAVEL: {travel_str}
-SYNDROME: {cluster_str}
-
-PRE-RANKED CANDIDATES:
-{chr(10).join(candidate_lines)}
-
-INSTRUCTIONS:
-1. Provide a 1-sentence clinical rationale for each candidate above.
-2. OPEN-DOMAIN DIAGNOSIS: If and ONLY IF the patient's specific symptoms strongly indicate another medical pathology that is completely absent from the pre-ranked list above, you may include it in 'open_domain_candidates'. Otherwise, keep 'open_domain_candidates' empty ([]).
-
-Return ONLY valid JSON:
-{{
-  "candidates": [
-    {{
-      "disease": "exact disease name",
-      "explanation_reference": "1-2 sentences explaining why this matches and key test to confirm"
-    }}
-  ],
-  "open_domain_candidates": [
-    {{
-      "disease": "Disease Name",
-      "score": 0.85,
-      "explanation_reference": "Clinical reason why this open diagnosis matches",
-      "supporting_findings": ["finding1", "finding2"]
-    }}
-  ]
-}}"""
+        travel_str = (
+            f"{days_since_return} days since return from {', '.join(countries_visited)}"
+            if countries_visited else "No recent travel"
+        )
+        # Build the God-Level LLM narrator prompt
+        candidate_block = "\n".join(candidate_lines)
+        prompt = (
+            "You are DocAssistIQ - a God-Level Senior Consultant Physician with expertise across ALL medical specialties.\n\n"
+            f"PATIENT PROFILE: {patient_context_short[:400]}\n"
+            f"TRAVEL HISTORY: {travel_str}\n"
+            f"ACTIVE SYNDROMIC CLUSTERS: {cluster_str}\n\n"
+            f"PRE-RANKED DIFFERENTIAL CANDIDATES:\n{candidate_block}\n\n"
+            "YOUR MISSION:\n"
+            "1. For EACH pre-ranked candidate, write a 1-2 sentence evidence-based clinical rationale explaining "
+            "WHY this diagnosis fits the patient symptoms, the KEY pathophysiological mechanism, and the MOST IMPORTANT confirmatory test.\n"
+            "2. OPEN-DOMAIN DIAGNOSIS: Consider ALL of medical knowledge. If presentation suggests important diagnoses "
+            "NOT in the pre-ranked list (autoimmune, oncological, neurological, infectious, endocrine, rheumatological, "
+            "rare tropical, outbreak-related), include up to 3 additional candidates in open_domain_candidates.\n"
+            "3. OUTBREAK FLAG: If symptoms and travel match any known active outbreak pattern, set is_outbreak_match: true.\n\n"
+            'Return ONLY valid JSON:\n'
+            '{\n'
+            '  "candidates": [\n'
+            '    {\n'
+            '      "disease": "exact disease name",\n'
+            '      "explanation_reference": "1-2 sentence evidence-based rationale with key confirmatory test",\n'
+            '      "supporting_findings": ["finding1", "finding2", "finding3"]\n'
+            '    }\n'
+            '  ],\n'
+            '  "open_domain_candidates": [\n'
+            '    {\n'
+            '      "disease": "Disease Name",\n'
+            '      "score": 0.85,\n'
+            '      "rationale": "Evidence-based clinical reason with pathophysiological mechanism",\n'
+            '      "supporting_findings": ["finding1", "finding2"],\n'
+            '      "is_outbreak_match": false\n'
+            '    }\n'
+            '  ]\n'
+            '}'
+        )
         return prompt
 
 

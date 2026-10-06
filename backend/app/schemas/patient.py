@@ -22,6 +22,8 @@ class PatientSessionResponse(BaseModel):
     encounter_type: str
     status: str
     clinical_notes_summary: str | None = None
+    consultation_id: uuid.UUID | None = None
+    created_at: Any = None
 
     model_config = ConfigDict(from_attributes=True)
 

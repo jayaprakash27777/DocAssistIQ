@@ -1200,7 +1200,7 @@ class InvestigationProvider:
                         system=system_prompt,
                         max_output_tokens=500,
                     ),
-                    timeout=3.5,
+                    timeout=90.0,  # Extended from 3.5s — LLM needs 20-90s on consumer hardware
                 )
                 llm_suggestions = data.get("suggestions", [])
                 log.info("investigation_llm_narrator_success", count=len(llm_suggestions))

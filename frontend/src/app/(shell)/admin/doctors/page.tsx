@@ -29,6 +29,7 @@ export default function AdminDoctorsPage() {
   const [error, setError] = useState<string | null>(null);
   const [action, setAction] = useState<ActionState | null>(null);
   const [isVerifyingAll, setIsVerifyingAll] = useState(false);
+  const [confirmVerifyAll, setConfirmVerifyAll] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   const PAGE_SIZE = 20;
@@ -97,7 +98,7 @@ export default function AdminDoctorsPage() {
   }
 
   async function handleVerifyAll() {
-    if (!confirm(`Are you sure you want to verify all ${total} pending doctor accounts?`)) return;
+    setConfirmVerifyAll(false);
     setIsVerifyingAll(true);
     const r = await verifyAllPendingDoctors();
     setIsVerifyingAll(false);
@@ -151,14 +152,34 @@ export default function AdminDoctorsPage() {
               Pending Reviews ({total})
             </h2>
             {total > 0 && (
-              <button
-                onClick={handleVerifyAll}
-                disabled={isVerifyingAll}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
-              >
-                <CheckCheck size={16} />
-                {isVerifyingAll ? "Verifying..." : `Verify All (${total})`}
-              </button>
+              confirmVerifyAll ? (
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl shadow-xs animate-in fade-in">
+                  <span className="text-xs font-bold text-emerald-950">Approve all {total} accounts?</span>
+                  <button
+                    onClick={handleVerifyAll}
+                    disabled={isVerifyingAll}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-2xs transition cursor-pointer"
+                  >
+                    {isVerifyingAll ? "Verifying..." : "Confirm"}
+                  </button>
+                  <button
+                    onClick={() => setConfirmVerifyAll(false)}
+                    disabled={isVerifyingAll}
+                    className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmVerifyAll(true)}
+                  disabled={isVerifyingAll}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  <CheckCheck size={16} />
+                  Verify All ({total})
+                </button>
+              )
             )}
           </div>
 

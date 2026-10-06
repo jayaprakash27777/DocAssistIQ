@@ -33,6 +33,7 @@ import {
   ShieldAlert,
   Droplet,
   Layers,
+  Loader2,
 } from "lucide-react";
 import {
   getPatientProfile,
@@ -43,6 +44,7 @@ import {
 } from "@/lib/api";
 import PatientTimeline from "@/components/patients/PatientTimeline";
 import { useToast } from "@/components/shell/ToastProvider";
+import { downloadClinicalDocument } from "@/lib/documentPrinting";
 
 // ── Helper Parsers for Clinical-Grade Profile ─────────────────────
 
@@ -73,6 +75,7 @@ export default function PatientDetail() {
   const [documents, setDocuments] = useState<VerifiedDocumentRecord[]>([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [copiedMRN, setCopiedMRN] = useState(false);
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
 
   const fetchDocuments = useCallback(async (patientRef: string, sessions: any[]) => {
     setDocsLoading(true);
@@ -85,7 +88,7 @@ export default function PatientDetail() {
 
       // Also query consultation documents for all recorded sessions to ensure completeness
       if (sessions && sessions.length > 0) {
-        const sessionPromises = sessions.map((s) => listDocumentsForConsultation(s.id));
+        const sessionPromises = sessions.map((s) => listDocumentsForConsultation(s.consultation_id || s.id));
         const sessionResults = await Promise.allSettled(sessionPromises);
         sessionResults.forEach((res) => {
           if (res.status === "fulfilled" && res.value.ok && res.value.data?.documents) {
@@ -185,10 +188,20 @@ export default function PatientDetail() {
   const rawFamily = rawBase.family_history || rawBase.hereditary_risks;
   const familyList = parseStringList(rawFamily);
 
-  const bloodType = rawBase.blood_type || rawBase.blood_group || "O+ (Rh Positive)";
-  const codeStatus = rawBase.code_status || "Full Code (Resuscitative Intent Active)";
-  const attendingDoctor = rawBase.attending_doctor || "Dr. John Smith (Cardiology)";
-  const primaryClinic = rawBase.primary_clinic || "Cardiovascular & Internal Medicine Clinic";
+  const bloodType = rawBase.blood_type || rawBase.blood_group || null;
+  const codeStatus = rawBase.code_status || null;
+  const attendingDoctor = rawBase.attending_doctor || null;
+  const primaryClinic = rawBase.primary_clinic || null;
+
+  // Extract authentic vitals if documented
+  const rawVitals = rawBase.vitals || rawBase.vital_signs || {};
+  const bloodPressure = rawVitals.blood_pressure || rawVitals.bp || null;
+  const heartRate = rawVitals.heart_rate || rawVitals.hr || null;
+  const spo2 = rawVitals.oxygen_saturation || rawVitals.spo2 || null;
+  const respiration = rawVitals.respiratory_rate || rawVitals.rr || rawVitals.respiration || null;
+  const temperature = rawVitals.temperature || rawVitals.temp || null;
+  const bmi = rawVitals.bmi || null;
+  const hasRealVitals = Boolean(bloodPressure || heartRate || spo2 || respiration || temperature || bmi);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-entrance pb-16 px-4 py-6">
@@ -279,11 +292,17 @@ export default function PatientDetail() {
                   </span>
                   <span className="bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
                     <strong className="text-slate-400 uppercase text-[10px] mr-1">Blood:</strong>
-                    <span className="text-slate-900 font-semibold">{bloodType}</span>
+                    <span className="text-slate-900 font-semibold">{bloodType || "Unspecified"}</span>
                   </span>
-                  <span className="bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold">
-                    {codeStatus}
-                  </span>
+                  {codeStatus ? (
+                    <span className="bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold">
+                      {codeStatus}
+                    </span>
+                  ) : (
+                    <span className="bg-slate-50 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200 font-medium">
+                      Standard Care Directive
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -300,7 +319,7 @@ export default function PatientDetail() {
               </button>
 
               <Link
-                href={`/ai?patient_ref=${encodeURIComponent(patient.patient_ref)}`}
+                href={`/ai?patient_ref=${encodeURIComponent(patient.patient_ref)}${patient.sessions?.[0]?.id ? `&cid=${patient.sessions[0].id}` : ''}`}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-2xs transition-colors"
                 title="Ask DocAssist IQ AI questions about this patient's medical history"
               >
@@ -352,11 +371,11 @@ export default function PatientDetail() {
             </div>
             <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Attending Clinician</span>
-              <span className="text-xs font-bold text-slate-800 truncate block mt-0.5">{attendingDoctor}</span>
+              <span className="text-xs font-bold text-slate-800 truncate block mt-0.5">{attendingDoctor || "Unassigned"}</span>
             </div>
             <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Primary Clinic</span>
-              <span className="text-xs font-medium text-slate-600 truncate block mt-0.5">{primaryClinic}</span>
+              <span className="text-xs font-medium text-slate-600 truncate block mt-0.5">{primaryClinic || "Outpatient Service"}</span>
             </div>
           </div>
         </div>
@@ -414,7 +433,7 @@ export default function PatientDetail() {
         {/* ── TAB 1: Clinical Flowsheet & Problem Register ─────────── */}
         {activeTab === "overview" && (
           <div id="patient-handover-sheet" className="space-y-6">
-            {/* 1. Vital Signs & Hemodynamics Flowsheet (Hospital Grade) */}
+            {/* 1. Vital Signs & Hemodynamics Flowsheet */}
             <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-7 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
@@ -423,67 +442,89 @@ export default function PatientDetail() {
                   </div>
                   <div>
                     <h2 className="text-base font-black text-slate-900">
-                      Hemodynamics &amp; Vital Signs Baseline Flowsheet
+                      Hemodynamics &amp; Vital Signs Flowsheet
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Baseline physiological parameters verified during clinical encounters
+                      Physiological measurements documented in patient baseline or clinical triage
                     </p>
                   </div>
                 </div>
-                <span className="text-[11px] font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full">
-                  Clinical Range: Stable
+                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                  hasRealVitals ? "text-teal-800 bg-teal-50 border-teal-200" : "text-slate-500 bg-slate-50 border-slate-200"
+                }`}>
+                  {hasRealVitals ? "Documented Baseline" : "No Baseline Vitals"}
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-                    Blood Pressure
-                  </span>
-                  <span className="text-base font-black text-slate-900">128/82</span>
-                  <span className="text-[10px] text-slate-500 block">mmHg • Pre-HTN monitor</span>
-                </div>
+              {hasRealVitals ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {bloodPressure && (
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                        Blood Pressure
+                      </span>
+                      <span className="text-base font-black text-slate-900">{bloodPressure}</span>
+                      <span className="text-[10px] text-slate-500 block">mmHg</span>
+                    </div>
+                  )}
 
-                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-                    Heart Rate
-                  </span>
-                  <span className="text-base font-black text-slate-900">74</span>
-                  <span className="text-[10px] text-slate-500 block">bpm • Regular Sinus</span>
-                </div>
+                  {heartRate && (
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                        Heart Rate
+                      </span>
+                      <span className="text-base font-black text-slate-900">{heartRate}</span>
+                      <span className="text-[10px] text-slate-500 block">bpm</span>
+                    </div>
+                  )}
 
-                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-                    Oxygen SpO2
-                  </span>
-                  <span className="text-base font-black text-emerald-700">98%</span>
-                  <span className="text-[10px] text-slate-500 block">Room Air Ambient</span>
-                </div>
+                  {spo2 && (
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                        Oxygen SpO2
+                      </span>
+                      <span className="text-base font-black text-emerald-700">{spo2}{String(spo2).includes("%") ? "" : "%"}</span>
+                      <span className="text-[10px] text-slate-500 block">Ambient</span>
+                    </div>
+                  )}
 
-                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-                    Respiration
-                  </span>
-                  <span className="text-base font-black text-slate-900">16</span>
-                  <span className="text-[10px] text-slate-500 block">breaths/min • Eupneic</span>
-                </div>
+                  {respiration && (
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                        Respiration
+                      </span>
+                      <span className="text-base font-black text-slate-900">{respiration}</span>
+                      <span className="text-[10px] text-slate-500 block">breaths/min</span>
+                    </div>
+                  )}
 
-                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-                    Temperature
-                  </span>
-                  <span className="text-base font-black text-slate-900">98.6 °F</span>
-                  <span className="text-[10px] text-slate-500 block">37.0 °C • Normothermic</span>
-                </div>
+                  {temperature && (
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                        Temperature
+                      </span>
+                      <span className="text-base font-black text-slate-900">{temperature}{String(temperature).includes("°") ? "" : "°C"}</span>
+                      <span className="text-[10px] text-slate-500 block">Core</span>
+                    </div>
+                  )}
 
-                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-                    BMI Index
-                  </span>
-                  <span className="text-base font-black text-slate-900">24.2</span>
-                  <span className="text-[10px] text-slate-500 block">kg/m² • Normal Weight</span>
+                  {bmi && (
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                        BMI Index
+                      </span>
+                      <span className="text-base font-black text-slate-900">{bmi}</span>
+                      <span className="text-[10px] text-slate-500 block">kg/m²</span>
+                    </div>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="p-8 text-center bg-slate-50/60 border border-dashed border-slate-200 rounded-2xl space-y-2">
+                  <p className="text-xs text-slate-500 font-medium m-0">
+                    No baseline vital signs recorded for this patient profile yet. Vital signs captured during clinical consultations and triage will display here.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* 2-Column Clinical Grid: Problems & Pharmacotherapy */}
@@ -644,16 +685,23 @@ export default function PatientDetail() {
                       Most Recent Encounter on File: {patient.sessions[0].encounter_type}
                     </h4>
                     <p className="text-xs text-slate-500">
-                      ID: <span className="font-mono text-slate-700">{patient.sessions[0].id.slice(0, 8)}...</span> • Review clinical SOAP notes, discrete findings, and diagnostic documents.
+                      ID: <span className="font-mono text-slate-700">{(patient.sessions[0].consultation_id || patient.sessions[0].id).slice(0, 8)}...</span> • Review clinical SOAP notes, discrete findings, and diagnostic documents.
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 flex-wrap">
                   <Link
-                    href={`/consultations/${patient.sessions[0].id}/review`}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition-colors shadow-2xs"
+                    href={`/consultations/${patient.sessions[0].consultation_id || patient.sessions[0].id}`}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-teal-600 to-indigo-600 hover:brightness-105 transition-all shadow-2xs"
                   >
-                    <span>Open Review Workspace</span>
+                    <Stethoscope className="w-3.5 h-3.5" />
+                    <span>Open Consultation Room</span>
+                  </Link>
+                  <Link
+                    href={`/consultations/${patient.sessions[0].consultation_id || patient.sessions[0].id}/review`}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 transition-colors shadow-2xs"
+                  >
+                    <span>Review Workspace</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
@@ -686,49 +734,67 @@ export default function PatientDetail() {
 
             {patient.sessions.length > 0 ? (
               <div className="relative border-l-2 border-slate-200 ml-4 space-y-10 py-2">
-                {patient.sessions.map((session) => (
-                  <div key={session.id} className="relative pl-8">
-                    <div className="absolute -left-[9px] top-1.5 w-4 h-4 bg-white rounded-full border-4 border-teal-500" />
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow space-y-3">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-teal-50 text-teal-800 uppercase tracking-wider border border-teal-200">
-                            {session.encounter_type}
-                          </span>
-                          <span className="text-xs font-mono text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                            ID: {session.id.split("-")[0]}
+                {patient.sessions.map((session) => {
+                  const consultationId = session.consultation_id || session.id;
+                  return (
+                    <div key={session.id} className="relative pl-8">
+                      <div className="absolute -left-[9px] top-1.5 w-4 h-4 bg-white rounded-full border-4 border-teal-500" />
+                      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow space-y-3">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-teal-50 text-teal-800 uppercase tracking-wider border border-teal-200">
+                              {session.encounter_type}
+                            </span>
+                            <span className="text-xs font-mono text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                              Encounter: {consultationId.split("-")[0]}
+                            </span>
+                          </div>
+                          <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full ${
+                            session.status === "completed" ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
+                          }`}>
+                            {session.status || "Active"}
                           </span>
                         </div>
-                        <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full ${
-                          session.status === "completed" ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
-                        }`}>
-                          {session.status || "Active"}
-                        </span>
-                      </div>
 
-                      <p className="text-sm text-slate-700 leading-relaxed font-medium">
-                        {session.clinical_notes_summary || "Clinical encounter recorded. Full structured SOAP note available in review workspace."}
-                      </p>
+                        <p className="text-sm text-slate-700 leading-relaxed font-medium">
+                          {session.clinical_notes_summary || "Clinical encounter recorded. Full structured SOAP note available in review workspace."}
+                        </p>
 
-                      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
-                        <Link
-                          href={`/consultations/${session.id}/review`}
-                          className="text-xs font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1.5"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>Open Review Workspace &amp; Documents</span>
-                        </Link>
-                        <Link
-                          href={`/ai?cid=${session.id}`}
-                          className="text-xs font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-200"
-                        >
-                          <Brain className="w-3 h-3" />
-                          <span>Ask DocAssist IQ AI</span>
-                        </Link>
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Link
+                              href={`/consultations/${consultationId}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-teal-600 to-indigo-600 hover:brightness-105 shadow-2xs transition-all"
+                            >
+                              <Stethoscope className="w-3.5 h-3.5" />
+                              <span>Open Room</span>
+                            </Link>
+                            <Link
+                              href={`/consultations/${consultationId}/intake`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors"
+                            >
+                              <span>Intake</span>
+                            </Link>
+                            <Link
+                              href={`/consultations/${consultationId}/review`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Review & Docs</span>
+                            </Link>
+                          </div>
+                          <Link
+                            href={`/ai?cid=${consultationId}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/90 transition-colors"
+                          >
+                            <Brain className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Ask DocAssist IQ AI</span>
+                          </Link>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
@@ -857,24 +923,44 @@ export default function PatientDetail() {
                       <div className="flex items-center gap-2 ml-auto">
                         {doc.consultation_id && (
                           <>
-                            <a
-                              href={`http://localhost:8000/api/v1/consultations/${encodeURIComponent(doc.consultation_id)}/documents/${encodeURIComponent(doc.document_type)}/pdf`}
-                              download
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-2xs"
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setDownloadingDocId(`${doc.verification_code}_pdf`);
+                                const res = await downloadClinicalDocument(doc.consultation_id, doc.document_type, "pdf", patient.patient_ref);
+                                if (res.success) {
+                                  toast.success(`Downloaded ${doc.document_type.replace(/_/g, " ")} PDF`);
+                                } else {
+                                  toast.error(`Download failed: ${res.error}`);
+                                }
+                                setDownloadingDocId(null);
+                              }}
+                              disabled={downloadingDocId === `${doc.verification_code}_pdf`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-2xs cursor-pointer"
                               title="Download Official Hospital PDF"
                             >
-                              <Download className="w-3.5 h-3.5" />
+                              {downloadingDocId === `${doc.verification_code}_pdf` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                               <span>PDF</span>
-                            </a>
-                            <a
-                              href={`http://localhost:8000/api/v1/consultations/${encodeURIComponent(doc.consultation_id)}/documents/${encodeURIComponent(doc.document_type)}/docx`}
-                              download
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-2xs"
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setDownloadingDocId(`${doc.verification_code}_docx`);
+                                const res = await downloadClinicalDocument(doc.consultation_id, doc.document_type, "docx", patient.patient_ref);
+                                if (res.success) {
+                                  toast.success(`Downloaded ${doc.document_type.replace(/_/g, " ")} DOCX`);
+                                } else {
+                                  toast.error(`Download failed: ${res.error}`);
+                                }
+                                setDownloadingDocId(null);
+                              }}
+                              disabled={downloadingDocId === `${doc.verification_code}_docx`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-2xs cursor-pointer"
                               title="Download Microsoft Word DOCX"
                             >
-                              <Download className="w-3.5 h-3.5" />
+                              {downloadingDocId === `${doc.verification_code}_docx` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                               <span>DOCX</span>
-                            </a>
+                            </button>
                           </>
                         )}
                         <a

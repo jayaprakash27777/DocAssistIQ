@@ -9,6 +9,7 @@ from app.api.platform import API_RESPONSES
 from app.authorization import require_permission
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
+from app.models.patient import PatientSession
 from app.models.patient_profile import PatientProfile
 from app.models.doctor import Doctor
 from app.schemas.patient import (
@@ -65,8 +66,13 @@ async def create_patient_profile(
     
     db.add(new_profile)
     await db.commit()
-    await db.refresh(new_profile)
-    return new_profile
+    stmt = (
+        select(PatientProfile)
+        .where(PatientProfile.id == new_profile.id)
+        .options(selectinload(PatientProfile.sessions))
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 @router.get("/", response_model=list[PatientProfileResponse], responses=API_RESPONSES)
 async def list_patient_profiles(
@@ -77,7 +83,7 @@ async def list_patient_profiles(
     stmt = (
         select(PatientProfile)
         .where(PatientProfile.tenant_id == doctor.tenant_id)
-        .options(selectinload(PatientProfile.sessions))
+        .options(selectinload(PatientProfile.sessions).selectinload(PatientSession.consultations))
         .order_by(PatientProfile.created_at.desc())
     )
     result = await db.execute(stmt)
@@ -97,7 +103,7 @@ async def get_patient_profile(
             PatientProfile.id == profile_id,
             PatientProfile.tenant_id == doctor.tenant_id
         )
-        .options(selectinload(PatientProfile.sessions))
+        .options(selectinload(PatientProfile.sessions).selectinload(PatientSession.consultations))
     )
     result = await db.execute(stmt)
     profile = result.scalar_one_or_none()

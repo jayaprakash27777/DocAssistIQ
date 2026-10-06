@@ -1,4 +1,5 @@
-from typing import Optional, Dict, Any
+import uuid
+from typing import Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
 
 class ClinicianFeedbackCreate(BaseModel):
@@ -12,7 +13,7 @@ class ClinicianFeedbackCreate(BaseModel):
     knowledge_version: Optional[str] = "1.0.0"
 
 class ClinicianFeedbackResponse(BaseModel):
-    id: str
+    id: Union[str, uuid.UUID]
     suggestion_id: str
     suggestion_type: str
     decision: str

@@ -4,9 +4,8 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Globe, ShieldAlert, AlertTriangle, Search, Filter, RefreshCw,
-  FlaskConical, Stethoscope, MapPin, Building2, ExternalLink,
-  ChevronRight, ArrowRight, ShieldCheck, CheckCircle2, Activity,
-  Info, Sparkles, Layers
+  FlaskConical, Stethoscope, MapPin, Building2,
+  ArrowRight, ShieldCheck, CheckCircle2
 } from "lucide-react";
 import { getStateOutbreaks, type StateOutbreakResponse, type OutbreakAlertItem } from "@/lib/api";
 import { useRouter } from "next/navigation";
@@ -55,28 +54,22 @@ const ALL_INDIAN_STATES_UTS = [
 export default function StateOutbreakRadar({
   onSelectOutbreakForDiagnosis,
 }: {
-  onSelectOutbreakForDiagnosis?: (query: string) => void;
+  onSelectOutbreakForDiagnosis?: (query: string, diseaseName?: string) => void;
 }) {
   const router = useRouter();
   const [data, setData] = useState<StateOutbreakResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedState, setSelectedState] = useState("All States & Union Territories");
+  const [selectedCountry, setSelectedCountry] = useState("All Countries & Regions");
   const [selectedAlertLevel, setSelectedAlertLevel] = useState<"ALL" | "CRITICAL" | "HIGH" | "MONITORING">("ALL");
   const [activeTab, setActiveTab] = useState<"all" | "india" | "global">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
   const fetchOutbreaks = useCallback(async (isRefresh = false) => {
-    setLoading(true);
-    const stateParam =
-      selectedState !== "All States & Union Territories" ? selectedState : undefined;
-    const alertParam = selectedAlertLevel !== "ALL" ? selectedAlertLevel : undefined;
-    const queryParam = searchQuery.trim() || undefined;
+    if (isRefresh) setLoading(true);
 
     const res = await getStateOutbreaks({
-      state: stateParam,
-      alert_level: alertParam,
-      query: queryParam,
       refresh: isRefresh,
     });
 
@@ -92,32 +85,62 @@ export default function StateOutbreakRadar({
       toast.error("Could not fetch state outbreak surveillance data.");
     }
     setLoading(false);
-  }, [selectedState, selectedAlertLevel, searchQuery]);
+  }, []);
 
   useEffect(() => {
     fetchOutbreaks(false);
   }, [fetchOutbreaks]);
 
-  // Filter combined alerts based on activeTab
+  // Extract distinct countries from live global alerts
+  const globalCountries = useMemo(() => {
+    if (!data?.global_alerts) return ["All Countries & Regions"];
+    const countrySet = new Set<string>();
+    for (const a of data.global_alerts) {
+      if (a.state_or_country && a.state_or_country !== "Global Notice") {
+        countrySet.add(a.state_or_country);
+      }
+    }
+    return ["All Countries & Regions", ...Array.from(countrySet).sort()];
+  }, [data]);
+
+  // Instantaneous zero-latency filtered alerts based on tab, region, severity, and search
   const displayedAlerts = useMemo(() => {
     if (!data) return [];
     let list: OutbreakAlertItem[] = [];
-    if (activeTab === "all") {
-      list = [...data.india_state_alerts, ...data.global_alerts];
-    } else if (activeTab === "india") {
+
+    if (activeTab === "india") {
       list = data.india_state_alerts;
-    } else {
+      if (selectedState !== "All States & Union Territories") {
+        list = list.filter((a) =>
+          a.state_or_country.toLowerCase().includes(selectedState.toLowerCase())
+        );
+      }
+    } else if (activeTab === "global") {
       list = data.global_alerts;
+      if (selectedCountry !== "All Countries & Regions") {
+        list = list.filter((a) =>
+          a.state_or_country.toLowerCase().includes(selectedCountry.toLowerCase())
+        );
+      }
+    } else {
+      // "all" tab
+      let ind = data.india_state_alerts;
+      if (selectedState !== "All States & Union Territories") {
+        ind = ind.filter((a) =>
+          a.state_or_country.toLowerCase().includes(selectedState.toLowerCase())
+        );
+      }
+      let glob = data.global_alerts;
+      if (selectedCountry !== "All Countries & Regions") {
+        glob = glob.filter((a) =>
+          a.state_or_country.toLowerCase().includes(selectedCountry.toLowerCase())
+        );
+      }
+      list = [...ind, ...glob];
     }
 
     if (selectedAlertLevel !== "ALL") {
       list = list.filter((a) => a.alert_level === selectedAlertLevel);
-    }
-
-    if (selectedState !== "All States & Union Territories") {
-      list = list.filter((a) =>
-        a.state_or_country.toLowerCase().includes(selectedState.toLowerCase())
-      );
     }
 
     if (searchQuery.trim()) {
@@ -127,19 +150,21 @@ export default function StateOutbreakRadar({
           a.disease_name.toLowerCase().includes(q) ||
           a.pathogen.toLowerCase().includes(q) ||
           a.state_or_country.toLowerCase().includes(q) ||
-          a.districts.some((d) => d.toLowerCase().includes(q)) ||
-          a.cardinal_symptoms.some((s) => s.toLowerCase().includes(q))
+          (a.districts && a.districts.some((d) => d.toLowerCase().includes(q))) ||
+          (a.cardinal_symptoms && a.cardinal_symptoms.some((s) => s.toLowerCase().includes(q))) ||
+          (a.hallmark_triggers && a.hallmark_triggers.some((t) => t.toLowerCase().includes(q))) ||
+          (a.reporting_agency && a.reporting_agency.toLowerCase().includes(q))
       );
     }
 
     return list;
-  }, [data, activeTab, selectedAlertLevel, selectedState, searchQuery]);
+  }, [data, activeTab, selectedAlertLevel, selectedState, selectedCountry, searchQuery]);
 
   const handleSimulateOutbreak = (outbreak: OutbreakAlertItem) => {
-    const simulationNote = `Patient presenting from ${outbreak.state_or_country} (${outbreak.districts.slice(0, 2).join(", ") || "endemic area"}) with ${outbreak.cardinal_symptoms.join(", ")}. Suspected exposure to ${outbreak.vector_reservoir}. Hallmark presentation: ${outbreak.hallmark_triggers.slice(0, 3).join(", ")}.`;
+    const simulationNote = `Patient presenting from ${outbreak.state_or_country} (${outbreak.districts?.slice(0, 2).join(", ") || "endemic area"}) with ${outbreak.cardinal_symptoms?.join(", ")}. Suspected exposure to ${outbreak.vector_reservoir}. Hallmark presentation: ${outbreak.hallmark_triggers?.slice(0, 3).join(", ")}.`;
 
     if (onSelectOutbreakForDiagnosis) {
-      onSelectOutbreakForDiagnosis(simulationNote);
+      onSelectOutbreakForDiagnosis(simulationNote, outbreak.disease_name);
       toast.success(`Loaded ${outbreak.disease_name} symptoms into Differential Diagnosis!`, {
         icon: "⚡",
       });
@@ -303,22 +328,41 @@ export default function StateOutbreakRadar({
           </div>
         </div>
 
-        {/* State Dropdown & Search Input */}
+        {/* State / Country Dropdown & Search Input */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-          {/* State Dropdown */}
+          {/* Region Dropdown */}
           <div className="relative">
-            <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
-            <select
-              value={selectedState}
-              onChange={(e) => setSelectedState(e.target.value)}
-              className="w-full text-xs font-semibold pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 shadow-2xs appearance-none cursor-pointer"
-            >
-              {ALL_INDIAN_STATES_UTS.map((st) => (
-                <option key={st} value={st}>
-                  {st}
-                </option>
-              ))}
-            </select>
+            {activeTab === "global" ? (
+              <>
+                <Globe className="w-4 h-4 text-purple-500 absolute left-3 top-2.5 pointer-events-none" />
+                <select
+                  value={selectedCountry}
+                  onChange={(e) => setSelectedCountry(e.target.value)}
+                  className="w-full text-xs font-semibold pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 shadow-2xs appearance-none cursor-pointer"
+                >
+                  {globalCountries.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <MapPin className="w-4 h-4 text-indigo-500 absolute left-3 top-2.5 pointer-events-none" />
+                <select
+                  value={selectedState}
+                  onChange={(e) => setSelectedState(e.target.value)}
+                  className="w-full text-xs font-semibold pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 shadow-2xs appearance-none cursor-pointer"
+                >
+                  {ALL_INDIAN_STATES_UTS.map((st) => (
+                    <option key={st} value={st}>
+                      {st}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
 
           {/* Search Input */}
@@ -332,6 +376,47 @@ export default function StateOutbreakRadar({
               className="w-full text-xs font-semibold pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 shadow-2xs"
             />
           </div>
+        </div>
+
+        {/* Quick Hotspot Filter Chips */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">
+            Quick Hotspots:
+          </span>
+          {(activeTab === "global"
+            ? ["Brazil", "Rwanda", "Uganda", "Colombia", "Democratic Republic of the Congo", "United States"]
+            : ["Kerala", "Maharashtra", "Delhi / NCR", "Gujarat", "Tamil Nadu", "West Bengal", "Uttar Pradesh"]
+          ).map((region) => (
+            <button
+              key={region}
+              onClick={() => {
+                if (activeTab === "global") {
+                  setSelectedCountry(region);
+                } else {
+                  setSelectedState(region);
+                }
+              }}
+              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all border ${
+                (activeTab === "global" ? selectedCountry === region : selectedState === region)
+                  ? "bg-indigo-50 text-indigo-700 border-indigo-300 shadow-2xs"
+                  : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
+              }`}
+            >
+              {region}
+            </button>
+          ))}
+          {((activeTab === "global" && selectedCountry !== "All Countries & Regions") ||
+            (activeTab !== "global" && selectedState !== "All States & Union Territories")) && (
+            <button
+              onClick={() => {
+                setSelectedState("All States & Union Territories");
+                setSelectedCountry("All Countries & Regions");
+              }}
+              className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline ml-1"
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
@@ -351,12 +436,14 @@ export default function StateOutbreakRadar({
           <button
             onClick={() => {
               setSelectedState("All States & Union Territories");
+              setSelectedCountry("All Countries & Regions");
               setSelectedAlertLevel("ALL");
               setSearchQuery("");
+              setActiveTab("all");
             }}
             className="mt-3 text-xs font-bold text-indigo-600 underline"
           >
-            Reset Filters
+            Reset All Filters
           </button>
         </div>
       ) : (
@@ -395,13 +482,13 @@ export default function StateOutbreakRadar({
                     </p>
                   </div>
 
-                  <div className="text-right flex-shrink-0">
+                  <div className="text-right flex-shrink-0 max-w-[200px]">
                     <span className="inline-flex items-center gap-1 text-xs font-black text-slate-800 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200">
                       <MapPin className="w-3.5 h-3.5 text-indigo-600" />
                       {outbreak.state_or_country}
                     </span>
                     {outbreak.reported_cases && (
-                      <span className="text-[10px] font-semibold text-slate-500 block mt-1">
+                      <span className="text-[10px] font-semibold text-slate-500 block mt-1 truncate" title={outbreak.reported_cases}>
                         {outbreak.reported_cases}
                       </span>
                     )}

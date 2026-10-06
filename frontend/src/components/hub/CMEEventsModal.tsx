@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { getStoredToken } from "@/lib/api";
+import { getSharedRealtimeClient } from "@/lib/ws";
+import { Calendar, Clock, MapPin, Award, Check, Plus, Download, X, BookOpen, ShieldCheck } from "lucide-react";
 
 export interface CMEEventData {
   id: string;
@@ -19,86 +22,105 @@ export interface CMEEventData {
 }
 
 interface CMEEventsModalProps {
-  events: CMEEventData[];
-  onToggleRSVP: (eventId: string) => void;
+  events?: CMEEventData[];
+  onToggleRSVP?: (eventId: string) => void;
   onClose: () => void;
-  isNightMode?: boolean;
 }
 
 export function CMEEventsModal({
-  events,
+  events: propEvents,
   onToggleRSVP,
   onClose,
-  isNightMode = false,
 }: CMEEventsModalProps) {
+  const [events, setEvents] = useState<CMEEventData[]>(propEvents || []);
   const [filterSpec, setFilterSpec] = useState<string>("all");
+  const [loading, setLoading] = useState(false);
 
-  const fallbackEvents: CMEEventData[] = events?.length
-    ? events
-    : [
-        {
-          id: "cme-1",
-          title: "International Interventional Cardiology Rounds: Cardiogenic Shock & Left-Ventricular Unloading",
-          specialty: "Cardiology",
-          date: "Tomorrow, Oct 3, 2026",
-          time: "08:00 AM EST • 13:00 UTC",
-          speaker: "Prof. Sarah Chen, MD, FACC",
-          speaker_title: "Chief of Interventional Cardiology & Structural Heart",
-          cme_credits: 2.0,
-          location: "Virtual Auditorium / Live Telecast",
-          rsvp_count: 342,
-          is_attending: true,
-          topics: ["Cardiogenic Shock", "Impella vs VA-ECMO", "DAPT Protocols"],
-        },
-        {
-          id: "cme-2",
-          title: "Morbidity & Mortality (M&M) Review: Diagnostic Anchoring in Atypical Thoracic Aortic Dissection",
-          specialty: "Emergency Medicine",
-          date: "Friday, Oct 5, 2026",
-          time: "12:00 PM EST • 17:00 UTC",
-          speaker: "Dr. Marcus Thorne, MD, FACEP",
-          speaker_title: "Director of Emergency Quality Assurance",
-          cme_credits: 1.5,
-          location: "Hospital Amphitheater & Live Stream",
-          rsvp_count: 218,
-          is_attending: false,
-          topics: ["Aortic Dissection", "Cognitive Biases", "Point-of-Care Ultrasound"],
-        },
-        {
-          id: "cme-3",
-          title: "Neuro-Immunology Frontiers: Targeted Monoclonal Therapies in Autoimmune Encephalitis",
-          specialty: "Neurology",
-          date: "Tuesday, Oct 9, 2026",
-          time: "09:00 AM EST • 14:00 UTC",
-          speaker: "Dr. David Vance, MD, FAAN",
-          speaker_title: "Attending Neurointensivist & Researcher",
-          cme_credits: 1.0,
-          location: "Academic Medical Center Virtual Hall",
-          rsvp_count: 185,
-          is_attending: false,
-          topics: ["Anti-NMDA", "Rituximab", "Extreme Delta Brush", "CSF Biomarkers"],
-        },
-        {
-          id: "cme-4",
-          title: "Pediatric Critical Care Symposium: Refractory Cytokine Storms in Severe Dengue & MIS-C",
-          specialty: "Pediatrics",
-          date: "Thursday, Oct 11, 2026",
-          time: "02:00 PM EST • 19:00 UTC",
-          speaker: "Dr. Elena Rostova, MD, PhD",
-          speaker_title: "Consultant in Pediatric Infectious Diseases",
-          cme_credits: 2.0,
-          location: "Global Pediatric Collaborative Hub",
-          rsvp_count: 290,
-          is_attending: true,
-          topics: ["HLH-2004", "IVIG Pulse Therapy", "Pediatric Sepsis"],
-        },
-      ];
+  // Fetch real events from API if none passed
+  useEffect(() => {
+    if (!propEvents || propEvents.length === 0) {
+      setLoading(true);
+      const token = getStoredToken();
+      fetch("/api/v1/hub/cme/events", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data: CMEEventData[]) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setEvents(data);
+          }
+        })
+        .finally(() => setLoading(false));
+    } else {
+      setEvents(propEvents);
+    }
+  }, [propEvents]);
 
-  const filtered = fallbackEvents.filter(
-    (ev) => filterSpec === "all" || ev.specialty.toLowerCase() === filterSpec.toLowerCase()
+  // Real-time WebSocket sync for RSVP changes
+  useEffect(() => {
+    const token = getStoredToken();
+    const ws = getSharedRealtimeClient(token);
+    if (ws) {
+      const unsub = ws.subscribeMessages((type, payload) => {
+        if (type === "hub_cme_rsvp_updated" && payload?.event_id) {
+          setEvents((prev) =>
+            prev.map((e) =>
+              e.id === payload.event_id
+                ? {
+                    ...e,
+                    rsvp_count: payload.rsvp_count ?? e.rsvp_count,
+                  }
+                : e
+            )
+          );
+        }
+      });
+      return () => {
+        unsub();
+      };
+    }
+  }, []);
+
+  const handleToggle = async (eventId: string) => {
+    // Optimistic toggle
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === eventId
+          ? {
+              ...e,
+              is_attending: !e.is_attending,
+              rsvp_count: e.is_attending ? Math.max(0, e.rsvp_count - 1) : e.rsvp_count + 1,
+            }
+          : e
+      )
+    );
+
+    if (onToggleRSVP) onToggleRSVP(eventId);
+
+    try {
+      const token = getStoredToken();
+      const res = await fetch(`/api/v1/hub/cme/events/${eventId}/rsvp`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEvents((prev) =>
+          prev.map((e) =>
+            e.id === eventId
+              ? { ...e, is_attending: data.is_attending, rsvp_count: data.rsvp_count }
+              : e
+          )
+        );
+      }
+    } catch {}
+  };
+
+  const filtered = events.filter(
+    (ev) => filterSpec === "all" || ev.specialty.toLowerCase().includes(filterSpec.toLowerCase())
   );
 
-  const totalCredits = fallbackEvents
+  const totalCredits = events
     .filter((e) => e.is_attending)
     .reduce((sum, e) => sum + e.cme_credits, 0);
 
@@ -125,70 +147,66 @@ export function CMEEventsModal({
     document.body.removeChild(link);
   };
 
-  const bgModal = isNightMode
-    ? "bg-slate-900/95 border-slate-800 text-slate-100"
-    : "bg-white border-slate-200 text-slate-900";
-
-  const cardBg = isNightMode
-    ? "bg-slate-800/80 border-slate-700/80"
-    : "bg-slate-50 border-slate-200/90";
-
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        className={`relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl border shadow-2xl overflow-hidden ${bgModal}`}
+        className="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="p-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 bg-white">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xl">📅</span>
-              <h2 className="text-lg font-black tracking-tight">Hospital Grand Rounds & CME</h2>
-              <span className="text-[10px] bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full font-bold">
-                Accredited Education
+              <span className="text-xl">🎓</span>
+              <h2 className="text-lg font-black text-slate-900 tracking-tight">
+                Webinars & Medical Lectures (CME)
+              </h2>
+              <span className="text-[10px] bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-full font-bold">
+                CME Credits
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Peer-reviewed lectures, M&M conferences, and accredited AMA Category 1 credits.
+            <p className="text-xs text-slate-500 mt-0.5">
+              Attend live lectures and earn continuing medical education credits.
             </p>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm font-bold transition cursor-pointer"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* CME Passport Banner */}
-        <div className="p-4 bg-gradient-to-r from-teal-600 to-emerald-600 text-white flex items-center justify-between">
+        {/* CME Passport Summary Card */}
+        <div className="p-4 bg-gradient-to-r from-teal-600 to-emerald-600 text-white flex items-center justify-between shadow-xs">
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-teal-100">
-              Personal CME Passport Tracker
+              Your Education Credits
             </p>
             <p className="text-sm font-extrabold mt-0.5">
-              🎓 {totalCredits.toFixed(1)} AMA PRA Category 1 Credits™ Reserved
+              🎓 {totalCredits.toFixed(1)} CME Credits Saved
             </p>
           </div>
           <span className="text-[11px] bg-white/20 backdrop-blur-md px-3 py-1 rounded-full font-bold">
-            Board Cycle 2026 Active
+            2026 Cycle
           </span>
         </div>
 
         {/* Specialty Filter Tabs */}
-        <div className="p-3 border-b border-slate-100 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
+        <div className="p-3 border-b border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar bg-slate-50">
           {["all", "cardiology", "neurology", "pediatrics", "emergency medicine"].map((spec) => (
             <button
               key={spec}
+              type="button"
               onClick={() => setFilterSpec(spec)}
-              className={`px-3 py-1 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer whitespace-nowrap ${
                 filterSpec === spec
                   ? "bg-teal-600 text-white shadow-xs"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                  : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
               }`}
             >
               {spec === "all" ? "All Specialties" : spec}
@@ -197,73 +215,89 @@ export function CMEEventsModal({
         </div>
 
         {/* Events List */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-          {filtered.map((event) => (
-            <div
-              key={event.id}
-              className={`p-4 rounded-2xl border transition-all shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${cardBg}`}
-            >
-              <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                {/* Date badge */}
-                <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-center flex-shrink-0 shadow-xs">
-                  <span className="text-[9px] uppercase font-black text-rose-600">OCT</span>
-                  <span className="text-lg font-black text-slate-900 dark:text-slate-100 leading-none">
-                    {event.date.match(/[0-9]{1,2}/)?.[0] || "15"}
-                  </span>
-                  <span className="text-[8px] text-slate-400 font-mono">2026</span>
-                </div>
-
-                <div className="min-w-0 flex-1">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar bg-slate-50/30">
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 space-y-1">
+              <BookOpen className="w-8 h-8 mx-auto text-slate-300" />
+              <p className="text-sm font-bold text-slate-700">No events in this specialty</p>
+            </div>
+          ) : (
+            filtered.map((ev) => (
+              <div
+                key={ev.id}
+                className="p-4 rounded-2xl bg-white border border-slate-200/90 hover:border-teal-300 transition-all shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+              >
+                <div className="min-w-0 space-y-1.5 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-                      🎓 {event.cme_credits} CME Hours
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-md">
+                      {ev.specialty}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      🕒 {event.time}
+                    <span className="text-[10px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <Award className="w-3 h-3 text-amber-600" />
+                      <span>{ev.cme_credits} CME Credits</span>
                     </span>
                   </div>
 
-                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 mt-1 leading-snug">
-                    {event.title}
-                  </h3>
+                  <h4 className="font-extrabold text-sm text-slate-900 leading-snug">
+                    {ev.title}
+                  </h4>
 
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                    <strong className="text-slate-800 dark:text-white">{event.speaker}</strong> • {event.speaker_title}
+                  <p className="text-xs text-slate-600">
+                    <span className="font-bold text-slate-800">{ev.speaker}</span> • {ev.speaker_title}
                   </p>
 
-                  <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-400 flex-wrap">
-                    <span>📍 {event.location}</span>
-                    <span>•</span>
-                    <span className="font-mono text-teal-700 dark:text-teal-400 font-bold">
-                      👥 {event.rsvp_count} Attending
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 pt-0.5">
+                    <span className="flex items-center gap-1 font-medium">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{ev.date}</span>
+                    </span>
+                    <span className="flex items-center gap-1 font-medium">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{ev.time}</span>
+                    </span>
+                    <span className="flex items-center gap-1 font-medium">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{ev.location}</span>
                     </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Actions */}
-              <div className="flex sm:flex-col items-center sm:items-end gap-2 w-full sm:w-auto justify-end flex-shrink-0">
-                <button
-                  onClick={() => onToggleRSVP(event.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                    event.is_attending
-                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs font-black"
-                      : "bg-teal-50 hover:bg-teal-100 dark:bg-teal-950 dark:hover:bg-teal-900 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800"
-                  }`}
-                >
-                  {event.is_attending ? "Attending ✓" : "RSVP Attending"}
-                </button>
+                {/* Right Action Buttons */}
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    onClick={() => downloadICS(ev)}
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                    title="Add to Calendar (.ics)"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
 
-                <button
-                  onClick={() => downloadICS(event)}
-                  className="text-[11px] text-slate-500 hover:text-teal-700 dark:hover:text-teal-400 font-bold flex items-center gap-1 hover:underline transition-colors"
-                >
-                  <span>📅</span>
-                  <span>Add to Calendar</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggle(ev.id)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                      ev.is_attending
+                        ? "bg-slate-100 text-slate-700 border border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
+                        : "bg-teal-600 hover:bg-teal-700 text-white"
+                    }`}
+                  >
+                    {ev.is_attending ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Attending ✓</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Attend ({ev.rsvp_count})</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </motion.div>
     </div>

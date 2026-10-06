@@ -46,9 +46,7 @@ export default function AudioVisualizer({ state, stream }: AudioVisualizerProps)
 
     const updateBars = () => {
       if (!analyserRef.current) {
-        // Fallback to random if Web Audio API failed
-        setBars((prev) => prev.map(() => 0.2 + Math.random() * 0.8));
-        animationFrameRef.current = requestAnimationFrame(updateBars);
+        setBars(Array.from({ length: 30 }, () => 0.1));
         return;
       }
 

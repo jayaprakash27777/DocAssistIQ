@@ -247,9 +247,15 @@ async def get_download_url(
     if not is_admin and file_obj.owner_id != requester_id:
         raise AuthorizationError("Access denied to this file.")
 
+    response_headers = None
+    if getattr(file_obj, "original_filename", None):
+        safe_name = _sanitise_filename(file_obj.original_filename)
+        response_headers = {"response-content-disposition": f'attachment; filename="{safe_name}"'}
+
     url = storage.get_presigned_download_url(
         object_key=file_obj.object_key,
         expires_seconds=expires_seconds,
+        response_headers=response_headers,
     )
 
     log.info(

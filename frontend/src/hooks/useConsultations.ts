@@ -49,8 +49,8 @@ export function useCreateConsultation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async () => {
-      const res = await createConsultation();
+    mutationFn: async (payload?: { input_text?: string; patient_id?: string; patient_session_id?: string }) => {
+      const res = await createConsultation(payload);
       if (!res.ok) throw new Error(res.error.message);
       return res.data;
     },

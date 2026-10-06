@@ -40,7 +40,8 @@ import {
   Database,
   Radio,
   ExternalLink,
-  Brain
+  Brain,
+  FileCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/shell/ToastProvider";
@@ -448,7 +449,7 @@ export default function DashboardPage() {
                   }}
                   itemStyle={{ color: '#0d9488' }}
                   labelStyle={{ color: '#1e293b', fontWeight: 700 }}
-                  formatter={(value: any) => [`${value} consultations`, 'Volume']}
+                  formatter={(value: unknown) => [`${value} consultations`, 'Volume']}
                 />
                 <Area type="monotone" dataKey="consultations" stroke="#0d9488" strokeWidth={3.5} fillOpacity={1} fill="url(#colorConsults)" />
               </AreaChart>
@@ -512,13 +513,29 @@ export default function DashboardPage() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.08 }}
                     >
-                      <Link 
-                        href={`/consultations/${c.id}`}
-                        className="group flex items-center justify-between p-3.5 rounded-2xl bg-white/60 hover:bg-white border border-slate-200/80 hover:border-teal-400 transition-all shadow-sm hover:shadow-md"
+                      <div 
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => router.push(`/consultations/${c.id}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            router.push(`/consultations/${c.id}`);
+                          }
+                        }}
+                        className="group flex items-center justify-between p-3.5 rounded-2xl bg-white/70 hover:bg-white border border-slate-200/80 hover:border-teal-400 transition-all shadow-xs hover:shadow-md cursor-pointer"
                       >
                         <div className="min-w-0 flex-1 mr-3">
-                          <div className="font-mono text-xs font-bold text-slate-900 mb-1 group-hover:text-teal-700 transition-colors truncate">
-                            SESSION {c.id.slice(0, 8).toUpperCase()}
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-xs font-bold text-slate-900 group-hover:text-teal-700 transition-colors truncate">
+                              SESSION {c.id.slice(0, 8).toUpperCase()}
+                            </span>
+                            {c.status === "completed" && (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md">
+                                <FileCheck className="w-2.5 h-2.5 text-emerald-600" />
+                                <span>Certified</span>
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] text-slate-400 flex items-center gap-1.5 font-medium truncate">
                             <Clock className="w-3 h-3 text-slate-400 shrink-0" />
@@ -536,13 +553,13 @@ export default function DashboardPage() {
                             <span>AI</span>
                           </Link>
                           <div 
-                            className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm" 
+                            className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-xs" 
                             style={{ color: status.color, backgroundColor: status.bg, borderColor: `${status.color}30` }}
                           >
                             {status.label}
                           </div>
                         </div>
-                      </Link>
+                      </div>
                     </motion.div>
                   );
                 })}
