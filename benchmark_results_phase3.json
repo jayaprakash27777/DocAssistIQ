@@ -1,0 +1,76 @@
+{
+  "timestamp": "2026-10-14 21:50:34",
+  "total_cases": 6,
+  "avg_latency_ms": 236.3,
+  "top1_accuracy_percent": 100.0,
+  "top3_accuracy_percent": 100.0,
+  "ollama_ping_ms": 630.02,
+  "detailed_results": [
+    {
+      "case_id": "CASE-01",
+      "name": "Acute Appendicitis",
+      "elapsed_ms": 811.34,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Acute Appendicitis",
+      "top_score": 1.69,
+      "triage": "ROUTINE",
+      "emergency_alert": false
+    },
+    {
+      "case_id": "CASE-02",
+      "name": "Acute Myocardial Infarction",
+      "elapsed_ms": 127.22,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Acute Myocardial Infarction (STEMI/NSTEMI)",
+      "top_score": 1.37,
+      "triage": "ROUTINE",
+      "emergency_alert": true
+    },
+    {
+      "case_id": "CASE-03",
+      "name": "Pulmonary Embolism",
+      "elapsed_ms": 109.28,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Pulmonary Embolism",
+      "top_score": 0.85,
+      "triage": "ROUTINE",
+      "emergency_alert": false
+    },
+    {
+      "case_id": "CASE-04",
+      "name": "Dengue Hemorrhagic / Classic Fever",
+      "elapsed_ms": 193.25,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Dengue Fever",
+      "top_score": 2.087,
+      "triage": "ROUTINE",
+      "emergency_alert": true
+    },
+    {
+      "case_id": "CASE-05",
+      "name": "Bacterial Meningitis",
+      "elapsed_ms": 93.8,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Bacterial Meningitis",
+      "top_score": 1.69,
+      "triage": "ROUTINE",
+      "emergency_alert": false
+    },
+    {
+      "case_id": "CASE-06",
+      "name": "Community-Acquired Pneumonia",
+      "elapsed_ms": 82.88,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Community-Acquired Pneumonia (Lobar Pneumonia)",
+      "top_score": 1.87,
+      "triage": "ROUTINE",
+      "emergency_alert": false
+    }
+  ]
+}

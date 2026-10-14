@@ -15,7 +15,6 @@ from app.services.india_outbreak_surveillance import (
     fetch_live_cdc_outbreaks,
     ALL_INDIAN_STATES_AND_UTS,
     INDIA_STATE_OUTBREAKS,
-    STATIC_GLOBAL_OUTBREAKS,
 )
 from app.services.realtime_prediction_service import realtime_prediction_service
 

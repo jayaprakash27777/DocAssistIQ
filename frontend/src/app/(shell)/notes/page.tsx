@@ -565,11 +565,11 @@ export default function NotesPage() {
                 </div>
 
                 {/* Card Actions */}
-                <div className="pt-3 border-t border-slate-100 flex items-center gap-1.5">
+                <div className="pt-3 border-t border-slate-100 flex items-center gap-1.5 flex-wrap">
                   <Button
                     variant="outline"
                     onClick={() => handleInspectNote(cons.id)}
-                    className="flex-1 h-9 rounded-xl text-xs font-bold gap-1.5 border-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-all"
+                    className="flex-1 min-w-[110px] h-9 rounded-xl text-xs font-bold gap-1.5 border-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-all shrink-0"
                   >
                     <Eye className="w-3.5 h-3.5" /> Inspect Note
                   </Button>
@@ -580,7 +580,7 @@ export default function NotesPage() {
                     onClick={(e) => handleQuickDownloadNote(e, cons.id, "pdf")}
                     disabled={downloadingDoc !== null}
                     title="Download Official Hospital PDF"
-                    className="h-9 px-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center justify-center gap-1 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                    className="h-9 px-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center justify-center gap-1 transition-all shadow-2xs cursor-pointer disabled:opacity-50 shrink-0"
                   >
                     {downloadingDoc === `quick-${cons.id}-pdf` ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -596,7 +596,7 @@ export default function NotesPage() {
                     onClick={(e) => handleQuickDownloadNote(e, cons.id, "docx")}
                     disabled={downloadingDoc !== null}
                     title="Download Microsoft Word DOCX"
-                    className="h-9 px-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                    className="h-9 px-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1 transition-all shadow-2xs cursor-pointer disabled:opacity-50 shrink-0"
                   >
                     {downloadingDoc === `quick-${cons.id}-docx` ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -608,14 +608,14 @@ export default function NotesPage() {
 
                   <Link
                     href={`/ai?cid=${cons.id}`}
-                    className="h-9 px-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1 transition-all shadow-2xs"
+                    className="h-9 px-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1 transition-all shadow-2xs shrink-0"
                     title="Query this clinical note with DocAssist IQ AI"
                   >
                     <Brain className="w-3.5 h-3.5 text-indigo-600" />
                     <span>AI</span>
                   </Link>
 
-                  <Link href={`/consultations/${cons.id}`} className="flex-1">
+                  <Link href={`/consultations/${cons.id}`} className="flex-1 min-w-[110px]">
                     <Button
                       variant="primary"
                       className="w-full h-9 rounded-xl text-xs font-bold gap-1.5 bg-teal-600 text-white hover:bg-teal-700 shadow-xs transition-all"
@@ -627,7 +627,7 @@ export default function NotesPage() {
                   <button
                     onClick={() => handleCopyNote(cons.input_preview || `Consultation ${cons.id}`, cons.id)}
                     title="Copy note summary"
-                    className="w-9 h-9 rounded-xl border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors"
+                    className="w-9 h-9 rounded-xl border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors shrink-0"
                   >
                     {copiedId === cons.id ? (
                       <Check className="w-4 h-4 text-emerald-600" />
@@ -653,30 +653,30 @@ export default function NotesPage() {
               className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
             >
               {/* Modal Header */}
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 bg-slate-50/80">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-100">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-100 shrink-0">
                     <FileText className="w-5 h-5" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold font-heading text-slate-900 flex items-center gap-2">
-                      Clinical Note Document
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold font-heading text-slate-900 flex items-center gap-2 flex-wrap">
+                      <span>Clinical Note Document</span>
                       {activeNote?.status && (
                         <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
                           {activeNote.status}
                         </span>
                       )}
                     </h3>
-                    <p className="text-xs text-slate-500 font-mono">
+                    <p className="text-xs text-slate-500 font-mono truncate">
                       ID: {selectedConsultationId} • Version {activeNote?.version || 1}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
                   <Link
                     href={`/ai?cid=${selectedConsultationId}`}
-                    className="h-8 px-3 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 shadow-2xs transition-all"
+                    className="h-8 px-3 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 shadow-2xs transition-all shrink-0"
                     title="Ask DocAssist IQ AI about this consultation"
                   >
                     <Brain className="w-3.5 h-3.5 text-indigo-600" />
@@ -687,7 +687,7 @@ export default function NotesPage() {
                       <Button
                         variant="outline"
                         onClick={() => handleCopyFormattedNote(activeNote)}
-                        className="h-8 px-3 rounded-xl text-xs font-bold gap-1.5 border-teal-200 text-teal-800 bg-teal-50 hover:bg-teal-100 shadow-2xs"
+                        className="h-8 px-3 rounded-xl text-xs font-bold gap-1.5 border-teal-200 text-teal-800 bg-teal-50 hover:bg-teal-100 shadow-2xs shrink-0"
                       >
                         <Copy className="w-3.5 h-3.5 text-teal-600" /> Copy for EHR
                       </Button>
@@ -695,7 +695,7 @@ export default function NotesPage() {
                         type="button"
                         onClick={() => handleDownloadNoteFormat(activeNote, "pdf")}
                         disabled={downloadingDoc !== null}
-                        className="h-8 px-3 rounded-xl text-xs font-bold gap-1.5 border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 shadow-2xs flex items-center transition-colors cursor-pointer disabled:opacity-50"
+                        className="h-8 px-3 rounded-xl text-xs font-bold gap-1.5 border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 shadow-2xs flex items-center transition-colors cursor-pointer disabled:opacity-50 shrink-0"
                         title="Download official clinical note as PDF"
                       >
                         {downloadingDoc === `note-${activeNote.consultation_id}-pdf` ? (
@@ -709,7 +709,7 @@ export default function NotesPage() {
                         type="button"
                         onClick={() => handleDownloadNoteFormat(activeNote, "docx")}
                         disabled={downloadingDoc !== null}
-                        className="h-8 px-3 rounded-xl text-xs font-bold gap-1.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 shadow-2xs flex items-center transition-colors cursor-pointer disabled:opacity-50"
+                        className="h-8 px-3 rounded-xl text-xs font-bold gap-1.5 border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 shadow-2xs flex items-center transition-colors cursor-pointer disabled:opacity-50 shrink-0"
                         title="Download official clinical note as Microsoft Word DOCX"
                       >
                         {downloadingDoc === `note-${activeNote.consultation_id}-docx` ? (
@@ -722,7 +722,7 @@ export default function NotesPage() {
                       <Button
                         variant="outline"
                         onClick={() => handleDownloadMarkdown(activeNote)}
-                        className="h-8 px-2.5 rounded-xl text-xs font-bold gap-1 border-slate-200 text-slate-600 hover:bg-slate-100 shadow-2xs"
+                        className="h-8 px-2.5 rounded-xl text-xs font-bold gap-1 border-slate-200 text-slate-600 hover:bg-slate-100 shadow-2xs shrink-0"
                         title="Export Markdown text representation"
                       >
                         <Download className="w-3 h-3 text-slate-500" /> MD
@@ -730,7 +730,7 @@ export default function NotesPage() {
                       <Button
                         variant="outline"
                         onClick={() => handleCopyNote(JSON.stringify(activeNote.body, null, 2), "modal")}
-                        className="h-8 px-2.5 rounded-xl text-xs font-bold gap-1 border-slate-200 text-slate-600 hover:bg-slate-100 shadow-2xs"
+                        className="h-8 px-2.5 rounded-xl text-xs font-bold gap-1 border-slate-200 text-slate-600 hover:bg-slate-100 shadow-2xs shrink-0"
                         title="Copy raw JSON data"
                       >
                         <Copy className="w-3 h-3 text-slate-500" /> JSON
@@ -742,7 +742,7 @@ export default function NotesPage() {
                       setSelectedConsultationId(null);
                       setActiveNote(null);
                     }}
-                    className="w-8 h-8 rounded-full hover:bg-slate-200/60 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors"
+                    className="w-8 h-8 rounded-full hover:bg-slate-200/60 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors shrink-0 cursor-pointer ml-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -847,48 +847,56 @@ export default function NotesPage() {
                     )}
 
                     {/* SOAP Sections */}
-                    <div className="grid grid-cols-1 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* S - Subjective */}
-                      <div className="p-4 rounded-2xl border border-teal-100 bg-teal-50/40">
-                        <div className="flex items-center gap-2 text-teal-800 font-bold text-xs uppercase tracking-wider mb-2">
-                          <Stethoscope className="w-4 h-4 text-teal-600" />
-                          Subjective (Chief Complaint & HPI)
-                        </div>
-                        <div className="text-xs text-slate-700 leading-relaxed font-sans">
-                          {(activeNote.body as any)?.chief_complaint?.text || (activeNote.body as any)?.hpi?.text || "Patient intake text recorded during clinical encounter."}
+                      <div className="p-4 rounded-2xl border border-teal-100 bg-teal-50/40 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 text-teal-800 font-bold text-xs uppercase tracking-wider mb-2">
+                            <Stethoscope className="w-4 h-4 text-teal-600 shrink-0" />
+                            <span>Subjective (Chief Complaint & HPI)</span>
+                          </div>
+                          <div className="text-xs text-slate-700 leading-relaxed font-sans whitespace-pre-line">
+                            {(activeNote.body as any)?.chief_complaint?.text || (activeNote.body as any)?.hpi?.text || "Patient intake text recorded during clinical encounter."}
+                          </div>
                         </div>
                       </div>
 
                       {/* O - Objective */}
-                      <div className="p-4 rounded-2xl border border-blue-100 bg-blue-50/40">
-                        <div className="flex items-center gap-2 text-blue-800 font-bold text-xs uppercase tracking-wider mb-2">
-                          <Activity className="w-4 h-4 text-blue-600" />
-                          Objective (Vitals & Physical Findings)
-                        </div>
-                        <div className="text-xs text-slate-700 leading-relaxed font-sans">
-                          {(activeNote.body as any)?.vitals?.text || (activeNote.body as any)?.physical_exam?.text || "Vitals within documented baseline or clinical thresholds."}
+                      <div className="p-4 rounded-2xl border border-blue-100 bg-blue-50/40 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 text-blue-800 font-bold text-xs uppercase tracking-wider mb-2">
+                            <Activity className="w-4 h-4 text-blue-600 shrink-0" />
+                            <span>Objective (Vitals & Physical Findings)</span>
+                          </div>
+                          <div className="text-xs text-slate-700 leading-relaxed font-sans whitespace-pre-line">
+                            {(activeNote.body as any)?.vitals?.text || (activeNote.body as any)?.physical_exam?.text || "Vitals within documented baseline or clinical thresholds."}
+                          </div>
                         </div>
                       </div>
 
                       {/* A - Assessment */}
-                      <div className="p-4 rounded-2xl border border-indigo-100 bg-indigo-50/40">
-                        <div className="flex items-center gap-2 text-indigo-800 font-bold text-xs uppercase tracking-wider mb-2">
-                          <Sparkles className="w-4 h-4 text-indigo-600" />
-                          Assessment (Differential & Clinical Reasoning)
-                        </div>
-                        <div className="text-xs text-slate-700 leading-relaxed font-sans">
-                          {(activeNote.body as any)?.assessment?.text || (activeNote.body as any)?.differential_diagnosis?.text || "Differential diagnoses synthesized against PubMed Central literature."}
+                      <div className="p-4 rounded-2xl border border-indigo-100 bg-indigo-50/40 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 text-indigo-800 font-bold text-xs uppercase tracking-wider mb-2">
+                            <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+                            <span>Assessment (Differential & Reasoning)</span>
+                          </div>
+                          <div className="text-xs text-slate-700 leading-relaxed font-sans whitespace-pre-line">
+                            {(activeNote.body as any)?.assessment?.text || (activeNote.body as any)?.differential_diagnosis?.text || "Differential diagnoses synthesized against PubMed Central literature."}
+                          </div>
                         </div>
                       </div>
 
                       {/* P - Plan */}
-                      <div className="p-4 rounded-2xl border border-emerald-100 bg-emerald-50/40">
-                        <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase tracking-wider mb-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          Plan (Investigations, Rx & Safety Net)
-                        </div>
-                        <div className="text-xs text-slate-700 leading-relaxed font-sans">
-                          {(activeNote.body as any)?.plan?.text || (activeNote.body as any)?.safety_net?.text || "Prescriptions, clinical investigations, and follow-up precautions verified."}
+                      <div className="p-4 rounded-2xl border border-emerald-100 bg-emerald-50/40 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase tracking-wider mb-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>Plan (Investigations, Rx & Safety Net)</span>
+                          </div>
+                          <div className="text-xs text-slate-700 leading-relaxed font-sans whitespace-pre-line">
+                            {(activeNote.body as any)?.plan?.text || (activeNote.body as any)?.safety_net?.text || "Prescriptions, clinical investigations, and follow-up precautions verified."}
+                          </div>
                         </div>
                       </div>
                     </div>

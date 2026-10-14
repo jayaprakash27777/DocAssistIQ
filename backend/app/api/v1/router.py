@@ -38,6 +38,7 @@ from app.api.v1.endpoints.live_intelligence import router as live_intelligence_r
 from app.api.v1.endpoints.disease_intelligence import router as disease_intelligence_router
 from app.api.v1.endpoints.documents import router as documents_router
 from app.api.v1.endpoints.clinical_knowledge import router as clinical_knowledge_router
+from app.api.v1.endpoints.disease_catalog import router as disease_catalog_router
 from app.config import Settings
 from app.dependencies import get_request_id_dep, get_settings_dep
 
@@ -105,6 +106,9 @@ api_v1_router.include_router(documents_router)
 
 # Master Clinical Knowledge & Multi-Source Terminology Gateway (52+ Sources)
 api_v1_router.include_router(clinical_knowledge_router)
+
+# Master Disease Catalog (20,397+ Indexed Clinical Conditions)
+api_v1_router.include_router(disease_catalog_router)
 
 # Phase 8 — WebSocket stream (mounted at app level — see main.py)
 # ws_router is imported here and exported for main.py to include directly

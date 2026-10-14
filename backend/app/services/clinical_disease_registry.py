@@ -1285,3 +1285,6 @@ REGISTRY_ALIASES: Dict[str, str] = {
     "Acute Stroke": "Ischemic Stroke",
     "CVA": "Ischemic Stroke",
 }
+
+# Compatibility alias
+DISEASE_REGISTRY = CLINICAL_DISEASE_REGISTRY

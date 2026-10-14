@@ -29,6 +29,8 @@ import { CommandPalette } from "@/components/shell/CommandPalette";
 import { LiveOutbreakBanner } from "@/components/clinical/LiveOutbreakBanner";
 import { useClinicianHotkeys } from "@/hooks/useClinicianHotkeys";
 
+import { PageTransition } from "@/components/shell/PageTransition";
+
 // ── Inner layout (reads auth context) ────────────────────────
 
 function ShellInner({ children }: { children: React.ReactNode }) {
@@ -96,7 +98,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
         <main className="shell-main" id="main-content" tabIndex={-1}>
           <LiveOutbreakBanner />
           <ErrorBoundary>
-            {children}
+            <PageTransition>{children}</PageTransition>
           </ErrorBoundary>
         </main>
       </div>

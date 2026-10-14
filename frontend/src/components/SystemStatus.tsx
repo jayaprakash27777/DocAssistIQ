@@ -14,17 +14,21 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { getHealth, getReady, type ReadinessResponse } from "@/lib/api";
 import { AlertTriangle, WifiOff, X, RefreshCw } from "lucide-react";
 
 type SystemState = "connecting" | "operational" | "degraded" | "offline";
 
 export default function SystemStatus() {
+  const pathname = usePathname();
+  const isConsultationRoom = pathname?.includes("/consultations/") && pathname.split("/consultations/")[1]?.length > 0;
   const [state, setState] = useState<SystemState>("connecting");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [unhealthyDeps, setUnhealthyDeps] = useState<string[]>([]);
   const [dismissed, setDismissed] = useState(false);
   const mountedRef = useRef(true);
+  const failCountRef = useRef(0);
 
   const checkStatus = useCallback(async () => {
     try {
@@ -33,10 +37,17 @@ export default function SystemStatus() {
       if (!mountedRef.current) return;
 
       if (!healthRes.ok) {
-        setState("offline");
-        setErrorMessage(healthRes.error?.message || "Network error");
+        failCountRef.current += 1;
+        // Require at least 3 consecutive failures before showing offline banner to prevent transient blips
+        if (failCountRef.current >= 3) {
+          setState("offline");
+          setErrorMessage(healthRes.error?.message || "Reconnecting to clinical backend…");
+        }
         return;
       }
+
+      // Success - reset fail count and immediately restore operational state
+      failCountRef.current = 0;
 
       if (readyRes.ok && readyRes.data) {
         const deps = readyRes.data.dependencies;
@@ -58,22 +69,27 @@ export default function SystemStatus() {
       setErrorMessage("");
     } catch (e: any) {
       if (!mountedRef.current) return;
-      setState("offline");
-      setErrorMessage(e?.message || "Network error");
+      failCountRef.current += 1;
+      if (failCountRef.current >= 3) {
+        setState("offline");
+        setErrorMessage(e?.message || "Reconnecting to clinical backend…");
+      }
     }
   }, []);
 
   useEffect(() => {
     mountedRef.current = true;
-    const timer = setTimeout(checkStatus, 0);
+    checkStatus();
 
-    const intervalId = setInterval(checkStatus, 30_000);
+    // Fast 1.5s reconnect loop when offline, otherwise 20s standard heartbeat
+    const pollInterval = state === "offline" ? 1500 : 20_000;
+    const intervalId = setInterval(checkStatus, pollInterval);
+
     return () => {
       mountedRef.current = false;
-      clearTimeout(timer);
       clearInterval(intervalId);
     };
-  }, [checkStatus]);
+  }, [checkStatus, state]);
 
   // Operational: render nothing
   if (state === "operational") {
@@ -95,7 +111,7 @@ export default function SystemStatus() {
 
   // Degraded: dismissable alert
   if (state === "degraded") {
-    if (dismissed) return null;
+    if (dismissed || isConsultationRoom) return null;
 
     return (
       <div

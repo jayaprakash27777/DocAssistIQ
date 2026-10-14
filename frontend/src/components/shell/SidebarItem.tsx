@@ -18,13 +18,14 @@ export interface NavItem {
   icon: React.ReactNode;
   /** If true, item only appears when sidebar is expanded */
   labelOnly?: boolean;
+  badge?: string;
 }
 
 interface Props extends NavItem {
   collapsed: boolean;
 }
 
-export function SidebarItem({ href, label, icon, collapsed }: Props) {
+export function SidebarItem({ href, label, icon, collapsed, badge }: Props) {
   const pathname = usePathname();
   const isActive = pathname === href || pathname.startsWith(href + "/");
 
@@ -49,7 +50,18 @@ export function SidebarItem({ href, label, icon, collapsed }: Props) {
       <span className={`sidebar-item-icon relative z-10 flex items-center justify-center ${isActive ? "text-[var(--color-primary-700)]" : "text-slate-500"}`} aria-hidden="true">
         {icon}
       </span>
-      {!collapsed && <span className={`relative z-10 font-bold ml-1 tracking-tight ${isActive ? "text-[var(--color-primary-900)]" : "text-slate-700"}`}>{label}</span>}
+      {!collapsed && (
+        <div className="relative z-10 flex items-center justify-between flex-1 ml-1">
+          <span className={`font-bold tracking-tight ${isActive ? "text-[var(--color-primary-900)]" : "text-slate-700"}`}>
+            {label}
+          </span>
+          {badge && (
+            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100/90 text-emerald-800 border border-emerald-300 shadow-xs">
+              {badge}
+            </span>
+          )}
+        </div>
+      )}
     </Link>
   );
 }

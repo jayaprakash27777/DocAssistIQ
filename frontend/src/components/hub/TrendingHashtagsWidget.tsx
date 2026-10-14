@@ -98,7 +98,7 @@ export function TrendingHashtagsWidget({
                 )}
               </div>
               <span className="text-[10px] font-mono text-slate-400 font-medium">
-                {h.count} cases
+                {h.count} {h.count === 1 ? "case" : "cases"}
               </span>
             </button>
           );

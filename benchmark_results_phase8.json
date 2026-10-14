@@ -1,0 +1,232 @@
+{
+  "timestamp": "2026-10-14 23:31:00",
+  "total_cases": 6,
+  "avg_latency_ms": 1555.39,
+  "top1_accuracy_percent": 100.0,
+  "top3_accuracy_percent": 100.0,
+  "crag_verified_percent": 100.0,
+  "nli_interception_accuracy_percent": 100.0,
+  "speculative_streaming": {
+    "avg_ttft_ms": 0.23,
+    "avg_total_stream_ms": 922.97,
+    "cases": [
+      {
+        "case_id": "CASE-01",
+        "name": "Acute Appendicitis",
+        "ttft_ms": 0.51,
+        "total_stream_ms": 870.33,
+        "chunks_emitted": 31,
+        "event_types": [
+          "start",
+          "candidate",
+          "test",
+          "narrative_token",
+          "end"
+        ],
+        "narrative_length": 894
+      },
+      {
+        "case_id": "CASE-02",
+        "name": "Acute Myocardial Infarction",
+        "ttft_ms": 0.06,
+        "total_stream_ms": 959.25,
+        "chunks_emitted": 31,
+        "event_types": [
+          "start",
+          "candidate",
+          "test",
+          "narrative_token",
+          "end"
+        ],
+        "narrative_length": 863
+      },
+      {
+        "case_id": "CASE-03",
+        "name": "Pulmonary Embolism",
+        "ttft_ms": 0.13,
+        "total_stream_ms": 939.33,
+        "chunks_emitted": 33,
+        "event_types": [
+          "start",
+          "candidate",
+          "test",
+          "narrative_token",
+          "end"
+        ],
+        "narrative_length": 952
+      }
+    ]
+  },
+  "phase6_universal_qa": {
+    "accuracy_percent": 100.0,
+    "avg_latency_ms": 11.78,
+    "total_cases": 5
+  },
+  "phase6_pharmacovigilance": {
+    "accuracy_percent": 100.0,
+    "avg_latency_ms": 0.21,
+    "total_cases": 5
+  },
+  "phase7_soap_generator": {
+    "accuracy_percent": 100.0,
+    "avg_latency_ms": 633.5,
+    "cases": [
+      {
+        "case_id": "SOAP-01",
+        "name": "Acute Appendicitis Presentation",
+        "primary_dx": "Acute Appendicitis",
+        "icd10": "K35.80",
+        "icd11": "DB10",
+        "mdm": "High",
+        "cpt_code": "99215 / 99205",
+        "latency_ms": 1099.36,
+        "note_length_chars": 6469
+      },
+      {
+        "case_id": "SOAP-02",
+        "name": "Acute Myocardial Infarction",
+        "primary_dx": "Acute Myocardial Infarction (STEMI/NSTEMI)",
+        "icd10": "I21.9",
+        "icd11": "BA41",
+        "mdm": "High",
+        "cpt_code": "99215 / 99205",
+        "latency_ms": 533.24,
+        "note_length_chars": 6220
+      },
+      {
+        "case_id": "SOAP-03",
+        "name": "Community-Acquired Pneumonia",
+        "primary_dx": "Community-Acquired Pneumonia (Lobar Pneumonia)",
+        "icd10": "J18.9",
+        "icd11": "CA40",
+        "mdm": "High",
+        "cpt_code": "99215 / 99205",
+        "latency_ms": 267.89,
+        "note_length_chars": 6497
+      }
+    ]
+  },
+  "phase8_temporal_trajectory": {
+    "accuracy_percent": 100.0,
+    "avg_latency_ms": 0.25,
+    "cases": [
+      {
+        "case_id": "TRAJ-01",
+        "name": "Septic Shock Decompensation Progression",
+        "news2": 18,
+        "shock_index": 1.63,
+        "qsofa": 3,
+        "trajectory_direction": "RAPIDLY_DETERIORATING",
+        "hazard_score": 0.89,
+        "icu_transfer": true,
+        "latency_ms": 0.49,
+        "total_events": 8
+      },
+      {
+        "case_id": "TRAJ-02",
+        "name": "Acute Coronary Syndrome Serial Troponin Necrosis",
+        "news2": 5,
+        "shock_index": 0.81,
+        "qsofa": 1,
+        "trajectory_direction": "RAPIDLY_DETERIORATING",
+        "hazard_score": 0.48,
+        "icu_transfer": false,
+        "latency_ms": 0.14,
+        "total_events": 6
+      },
+      {
+        "case_id": "TRAJ-03",
+        "name": "Post-Op Occult Hemorrhage & Resuscitation",
+        "news2": 9,
+        "shock_index": 1.36,
+        "qsofa": 2,
+        "trajectory_direction": "RAPIDLY_DETERIORATING",
+        "hazard_score": 0.74,
+        "icu_transfer": true,
+        "latency_ms": 0.1,
+        "total_events": 5
+      }
+    ]
+  },
+  "ollama_ping_ms": 742.86,
+  "detailed_results": [
+    {
+      "case_id": "CASE-01",
+      "name": "Acute Appendicitis",
+      "elapsed_ms": 5444.32,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Acute Appendicitis",
+      "top_score": 1.69,
+      "triage": "ROUTINE",
+      "emergency_alert": false,
+      "crag_verified": true,
+      "nli_approved": true
+    },
+    {
+      "case_id": "CASE-02",
+      "name": "Acute Myocardial Infarction",
+      "elapsed_ms": 1906.82,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Acute Myocardial Infarction (STEMI/NSTEMI)",
+      "top_score": 1.37,
+      "triage": "ROUTINE",
+      "emergency_alert": true,
+      "crag_verified": true,
+      "nli_approved": true
+    },
+    {
+      "case_id": "CASE-03",
+      "name": "Pulmonary Embolism",
+      "elapsed_ms": 247.82,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Pulmonary Embolism",
+      "top_score": 0.85,
+      "triage": "ROUTINE",
+      "emergency_alert": false,
+      "crag_verified": true,
+      "nli_approved": true
+    },
+    {
+      "case_id": "CASE-04",
+      "name": "Dengue Hemorrhagic / Classic Fever",
+      "elapsed_ms": 1266.28,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Dengue Fever",
+      "top_score": 2.087,
+      "triage": "ROUTINE",
+      "emergency_alert": true,
+      "crag_verified": true,
+      "nli_approved": false
+    },
+    {
+      "case_id": "CASE-05",
+      "name": "Bacterial Meningitis",
+      "elapsed_ms": 226.58,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Bacterial Meningitis",
+      "top_score": 1.69,
+      "triage": "ROUTINE",
+      "emergency_alert": false,
+      "crag_verified": true,
+      "nli_approved": true
+    },
+    {
+      "case_id": "CASE-06",
+      "name": "Community-Acquired Pneumonia",
+      "elapsed_ms": 240.52,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Community-Acquired Pneumonia (Lobar Pneumonia)",
+      "top_score": 1.87,
+      "triage": "ROUTINE",
+      "emergency_alert": false,
+      "crag_verified": true,
+      "nli_approved": true
+    }
+  ]
+}

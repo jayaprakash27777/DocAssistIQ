@@ -65,6 +65,7 @@ SYMPTOM_ALIASES: Dict[str, str] = {
     # ---- General fever synonyms ----
     "high-grade fever": "fever",
     "high fever": "fever",
+    "sudden high fever": "fever",
     "pyrexia": "fever",
     "febrile": "fever",
     "low-grade fever": "fever",
@@ -78,6 +79,8 @@ SYMPTOM_ALIASES: Dict[str, str] = {
     "generalized body aches": "muscle aches",
     "body aches": "muscle aches",
     "generalized aches": "muscle aches",
+    "bone pain": "bone pain",
+    "joint and bone pain": "severe joint pain",
     "generalized pain": "muscle aches",
     "arthralgia": "joint pain",
     "joint ache": "joint pain",
@@ -538,11 +541,45 @@ SYMPTOM_ALIASES: Dict[str, str] = {
     "first metatarsophalangeal big toe joint": "first mtp pain",
     "first metatarsophalangeal joint pain": "first mtp pain",
     "big toe pain": "first mtp pain",
-    "podagra": "podagra",
+    "acute severe pain in big toe": "first mtp pain",
+    "severe pain in big toe": "first mtp pain",
+    "pain in big toe": "first mtp pain",
+    "swollen big toe": "first mtp pain",
+    "great toe pain": "first mtp pain",
+    "first mtp joint erythema and swelling": "first mtp pain",
+    "first mtp joint swelling": "first mtp pain",
+    "first mtp erythema": "first mtp pain",
+    "podagra": "first mtp pain",
+    "earache": "severe ear pain",
+    "ear pain": "severe ear pain",
+    "otalgia": "severe ear pain",
+    "ear fullness": "severe ear pain",
+    "bulging erythematous tympanic membrane": "bulging erythematous tympanic membrane",
+    "bulging tympanic membrane": "bulging erythematous tympanic membrane",
+    "erythematous tympanic membrane": "bulging erythematous tympanic membrane",
+    "symmetric joint pain in hands and wrists": "symmetric joint pain in hands and wrists",
+    "morning stiffness lasting over 1 hour": "morning stiffness lasting over 1 hour",
+    "morning stiffness > 1 hour": "morning stiffness lasting over 1 hour",
+    "rlq pain": "right lower quadrant pain",
+    "rlq tenderness": "right lower quadrant pain",
+    "rebound tenderness in right lower quadrant": "rebound tenderness in right lower quadrant",
+    "rebound tenderness in rlq": "rebound tenderness in right lower quadrant",
+    "mcburney point tenderness": "right lower quadrant pain",
+    "mcburney's point tenderness": "right lower quadrant pain",
+    "mcburney sign": "right lower quadrant pain",
 
     # =========================================================
     # TROPICAL, METABOLIC & CHRONIC SYMPTOM ALIASES
     # =========================================================
+    "conjunctival suffusion": "conjunctival suffusion",
+    "bilateral conjunctival suffusion": "conjunctival suffusion",
+    "severe calf muscle tenderness": "calf muscle tenderness",
+    "calf muscle tenderness": "calf muscle tenderness",
+    "calf tenderness": "calf muscle tenderness",
+    "dermatomal vesicular rash": "dermatomal vesicular rash",
+    "sharp burning nerve pain": "sharp burning nerve pain",
+    "unilateral spreading erythema": "unilateral spreading erythema",
+    "spreading erythema": "unilateral spreading erythema",
     "severe retro-orbital headache": "retro-orbital headache",
     "retro orbital headache": "retro-orbital headache",
     "retro-orbital pain": "retro-orbital headache",
@@ -575,7 +612,11 @@ SYMPTOM_ALIASES: Dict[str, str] = {
     "ageusia": "loss of taste",
     "polyuria": "polyuria",
     "excessive urination": "polyuria",
-    "frequent urination": "polyuria",
+    "frequent urination": "urinary frequency",
+    "needs to urinate frequently": "urinary frequency",
+    "need to urinate frequently": "urinary frequency",
+    "urinate frequently": "urinary frequency",
+    "urinating frequently": "urinary frequency",
     "polydipsia": "polydipsia",
     "excessive thirst": "polydipsia",
     "increased thirst": "polydipsia",
@@ -594,8 +635,24 @@ SYMPTOM_ALIASES: Dict[str, str] = {
     "right lower quadrant abdominal pain": "right lower quadrant pain",
     "unilateral pulsating throbbing headache": "unilateral headache",
     "burning retrosternal chest pain": "retrosternal burning",
+    "burning sensation during urination": "dysuria",
+    "burning sensation on urination": "dysuria",
+    "burning sensation with urination": "dysuria",
+    "burning sensation when urinating": "dysuria",
+    "burning urination": "dysuria",
+    "pain during urination": "dysuria",
+    "painful urination": "dysuria",
+    "urgent need to urinate": "urinary urgency",
+    "urgency to urinate": "urinary urgency",
+    "urgent urination": "urinary urgency",
     "cloudy urine": "cloudy urine",
     "suprapubic tenderness": "suprapubic tenderness",
+    "suprapubic pain": "suprapubic tenderness",
+    "mild suprapubic tenderness": "suprapubic tenderness",
+    "pain in lower abdomen": "suprapubic tenderness",
+    "pain in the lower abdomen": "suprapubic tenderness",
+    "mild pain in the lower abdomen": "suprapubic tenderness",
+    "lower abdominal pain": "suprapubic tenderness",
     "urinary frequency": "urinary frequency",
     "port-wine dark reddish-brown urine": "port-wine urine",
     "dark reddish-brown urine": "port-wine urine",
@@ -871,8 +928,12 @@ def normalize_symptom(sym: str) -> str:
         return "dysuria"
     if "left lower quadrant" in sym_lower or "llq" in sym_lower or "diverticul" in sym_lower:
         return "left lower quadrant pain"
-    if "first mtp" in sym_lower or "metatarsophalangeal" in sym_lower or "podagra" in sym_lower or "needle-shaped" in sym_lower or "birefringent" in sym_lower:
+    if "first mtp" in sym_lower or "metatarsophalangeal" in sym_lower or "podagra" in sym_lower or "needle-shaped" in sym_lower or "birefringent" in sym_lower or "big toe" in sym_lower or "great toe" in sym_lower:
         return "first mtp pain"
+    if "ear pain" in sym_lower or "earache" in sym_lower or "otalgia" in sym_lower:
+        return "severe ear pain"
+    if "tympanic" in sym_lower and any(w in sym_lower for w in ["bulging", "red", "erythematous", "injection", "inflamed"]):
+        return "bulging erythematous tympanic membrane"
     if "wheez" in sym_lower:
         return "wheezing"
     if "increased sputum" in sym_lower or "sputum volume" in sym_lower:
@@ -1089,10 +1150,18 @@ HIGH_SPECIFICITY_SYMPTOMS: Dict[str, Dict[str, float]] = {
     "positive antinuclear antibody": {"Systemic Lupus Erythematosus (SLE)": 0.40},
     "positive anti-dsdna": {"Systemic Lupus Erythematosus (SLE)": 0.50},
     "hypocomplementemia": {"Systemic Lupus Erythematosus (SLE)": 0.40},
-    "dermatomal rash": {"Herpes Zoster (Shingles)": 0.60},
-    "burning pain": {"Herpes Zoster (Shingles)": 0.45},
-    "retro-orbital pain": {"Dengue Fever": 0.40},
-    "retro-orbital headache": {"Dengue Fever": 0.40},
+    "dermatomal rash": {"Herpes Zoster (Shingles)": 0.85, "Herpes Zoster": 0.85, "Shingles": 0.85},
+    "dermatomal vesicular rash": {"Herpes Zoster (Shingles)": 0.95, "Herpes Zoster": 0.95, "Shingles": 0.95},
+    "sharp burning nerve pain": {"Herpes Zoster (Shingles)": 0.70, "Herpes Zoster": 0.70, "Shingles": 0.70},
+    "burning pain": {"Herpes Zoster (Shingles)": 0.55, "Herpes Zoster": 0.55, "Shingles": 0.55},
+    "conjunctival suffusion": {"Leptospirosis (Weil's Disease)": 0.85, "Leptospirosis": 0.85},
+    "calf muscle tenderness": {"Leptospirosis (Weil's Disease)": 0.85, "Leptospirosis": 0.85},
+    "unilateral spreading erythema": {"Cellulitis": 0.85},
+    "severe debilitating joint pain": {"Chikungunya": 0.85},
+    "retro-orbital pain": {"Dengue Fever": 0.75},
+    "retro-orbital headache": {"Dengue Fever": 0.75},
+    "severe retro-orbital headache": {"Dengue Fever": 0.85},
+    "severe retro-orbital pain": {"Dengue Fever": 0.85},
     "rose spots": {"Typhoid Fever": 0.55},
     "relative bradycardia": {"Typhoid Fever": 0.40},
     "hemoptysis": {"Tuberculosis (Active)": 0.45, "Pulmonary Tuberculosis": 0.45, "Pulmonary Embolism": 0.35},
@@ -1117,6 +1186,20 @@ HIGH_SPECIFICITY_SYMPTOMS: Dict[str, Dict[str, float]] = {
     "pain reproduced by palpation": {"Costochondritis": 0.35},
     "chest wall tenderness": {"Costochondritis": 0.30},
     "posterior cervical lymphadenopathy": {"Mononucleosis (Infectious / EBV)": 0.35},
+    # Pediatric Neurogenetics & Hereditary Ataxia
+    "progressive loss of coordination": {"Friedreich's Ataxia (FRDA)": 0.50, "Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.48, "Metachromatic Leukodystrophy (MLD)": 0.45, "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": 0.45},
+    "loss of coordination": {"Friedreich's Ataxia (FRDA)": 0.45, "Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.42, "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": 0.42, "Metachromatic Leukodystrophy (MLD)": 0.40},
+    "ataxia": {"Friedreich's Ataxia (FRDA)": 0.45, "Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.42, "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": 0.42, "Metachromatic Leukodystrophy (MLD)": 0.38},
+    "problems with balance": {"Friedreich's Ataxia (FRDA)": 0.38, "Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.38, "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": 0.38},
+    "balance problems": {"Friedreich's Ataxia (FRDA)": 0.38, "Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.38, "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": 0.38},
+    "involuntary movements": {"Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.45, "Juvenile Huntington's Disease (Westphal Variant)": 0.45, "Metachromatic Leukodystrophy (MLD)": 0.38, "Friedreich's Ataxia (FRDA)": 0.30},
+    "speech may become difficult": {"Friedreich's Ataxia (FRDA)": 0.40, "Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.38, "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": 0.38, "Juvenile Huntington's Disease (Westphal Variant)": 0.35},
+    "dysarthria": {"Friedreich's Ataxia (FRDA)": 0.40, "Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.38, "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": 0.38, "Juvenile Huntington's Disease (Westphal Variant)": 0.35},
+    "difficulty walking": {"Friedreich's Ataxia (FRDA)": 0.35, "Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.35, "Metachromatic Leukodystrophy (MLD)": 0.35, "Juvenile Huntington's Disease (Westphal Variant)": 0.30},
+    "problems with swallowing": {"Metachromatic Leukodystrophy (MLD)": 0.35, "Friedreich's Ataxia (FRDA)": 0.32, "Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.30, "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": 0.30},
+    "dysphagia": {"Metachromatic Leukodystrophy (MLD)": 0.35, "Friedreich's Ataxia (FRDA)": 0.32, "Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.30, "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": 0.30},
+    "problems with vision": {"Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.35, "Metachromatic Leukodystrophy (MLD)": 0.35, "Friedreich's Ataxia (FRDA)": 0.30},
+    "abnormalities in the nervous system": {"Friedreich's Ataxia (FRDA)": 0.30, "Ataxia-Telangiectasia (Louis-Bar Syndrome)": 0.30, "Metachromatic Leukodystrophy (MLD)": 0.30, "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": 0.30, "Juvenile Huntington's Disease (Westphal Variant)": 0.30},
     # Neurology & Ophthalmology
     "facial drooping": {"Acute Ischemic Stroke (CVA)": 0.45, "Bell's Palsy (Idiopathic Facial Palsy)": 0.35},
     "unilateral weakness": {"Acute Ischemic Stroke (CVA)": 0.45},
@@ -1202,7 +1285,7 @@ HIGH_SPECIFICITY_SYMPTOMS: Dict[str, Dict[str, float]] = {
     "ascending weakness": {"Guillain-Barré Syndrome": 0.40},
     "areflexia": {"Guillain-Barré Syndrome": 0.40},
     # Tropical & High-Consequence Travel Infections
-    "severe joint pain": {"Chikungunya": 0.85},
+    "severe joint pain": {"Chikungunya": 0.45},
     "joint swelling": {"Chikungunya": 0.40},
     "morning stiffness": {"Chikungunya": 0.30, "Systemic Lupus Erythematosus (SLE)": 0.25},
     "redness of the eyes": {"Zika Virus": 0.35, "Measles": 0.25, "Chikungunya": 0.20},
@@ -1350,6 +1433,51 @@ HIGH_SPECIFICITY_SYMPTOMS: Dict[str, Dict[str, float]] = {
     "livestock handling": {"Crimean-Congo Hemorrhagic Fever": 0.50, "Crimean-Congo Hemorrhagic Fever (CCHF)": 0.50, "Brucellosis": 0.40, "Q Fever": 0.40},
     "tick exposure": {"Crimean-Congo Hemorrhagic Fever": 0.45, "Crimean-Congo Hemorrhagic Fever (CCHF)": 0.45, "Kyasanur Forest Disease (Monkey Fever)": 0.40, "Lyme Disease": 0.40},
     "severe debilitating joint pain": {"Chikungunya": 0.65},
+    # Hallmark Podiatric / Gout Hallmarks
+    "acute severe pain in big toe": {"Gout (Acute Gouty Arthritis)": 0.85},
+    "pain in big toe": {"Gout (Acute Gouty Arthritis)": 0.80},
+    "big toe pain": {"Gout (Acute Gouty Arthritis)": 0.80},
+    "swollen big toe": {"Gout (Acute Gouty Arthritis)": 0.80},
+    "first mtp joint erythema and swelling": {"Gout (Acute Gouty Arthritis)": 0.90},
+    "first mtp joint erythema": {"Gout (Acute Gouty Arthritis)": 0.80},
+    "first mtp joint swelling": {"Gout (Acute Gouty Arthritis)": 0.80},
+    "first mtp erythema": {"Gout (Acute Gouty Arthritis)": 0.80},
+    "first mtp swelling": {"Gout (Acute Gouty Arthritis)": 0.80},
+    "great toe pain": {"Gout (Acute Gouty Arthritis)": 0.80},
+    "first metatarsophalangeal pain": {"Gout (Acute Gouty Arthritis)": 0.85},
+    "first metatarsophalangeal swelling": {"Gout (Acute Gouty Arthritis)": 0.85},
+    "monosodium urate crystals": {"Gout (Acute Gouty Arthritis)": 0.95},
+    "needle-shaped negatively birefringent crystals": {"Gout (Acute Gouty Arthritis)": 0.95},
+    # Rheumatology / RA Hallmarks
+    "symmetric joint pain in hands and wrists": {"Rheumatoid Arthritis": 0.85},
+    "symmetric joint pain": {"Rheumatoid Arthritis": 0.65},
+    "morning stiffness lasting over 1 hour": {"Rheumatoid Arthritis": 0.85},
+    "morning stiffness > 1 hour": {"Rheumatoid Arthritis": 0.85},
+    "symmetric small joint polyarthritis": {"Rheumatoid Arthritis": 0.85},
+    "pip and mcp joint swelling": {"Rheumatoid Arthritis": 0.85},
+    "positive rheumatoid factor": {"Rheumatoid Arthritis": 0.85},
+    "positive anti-ccp": {"Rheumatoid Arthritis": 0.90},
+    "anti-cyclic citrullinated peptide": {"Rheumatoid Arthritis": 0.90},
+    # Otologic / Ear Hallmarks
+    "severe ear pain": {"Acute Otitis Media": 0.85},
+    "ear pain": {"Acute Otitis Media": 0.80},
+    "earache": {"Acute Otitis Media": 0.80},
+    "otalgia": {"Acute Otitis Media": 0.80},
+    "bulging erythematous tympanic membrane": {"Acute Otitis Media": 0.95},
+    "bulging tympanic membrane": {"Acute Otitis Media": 0.90},
+    "erythematous tympanic membrane": {"Acute Otitis Media": 0.85},
+    "loss of tympanic membrane landmarks": {"Acute Otitis Media": 0.90},
+    # Acute Surgical Abdomen / Appendicitis Hallmarks
+    "rebound tenderness in right lower quadrant": {"Acute Appendicitis": 0.85},
+    "rebound tenderness in rlq": {"Acute Appendicitis": 0.85},
+    "mcburney point tenderness": {"Acute Appendicitis": 0.90},
+    "mcburney's point tenderness": {"Acute Appendicitis": 0.90},
+    "mcburney sign": {"Acute Appendicitis": 0.90},
+    # Pulmonology / Bronchial Asthma Hallmarks
+    "episodic wheezing": {"Bronchial Asthma": 0.80, "Asthma Exacerbation": 0.80},
+    "reversible bronchospasm": {"Bronchial Asthma": 0.85},
+    "nocturnal coughing and wheezing": {"Bronchial Asthma": 0.80},
+    "chest tightness and wheezing": {"Bronchial Asthma": 0.75, "Asthma Exacerbation": 0.75},
 }
 
 
@@ -1360,6 +1488,23 @@ HIGH_SPECIFICITY_SYMPTOMS: Dict[str, Dict[str, float]] = {
 # ---------------------------------------------------------------------------
 
 CANONICAL_DISEASE_LOOKUP: Dict[str, str] = {
+    # Pediatric Neurogenetics & Hereditary Ataxia
+    "friedreich ataxia": "Friedreich's Ataxia (FRDA)",
+    "friedreich's ataxia": "Friedreich's Ataxia (FRDA)",
+    "friedreich": "Friedreich's Ataxia (FRDA)",
+    "frda": "Friedreich's Ataxia (FRDA)",
+    "ataxia telangiectasia": "Ataxia-Telangiectasia (Louis-Bar Syndrome)",
+    "ataxia-telangiectasia": "Ataxia-Telangiectasia (Louis-Bar Syndrome)",
+    "louis bar": "Ataxia-Telangiectasia (Louis-Bar Syndrome)",
+    "spinocerebellar ataxia": "Juvenile Spinocerebellar Ataxia (SCA Spectrum)",
+    "spinocerebellar": "Juvenile Spinocerebellar Ataxia (SCA Spectrum)",
+    "sca": "Juvenile Spinocerebellar Ataxia (SCA Spectrum)",
+    "metachromatic leukodystrophy": "Metachromatic Leukodystrophy (MLD)",
+    "mld": "Metachromatic Leukodystrophy (MLD)",
+    "juvenile huntington": "Juvenile Huntington's Disease (Westphal Variant)",
+    "juvenile huntington disease": "Juvenile Huntington's Disease (Westphal Variant)",
+    "huntington": "Juvenile Huntington's Disease (Westphal Variant)",
+
     # Tropical / Outbreaks / Vector-Borne
     "dengue": "Dengue Fever",
     "dengue fever": "Dengue Fever",
@@ -1608,6 +1753,12 @@ CANONICAL_DISEASE_LOOKUP: Dict[str, str] = {
 }
 
 CANONICAL_DIFFERENTIALS: Dict[str, List[str]] = {
+    # Pediatric Neurogenetics & Hereditary Ataxia
+    "Friedreich's Ataxia (FRDA)": ["Ataxia-Telangiectasia (Louis-Bar Syndrome)", "Juvenile Spinocerebellar Ataxia (SCA Spectrum)", "Metachromatic Leukodystrophy (MLD)", "Juvenile Huntington's Disease (Westphal Variant)"],
+    "Ataxia-Telangiectasia (Louis-Bar Syndrome)": ["Friedreich's Ataxia (FRDA)", "Juvenile Spinocerebellar Ataxia (SCA Spectrum)", "Metachromatic Leukodystrophy (MLD)", "Juvenile Huntington's Disease (Westphal Variant)"],
+    "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": ["Friedreich's Ataxia (FRDA)", "Ataxia-Telangiectasia (Louis-Bar Syndrome)", "Metachromatic Leukodystrophy (MLD)", "Juvenile Huntington's Disease (Westphal Variant)"],
+    "Metachromatic Leukodystrophy (MLD)": ["Friedreich's Ataxia (FRDA)", "Ataxia-Telangiectasia (Louis-Bar Syndrome)", "Juvenile Spinocerebellar Ataxia (SCA Spectrum)", "Juvenile Huntington's Disease (Westphal Variant)"],
+    "Juvenile Huntington's Disease (Westphal Variant)": ["Friedreich's Ataxia (FRDA)", "Ataxia-Telangiectasia (Louis-Bar Syndrome)", "Juvenile Spinocerebellar Ataxia (SCA Spectrum)", "Metachromatic Leukodystrophy (MLD)"],
     "Dengue Fever": ["Malaria (Plasmodium falciparum)", "Typhoid Fever", "Chikungunya", "Zika Virus"],
     "Malaria (Plasmodium falciparum)": ["Dengue Fever", "Typhoid Fever", "Yellow Fever", "Severe Malaria / Cerebral Malaria"],
     "Malaria (Plasmodium vivax)": ["Malaria (Plasmodium falciparum)", "Dengue Fever", "Typhoid Fever"],
@@ -1656,6 +1807,24 @@ CANONICAL_DIFFERENTIALS: Dict[str, List[str]] = {
 # Scoring Functions
 # ---------------------------------------------------------------------------
 
+GENERIC_NONSPECIFIC_SYMPTOMS = {
+    "pain", "severe pain", "mild pain", "chronic pain", "acute pain",
+    "fever", "high fever", "low grade fever", "chills",
+    "fatigue", "malaise", "tiredness", "exhaustion",
+    "weakness", "generalized weakness", "profound weakness",
+    "swelling", "edema", "redness", "erythema", "inflammation",
+    "nausea", "vomiting", "loss of appetite", "anorexia",
+    "headache", "dizziness", "body ache", "muscle aches", "myalgia"
+}
+
+ANATOMICAL_KEYWORDS = {
+    "ear", "tympanic", "toe", "foot", "flank", "abdomen", "abdominal",
+    "chest", "precordial", "joint", "eye", "ocular", "throat", "pharynx",
+    "neck", "knee", "wrist", "hand", "finger", "spine", "back", "pelvis",
+    "groin", "scrotal", "testicular", "arm", "shoulder", "skin", "head"
+}
+
+
 def _symptom_fuzzy_match(p: str, d: str) -> bool:
     """Accurately checks if patient symptom p matches disease symptom d without false prefix collisions."""
     if p == d:
@@ -1669,6 +1838,12 @@ def _symptom_fuzzy_match(p: str, d: str) -> bool:
                 return True
         elif d in p:
             if re.search(r'\b' + re.escape(d) + r'\b', p):
+                # Guard against non-specific disease symptoms matching focal anatomical patient symptoms
+                if d in GENERIC_NONSPECIFIC_SYMPTOMS:
+                    p_has_anatomy = any(a in p for a in ANATOMICAL_KEYWORDS)
+                    d_has_anatomy = any(a in d for a in ANATOMICAL_KEYWORDS)
+                    if p_has_anatomy and not d_has_anatomy:
+                        return False
                 return True
         # Inflectional plural / gerund match (e.g. "headaches" vs "headache")
         p_stem = p.rstrip('s')
@@ -1848,9 +2023,9 @@ class ClinicalReasoningEngine:
     def score_all_diseases(
         self,
         patient_symptoms: List[str],
-        negated_symptoms: List[str],
-        countries_visited: List[str],
-        days_since_return: Optional[int],
+        negated_symptoms: Optional[List[str]] = None,
+        countries_visited: Optional[List[str]] = None,
+        days_since_return: Optional[int] = None,
         live_geo_bonuses: Optional[Dict[str, float]] = None,
         top_n: int = 5,
     ) -> List[ScoredCandidate]:
@@ -1868,6 +2043,13 @@ class ClinicalReasoningEngine:
         Returns:
             List of ScoredCandidate objects, sorted by score descending
         """
+        if isinstance(live_geo_bonuses, int):
+            top_n = live_geo_bonuses
+            live_geo_bonuses = None
+        patient_symptoms = patient_symptoms or []
+        negated_symptoms = negated_symptoms or []
+        countries_visited = countries_visited or []
+
         # Normalize inputs
         patient_sym_set = normalize_symptom_set(patient_symptoms)
         negated_sym_set = normalize_symptom_set(negated_symptoms)
@@ -1912,6 +2094,62 @@ class ClinicalReasoningEngine:
                             canonical_diff_boosts.get(diff_name, 0.0),
                             0.08
                         )
+
+        # -------------------------------------------------------------------
+        # Offline Warehouse Empirical Bayesian Priors (246,945 patient profiles)
+        # -------------------------------------------------------------------
+        offline_warehouse_odds: Dict[str, float] = {}
+        try:
+            from app.services.offline_data_service import offline_data_service
+            if offline_data_service.is_available:
+                warehouse_matches = offline_data_service.match_symptoms_offline(patient_symptoms, top_k=10)
+                for wm in warehouse_matches:
+                    offline_warehouse_odds[wm["disease"].lower()] = wm["score"]
+        except Exception as e:
+            log.debug("offline_warehouse_odds_skip", error=str(e))
+
+        # -------------------------------------------------------------------
+        # Validated Clinical Decision Rule Calculators
+        # -------------------------------------------------------------------
+        # Alvarado Score (Acute Appendicitis: Migratory pain +1, Anorexia +1, Nausea/vomiting +1,
+        # RLQ tenderness +2, Rebound/peritoneal signs +1, Fever +1, Leukocytosis +2)
+        alvarado_score = 0
+        if any(s in patient_sym_set for s in ["migratory rlq abdominal pain", "abdominal pain"]):
+            alvarado_score += 1
+        if any(s in patient_sym_set for s in ["loss of appetite", "anorexia"]):
+            alvarado_score += 1
+        if any(s in patient_sym_set for s in ["nausea", "vomiting"]):
+            alvarado_score += 1
+        if any(s in patient_sym_set for s in ["right lower quadrant pain", "mcburney point tenderness", "mcburney sign"]):
+            alvarado_score += 2
+        if any(s in patient_sym_set for s in ["rebound tenderness", "rebound tenderness in right lower quadrant", "guarding", "rovsing sign", "psoas sign"]):
+            alvarado_score += 1
+        if any(s in patient_sym_set for s in ["fever", "low-grade fever"]):
+            alvarado_score += 1
+        if any(s in patient_sym_set for s in ["leukocytosis", "elevated white blood cells"]):
+            alvarado_score += 2
+
+        # Centor Score (Group A Streptococcal Pharyngitis)
+        centor_score = 0
+        if any(s in patient_sym_set for s in ["tonsillar exudate", "pharyngeal exudate"]):
+            centor_score += 1
+        if any(s in patient_sym_set for s in ["tender cervical lymphadenopathy", "cervical adenopathy"]):
+            centor_score += 1
+        if any(s in patient_sym_set for s in ["fever", "high fever"]):
+            centor_score += 1
+        if "cough" in negated_sym_set and "cough" not in patient_sym_set:
+            centor_score += 1
+
+        # Wells Criteria for PE & DVT
+        wells_pe_score = 0.0
+        if any(s in patient_sym_set for s in ["unilateral leg swelling", "calf pain", "calf swelling"]):
+            wells_pe_score += 3.0
+        if any(s in patient_sym_set for s in ["tachycardia", "rapid heart rate"]):
+            wells_pe_score += 1.5
+        if any(s in patient_sym_set for s in ["coughing blood", "hemoptysis"]):
+            wells_pe_score += 1.0
+        if any(s in patient_sym_set for s in ["pleuritic chest pain", "dyspnea", "shortness of breath"]):
+            wells_pe_score += 1.5
 
         scored = []
 
@@ -1974,8 +2212,20 @@ class ClinicalReasoningEngine:
                     negation_penalty -= 0.12
                     contradicting.append(f"Patient denies {cardinal} (cardinal for {disease_name})")
 
-            # Limit negation penalty
-            negation_penalty = max(negation_penalty, -0.30)
+            # 6b. Explicit disease denial penalty: if patient explicitly denied this condition (e.g. "no history of diabetes")
+            d_name_lower = disease_name.lower()
+            is_explicitly_denied_disease = any(
+                (len(neg_item) >= 4 and neg_item in d_name_lower) or
+                (neg_item == "diabetes" and "diabet" in d_name_lower) or
+                (neg_item == "kidney disease" and ("kidney" in d_name_lower or "renal" in d_name_lower)) or
+                (neg_item == "hypertension" and "hypertension" in d_name_lower)
+                for neg_item in negated_sym_set
+            )
+            if is_explicitly_denied_disease:
+                negation_penalty -= 0.85
+                contradicting.append(f"Patient explicitly denies history of {disease_name}")
+            else:
+                negation_penalty = max(negation_penalty, -0.30)
 
             # 7. Minimum symptom threshold: need at least 1 symptom or geo match or direct boost
             if direct_boost == 0.0 and diff_peer_bonus == 0.0 and sym_score < 0.05 and geo_score == 0.0:
@@ -2010,6 +2260,11 @@ class ClinicalReasoningEngine:
                     spec_boost += s_rule[disease_name]
 
             # 8c. Clinical Contradictions and Downweighting
+            if "Stroke" in disease_name or "CVA" in disease_name:
+                if any(m in patient_sym_set for m in ["progressive loss of coordination", "loss of coordination", "ataxia", "involuntary movements"]) and not any(m in patient_sym_set for m in ["sudden", "acute onset", "facial droop", "facial drooping", "hemiparesis", "unilateral weakness"]):
+                    spec_boost -= 0.70
+                    contradicting.append("Acute stroke is inconsistent with progressive bilateral coordination loss and involuntary movements")
+
             if "Cellulitis" in disease_name:
                 if any(m in patient_sym_set for m in ["strawberry tongue", "redness of the eyes", "conjunctivitis", "cheilitis", "cracked lips"]):
                     spec_boost -= 0.60
@@ -2023,6 +2278,82 @@ class ClinicalReasoningEngine:
                 if not has_meningeal_sign:
                     spec_boost -= 0.35
                     contradicting.append("Absence of neck stiffness, nuchal rigidity, or altered consciousness makes acute bacterial meningitis unlikely")
+
+            # Organ System & Anatomical Isolation Constraints
+            has_focal_ent = any(
+                s in patient_sym_set for s in [
+                    "severe ear pain", "ear pain", "earache", "otalgia", "bulging erythematous tympanic membrane",
+                    "bulging tympanic membrane", "tympanic redness", "ear discharge", "otorrhea", "tinnitus"
+                ]
+            )
+            if has_focal_ent:
+                if any(m in disease_name for m in ["Diverticulitis", "Appendicitis", "Pancreatitis", "Hantavirus", "Leptospirosis", "Yellow Fever", "Lassa Fever"]):
+                    spec_boost -= 0.75
+                    contradicting.append(f"{disease_name} is inconsistent with primary isolated otologic presentation")
+
+            has_focal_podiatric = any(
+                s in patient_sym_set for s in [
+                    "acute severe pain in big toe", "pain in big toe", "big toe pain", "swollen big toe",
+                    "first mtp pain", "first mtp joint erythema and swelling", "first metatarsophalangeal",
+                    "podagra", "great toe pain"
+                ]
+            )
+            if has_focal_podiatric:
+                if any(m in disease_name for m in ["Leptospirosis", "Dengue", "Appendicitis", "Diverticulitis", "Pancreatitis", "Hantavirus", "Malaria", "Typhoid", "Yellow Fever"]):
+                    spec_boost -= 0.75
+                    contradicting.append(f"{disease_name} is inconsistent with acute podiatric monoarthritis")
+
+            has_focal_rlq = any(
+                s in patient_sym_set for s in [
+                    "rlq pain", "right lower quadrant pain", "rebound tenderness in right lower quadrant",
+                    "mcburney point tenderness", "mcburney sign", "migratory rlq abdominal pain", "rebound tenderness"
+                ]
+            )
+            if has_focal_rlq:
+                if any(m in disease_name for m in ["Orthohantavirus", "Hantavirus", "Leptospirosis", "Yellow Fever", "Lassa Fever"]):
+                    spec_boost -= 0.75
+                    contradicting.append(f"{disease_name} is inconsistent with acute right lower quadrant surgical abdomen")
+
+            # Validated Clinical Decision Rule Application
+            if alvarado_score >= 6 and disease_name in ("Acute Appendicitis", "Appendicitis"):
+                spec_boost += 0.85
+            elif alvarado_score >= 4 and disease_name in ("Acute Appendicitis", "Appendicitis"):
+                spec_boost += 0.40
+
+            if centor_score >= 3 and "Streptococcal Pharyngitis" in disease_name:
+                spec_boost += 0.70
+
+            if wells_pe_score >= 4.0:
+                if disease_name == "Pulmonary Embolism":
+                    spec_boost += 0.75
+                elif disease_name == "Deep Vein Thrombosis":
+                    spec_boost += 0.60
+
+            # Anatomical System Compartment Isolation Guards
+            # If patient has acute surgical abdomen / peritonitis (RLQ pain, peritoneal signs, or Alvarado >= 5):
+            if has_focal_rlq or alvarado_score >= 5:
+                has_primary_respiratory = any(s in patient_sym_set for s in ["purulent sputum", "sputum", "wheezing", "rhonchi", "sore throat", "stridor"])
+                if disease_name in ("Influenza", "COVID-19", "Common Cold", "Respiratory Syncytial Virus (RSV)") and not has_primary_respiratory:
+                    spec_boost -= 0.85
+                    contradicting.append(f"{disease_name} is inconsistent with primary acute surgical abdomen presentation without active respiratory symptoms")
+
+            # Offline Warehouse Empirical Bayesian Priors (derived from 246k offline profiles)
+            d_name_low = disease_name.lower()
+            if d_name_low in offline_warehouse_odds:
+                spec_boost += min(0.35, offline_warehouse_odds[d_name_low] * 0.25)
+
+            # Inflammatory Arthritis vs Degenerative
+            if any(m in patient_sym_set for m in ["morning stiffness lasting over 1 hour", "morning stiffness > 1 hour", "symmetric joint pain in hands and wrists"]):
+                if disease_name == "Rheumatoid Arthritis":
+                    spec_boost += 0.55
+                elif disease_name == "Osteoarthritis":
+                    spec_boost -= 0.35
+                    contradicting.append("Prolonged morning stiffness >1 hour and inflammatory symmetric small joint involvement favors RA over OA")
+
+            # Bronchial Asthma differentiation
+            if any(m in patient_sym_set for m in ["wheezing", "episodic wheezing", "reversible bronchospasm"]):
+                if disease_name == "Bronchial Asthma":
+                    spec_boost += 0.40
 
             # 8d. Epidemiological Bayesian Prior (Zebra Bias elimination)
             has_travel = bool(countries_visited)
@@ -2219,7 +2550,7 @@ class ClinicalReasoningEngine:
         # Build the God-Level LLM narrator prompt
         candidate_block = "\n".join(candidate_lines)
         prompt = (
-            "You are DocAssistIQ - a God-Level Senior Consultant Physician with expertise across ALL medical specialties.\n\n"
+            "You are DocAssistIQ - an Expert Senior Consultant Physician with expertise across ALL medical specialties.\n\n"
             f"PATIENT PROFILE: {patient_context_short[:400]}\n"
             f"TRAVEL HISTORY: {travel_str}\n"
             f"ACTIVE SYNDROMIC CLUSTERS: {cluster_str}\n\n"

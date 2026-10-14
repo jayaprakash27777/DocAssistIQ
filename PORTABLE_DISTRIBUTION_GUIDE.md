@@ -9,10 +9,14 @@ This project is packaged to be **100% self-contained**. Everything needed to run
 | Component | Location | Details |
 | :--- | :--- | :--- |
 | **All Source Code** | `backend/`, `frontend/`, `ml/` | FastAPI REST API, Next.js 14 Web UI, ML Pipelines |
-| **Database & Seeds** | `infra/postgres/01_docassistiq_seed.sql` | Complete PostgreSQL schema + all 51 relational tables + clinical & user data |
-| **AI / LLM Models** | `models/ollama/models/` | `ii-medical:8b`, `llama3.1:8b`, `llama3.2:latest`, and `nomic-embed-text` |
+| **Complete Database & Seeds** | `infra/postgres/01_docassistiq_seed.sql` | Complete PostgreSQL schema + all 51 relational tables + clinical & user data (3.1 MB) |
+| **AI / LLM Models (Physical)** | `models/ollama/models/` | 11.4 GB model weights physically bundled: `ii-medical:8b`, `llama3.1:8b`, `llama3.2:latest`, and `nomic-embed-text` |
+| **Speech-to-Text Models** | `backend/model_cache/`, `model_cache/` | `faster-whisper-base.en` & `faster-whisper-tiny` pre-cached for 100% offline transcription |
+| **Offline Python Wheels** | `backend/wheels/` | 100 pre-downloaded Python wheels (143 MB) for zero-internet backend installation |
+| **Frontend Dependencies** | `frontend/node_modules/` | Fully installed Node modules + pre-compiled `.next` build cache |
+| **Full Documentation & PPTX** | Root directory | `DocAssistIQ_Comprehensive_Project_Report.docx`, `DocAssistIQ_Architecture_Presentation.pptx`, `DocAssistIQ_Master_All_In_One_4K_Presentation.pptx`, PNG/SVG Architecture Diagrams |
 | **Docker Orchestration** | `docker-compose.yml` | Multi-container setup for Database, Redis, MinIO, Ollama, Backend, and Frontend |
-| **1-Click Launchers** | `START_ALL_DOCKER.bat`, `START_ALL_LOCAL.bat` | Automated one-click startup scripts for Windows |
+| **1-Click Safe Launchers** | `start_safely.bat`, `stop_safely.bat` | Enterprise safe startup & shutdown protocols (auto Docker boot, port hygiene, auto browser load) |
 
 ---
 
@@ -29,23 +33,26 @@ This project is packaged to be **100% self-contained**. Everything needed to run
 
 ## 🚀 How to Run for the Recipient (1-Click Run)
 
-### Option 1: Run via Docker (Zero Configuration — Recommended)
+### Primary Safe Launcher (Recommended)
 
-1. Make sure **Docker Desktop** is running on your machine.
-2. Double-click:
+1. Double-click:
    ```cmd
-   START_ALL_DOCKER.bat
+   start_safely.bat
    ```
-3. The script will:
-   * Validate Docker is running.
-   * Auto-initialize `.env`.
-   * Start PostgreSQL (with `pgvector` & auto-seed all 51 tables).
-   * Start Redis and MinIO Object Storage.
-   * Launch Ollama with the bundled models mounted from `./models/ollama/models`.
-   * Start the Backend API and Next.js Frontend.
-   * Automatically open `http://localhost:3000` in your web browser.
+   *(or `START_ALL_LOCAL.bat`)*
+2. The protocol will automatically:
+   * Auto-detect or launch Docker Desktop in the background.
+   * Verify and safely boot PostgreSQL (`:5434`), Redis (`:6379`), and MinIO (`:9010`).
+   * Verify and launch the local Ollama AI Engine (`:11434`) using the bundled models.
+   * Sweep stale TCP sockets on ports `8000` and `3000` with automated cooldown.
+   * Initialize Python virtual environment and dependencies.
+   * Launch the FastAPI clinical backend engine on `http://127.0.0.1:8000`.
+   * Launch the Next.js clinical frontend cockpit on `http://localhost:3000`.
+   * Automatically launch your default web browser directly to `http://localhost:3000`.
+   * Keep an interactive, protected console monitor with `[S]` Status Probe, `[B]` Browser Re-open, and `[Q]` Clean Safe Shutdown.
 
-**To stop all services:** Double-click `STOP_ALL_DOCKER.bat`.
+**To safely stop all services at any time:** Double-click `stop_safely.bat` (or press `Q` in the console monitor). All database records and caches are preserved without data loss.
+
 
 ---
 
@@ -63,6 +70,8 @@ If you prefer to run FastAPI and Next.js directly on your host machine:
    * Initialize Python virtual environment and dependencies.
    * Launch FastAPI backend on port 8000 and Next.js frontend on port 3000.
    * Open `http://localhost:3000` in your browser.
+
+**To stop all services safely at any time:** Double-click `stop_safely.bat` (or `STOP_ALL_LOCAL.bat`). This flushes sockets and preserves all patient records, findings, and caches.
 
 ---
 
@@ -113,12 +122,16 @@ When sending this folder to another person or copying to an external drive:
    ```
    This ensures the latest database dump is exported to `infra/postgres/01_docassistiq_seed.sql` and cleans any unnecessary build caches.
 
-2. **Copying the Models:**
-   * In Windows File Explorer, copying the `DocAssistIQ` folder to an external SSD or USB drive will automatically resolve the junction and copy all model weights (`~11 GB`).
-   * Alternatively, zip the `DocAssistIQ` folder using **7-Zip** or **Windows Compress to ZIP**.
+2. **Copying or Zipping the Folder:**
+   * Because all models (`models/ollama/models`, `backend/model_cache`), libraries (`backend/wheels`, `frontend/node_modules`), database seeds, and documents are **physically present inside this `DocAssistIQ` directory**, you can simply:
+     - **Copy to USB / External SSD:** Drag and drop the `DocAssistIQ` folder to an external drive.
+     - **Zip Archive:** Right-click `DocAssistIQ` -> **Send to** -> **Compressed (zipped) folder** (or use **7-Zip** / **WinRAR**).
+   * Total folder size is ~14 to 15 GB (with all LLM weights and dependencies included).
 
-3. **Handing Off:**
-   The recipient only needs to extract the folder, open Docker Desktop, and double-click `START_ALL_DOCKER.bat`.
+3. **Handing Off to Another Machine:**
+   The recipient extracts or copies the folder to their computer, and runs:
+   - **Docker:** Double-click `START_ALL_DOCKER.bat` (starts all containers and loads seed data + local models).
+   - **Native Windows:** Double-click `START_ALL_LOCAL.bat` (auto-creates `.venv` and installs from bundled `backend/wheels` offline with zero internet needed).
 
 ---
 

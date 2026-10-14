@@ -79,9 +79,12 @@ class Settings(BaseSettings):
     # Hugging Face (Phase 26)
     hf_token: str | None = None
 
+    # Offline Medical Datasets & Warehouse
+    offline_data_dir: str = r"D:\OFFLINE DATA"
+
     # Local LLM Engine Models
     ollama_base_url: str = "http://localhost:11434"
-    default_llm_model: str = "ii-medical:8b"
+    default_llm_model: str = "llama3.2:latest"
     fast_llm_model: str = "llama3.2:latest"
 
     # Clinical Knowledge & Terminology APIs (Master Gateway)

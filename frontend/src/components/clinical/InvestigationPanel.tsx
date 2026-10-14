@@ -186,10 +186,14 @@ export default function InvestigationPanel({ consultationId, disease, competing 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const competingKey = (competing || []).join(",");
+
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       setLoading(true);
       const res = await getInvestigationsForDisease(consultationId, disease, competing);
+      if (cancelled) return;
       if (res.ok) {
         setData(res.data);
       } else {
@@ -200,7 +204,8 @@ export default function InvestigationPanel({ consultationId, disease, competing 
       setLoading(false);
     }
     load();
-  }, [consultationId, disease, competing]);
+    return () => { cancelled = true; };
+  }, [consultationId, disease, competingKey]);
 
   if (loading) {
     return <ClinicalLoader label={`Evaluating workup for ${disease}...`} messages={["Reviewing clinical presentation", "Analyzing standard of care guidelines", "Synthesizing investigation panel", "Finalizing recommendations"]} />;

@@ -25,16 +25,16 @@ import hashlib
 
 log = structlog.get_logger(__name__)
 
-# Valid state transitions
+# Valid state transitions (Clinician-flexible lifecycle)
 VALID_TRANSITIONS = {
-    "created": {"recording", "draft"},
+    "created": {"recording", "draft", "under_review", "finalized"},
     "recording": {"created", "processing"},
-    "processing": {"draft"},
-    "draft": {"under_review"},
-    "under_review": {"draft", "analysis_ready"},
-    "analysis_ready": {"finalized", "under_review"},
-    "finalized": {"amended"},
-    "amended": {"finalized"},
+    "processing": {"draft", "under_review"},
+    "draft": {"under_review", "finalized", "created"},
+    "under_review": {"draft", "analysis_ready", "finalized"},
+    "analysis_ready": {"finalized", "under_review", "draft"},
+    "finalized": {"amended", "under_review"},
+    "amended": {"finalized", "under_review"},
 }
 
 

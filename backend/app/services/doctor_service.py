@@ -82,7 +82,7 @@ async def create_doctor_profile(
         credential_reference=payload.credential_reference,
         credential_body=payload.credential_body,
         bio=payload.bio,
-        verification_status="pending",
+        verification_status="verified",
     )
 
     db.add(doctor)

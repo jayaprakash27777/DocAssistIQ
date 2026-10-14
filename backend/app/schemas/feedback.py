@@ -1,6 +1,6 @@
 import uuid
 from typing import Optional, Dict, Any, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class ClinicianFeedbackCreate(BaseModel):
     suggestion_id: str = Field(..., max_length=255)
@@ -13,11 +13,11 @@ class ClinicianFeedbackCreate(BaseModel):
     knowledge_version: Optional[str] = "1.0.0"
 
 class ClinicianFeedbackResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: Union[str, uuid.UUID]
     suggestion_id: str
     suggestion_type: str
     decision: str
     reason: Optional[str] = None
-    
-    class Config:
-        from_attributes = True
+

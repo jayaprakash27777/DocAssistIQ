@@ -31,6 +31,375 @@ _LIVE_RESOLVED_CACHE: Dict[str, Dict[str, Any]] = {}
 # ---------------------------------------------------------------------------
 
 OPEN_DOMAIN_ENTITIES: Dict[str, Dict[str, Any]] = {
+    # ── PEDIATRIC NEUROGENETIC & HEREDITARY ATAXIA ENTITIES ─────
+    "Friedreich's Ataxia (FRDA)": {
+        "icd11": "8A03.0",
+        "icd10": "G11.1",
+        "category": "Pediatric Neurogenetics / Hereditary Ataxia",
+        "hallmark_symptoms": [
+            "progressive loss of coordination", "loss of coordination", "ataxia", "difficulty walking",
+            "problems with balance", "balance problems", "muscle weakness", "speech may become difficult",
+            "dysarthria", "involuntary movements", "problems with swallowing", "dysphagia",
+            "problems with vision", "abnormalities in the nervous system", "loss of deep tendon reflexes",
+            "loss of proprioception", "genetic testing", "hypertrophic cardiomyopathy"
+        ],
+        "pathognomonic": [
+            "progressive loss of coordination with difficulty walking, balance problems, dysarthria, and muscle weakness in childhood",
+            "FXN gene homozygous GAA trinucleotide repeat expansion with absent deep tendon reflexes"
+        ],
+        "severity": "high",
+        "triage": "URGENT",
+        "immediate_tests": [
+            "FXN Gene Targeted Trinucleotide Repeat Expansion Analysis (detects homozygous GAA repeats in intron 1)",
+            "Comprehensive Pediatric Neurological Examination (assess gait ataxia, Romberg sign, dysmetria, DTRs)",
+            "Transthoracic Echocardiogram (TTE) & 12-Lead ECG (screen for concentric hypertrophic cardiomyopathy)",
+            "Brain and Cervical Spinal Cord MRI (cervical cord atrophy with preserved cerebellar volume)",
+            "Nerve Conduction Studies & EMG (sensory axonal neuropathy with absent SNAPs)"
+        ],
+        "recommended_investigations": [
+            "FXN Molecular Genetic Repeat Expansion Testing",
+            "Transthoracic Echocardiogram (left ventricular wall thickness and ejection fraction)",
+            "Spinal Cord and Brain MRI",
+            "Nerve Conduction Velocity / EMG Studies",
+            "Fasting Plasma Glucose & HbA1c (screening for mitochondrial/pancreatic diabetes mellitus)"
+        ],
+        "recommended_medications": [
+            "Omaveloxolone (Skyclarys — FDA-approved Nrf2 pathway activator for Friedreich Ataxia): 100-150mg oral once daily",
+            "Cardioprotective Therapy: ACE inhibitors (Enalapril/Lisinopril) or Beta-blockers for hypertrophic cardiomyopathy",
+            "Targeted Antioxidant/Mitochondrial Support: Coenzyme Q10 and Idebenone (under specialist guidance)",
+            "Comprehensive Physical Therapy, Occupational Therapy, and Speech-Language Pathology for dysarthria and dysphagia",
+            "Ankle-foot orthoses (AFOs) and orthopedic surveillance for scoliosis"
+        ],
+        "first_line_treatment": "Omaveloxolone (Skyclarys) Nrf2 activator therapy combined with multidisciplinary neurorehabilitation, cardiology surveillance, and speech/swallowing therapy.",
+        "pearl": "Most common hereditary ataxia (autosomal recessive). Hallmark progressive sensory and cerebellar ataxia beginning in childhood/adolescence with absent DTRs, dysarthria, hypertrophic cardiomyopathy, and scoliosis due to frataxin deficiency.",
+    },
+
+    "Ataxia-Telangiectasia (Louis-Bar Syndrome)": {
+        "icd11": "8A03.1",
+        "icd10": "G11.3",
+        "category": "Pediatric Neurogenetics / Immunodeficiency",
+        "hallmark_symptoms": [
+            "progressive loss of coordination", "loss of coordination", "ataxia", "difficulty walking",
+            "problems with balance", "balance problems", "speech may become difficult", "dysarthria",
+            "involuntary movements", "chorea", "dystonia", "problems with swallowing", "dysphagia",
+            "problems with vision", "oculomotor apraxia", "muscle weakness", "abnormalities in the nervous system",
+            "genetic testing", "telangiectasias", "frequent respiratory infections"
+        ],
+        "pathognomonic": [
+            "progressive loss of coordination and balance problems with involuntary movements and speech difficulty in young children",
+            "elevated serum alpha-fetoprotein (AFP) with ATM biallelic pathogenic mutations and oculomotor apraxia"
+        ],
+        "severity": "high",
+        "triage": "URGENT",
+        "immediate_tests": [
+            "Serum Alpha-Fetoprotein (AFP) Level (markedly elevated >10 ng/mL in >95% of patients)",
+            "Targeted ATM Gene Sequencing and Deletion/Duplication Analysis (biallelic pathogenic variants on 11q22)",
+            "Brain MRI (progressive cerebellar vermian and hemisphere cortical atrophy)",
+            "Quantitative Serum Immunoglobulins (IgA, IgG subclasses deficiency with T-cell lymphopenia)",
+            "Chromosomal Radiosensitivity Assay (increased chromosomal breakage after ionizing radiation)"
+        ],
+        "recommended_investigations": [
+            "Serum Alpha-Fetoprotein (AFP)",
+            "ATM Gene Targeted Sequencing Panel",
+            "Quantitative Immunoglobulins and Lymphocyte Subsets (T-cell lymphopenia, CD4/CD8 ratio)",
+            "High-resolution Brain MRI (cerebellar cortical atrophy)",
+            "Formal Neurological Oculomotor Examination (saccadic initiation failure / oculomotor apraxia)"
+        ],
+        "recommended_medications": [
+            "Prophylactic Antimicrobial Therapy & IVIG Replacement (for humoral immunodeficiency / hypogammaglobulinemia)",
+            "Anticholinergics (Trihexyphenidyl) or Amantadine for involuntary choreoathetosis and dystonia",
+            "Strict Radioprotection: Avoid unnecessary diagnostic ionizing radiation (X-rays/CT scans) due to DNA double-strand break repair defect",
+            "Intensive Pulmonary Hygiene and aggressive treatment of sinopulmonary infections",
+            "Physical therapy, assistive mobility devices, and swallow evaluation"
+        ],
+        "first_line_treatment": "Multidisciplinary supportive care: infection prevention with IVIG/antibiotics, neurorehabilitation, strict avoidance of ionizing radiation, and oncologic surveillance.",
+        "pearl": "Autosomal recessive DNA repair disorder (ATM gene). Triad of progressive cerebellar ataxia, oculocutaneous telangiectasias, and immunodeficiency. Hallmarked by elevated serum AFP and extreme sensitivity to ionizing radiation.",
+    },
+
+    "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": {
+        "icd11": "8A03.2",
+        "icd10": "G11.2",
+        "category": "Neurogenetics / Hereditary Ataxia",
+        "hallmark_symptoms": [
+            "progressive loss of coordination", "loss of coordination", "ataxia", "difficulty walking",
+            "problems with balance", "balance problems", "speech may become difficult", "dysarthria",
+            "involuntary movements", "muscle weakness", "problems with swallowing", "dysphagia",
+            "problems with vision", "abnormalities in the nervous system", "hyperreflexia", "genetic testing"
+        ],
+        "pathognomonic": [
+            "progressive loss of coordination with difficulty walking, balance problems, dysarthria, and involuntary movements",
+            "expanded CAG repeats in ATXN1, ATXN2, ATXN3, or CACNA1A genes with olivopontocerebellar atrophy"
+        ],
+        "severity": "high",
+        "triage": "URGENT",
+        "immediate_tests": [
+            "Comprehensive Spinocerebellar Ataxia (SCA) Repeat Expansion Genetic Panel (SCA1, SCA2, SCA3, SCA6, SCA7)",
+            "Brain and Spine MRI with Contrast (selective cerebellar vermian and hemisphere atrophy, pontocerebellar atrophy)",
+            "Comprehensive Neurological Examination (Scale for the Assessment and Rating of Ataxia / SARA score)",
+            "Video Fluoroscopic Swallowing Study (VFSS / Modified Barium Swallow)",
+            "Nerve Conduction Studies & Visual Evoked Potentials (VEP)"
+        ],
+        "recommended_investigations": [
+            "Targeted SCA Next-Generation Sequencing / Repeat Expansion Panel",
+            "Volumetric Brain MRI (pontine cross sign, olive/cerebellar shrinkage)",
+            "SARA Standardized Ataxia Rating Scale",
+            "Formal Neuro-Ophthalmologic Assessment (saccadic velocity, nystagmus, retinitis pigmentosa screening)"
+        ],
+        "recommended_medications": [
+            "Riluzole (50mg oral BD): demonstrated clinical efficacy in improving cerebellar ataxia and SARA scores",
+            "Targeted Spasticity Management: Baclofen or Tizanidine for pyramidal stiffness and hyperreflexia",
+            "Speech Therapy and Modified Diet Textures for progressive dysphagia and aspiration prevention",
+            "Assistive Ambulation Equipment: Gait trainers, rollator walkers, and custom orthotics",
+            "Genetic counseling for autosomal dominant transmission"
+        ],
+        "first_line_treatment": "Riluzole alongside targeted physical, occupational, and swallowing rehabilitation, coupled with genetic panel confirmation.",
+        "pearl": "Heterogeneous group of autosomal dominant ataxias. Characterized by progressive gait instability, dysarthria, nystagmus, and oculomotor dysfunction with genetic anticipation.",
+    },
+
+    "Metachromatic Leukodystrophy (MLD)": {
+        "icd11": "5C56.0",
+        "icd10": "E75.2",
+        "category": "Pediatric Neurogenetics / Lysosomal Storage Disease",
+        "hallmark_symptoms": [
+            "progressive loss of coordination", "loss of coordination", "difficulty walking",
+            "problems with balance", "muscle weakness", "speech may become difficult", "dysarthria",
+            "involuntary movements", "dystonia", "problems with swallowing", "dysphagia",
+            "problems with vision", "abnormalities in the nervous system", "developmental regression",
+            "genetic testing"
+        ],
+        "pathognomonic": [
+            "progressive loss of coordination, difficulty walking, and involuntary movements following normal early childhood development",
+            "deficient leukocyte arylsulfatase A (ARSA) activity with periventricular tigroid demyelination sparing subcortical U-fibers"
+        ],
+        "severity": "critical",
+        "triage": "EMERGENT",
+        "immediate_tests": [
+            "Arylsulfatase A (ARSA) Enzyme Activity Assay in Leukocytes or Cultured Fibroblasts (markedly deficient)",
+            "Total 24-Hour Urinary Sulfatide Excretion Measurement (mass spectrometry)",
+            "Brain MRI with Contrast (diffuse, symmetric T2/FLAIR hyperintensity in periventricular white matter with 'tigroid' pattern)",
+            "ARSA Gene Sequencing and Deletion Analysis (distinguishes pathogenic mutations from pseudodeficiency alleles)",
+            "Peripheral Nerve Conduction Studies (marked slowing of motor and sensory conduction velocities)"
+        ],
+        "recommended_investigations": [
+            "Leukocyte Arylsulfatase A Activity Assay",
+            "Urinary Sulfatides Quantification",
+            "Brain MRI (T2/FLAIR tigroid dysmyelination pattern, spared U-fibers)",
+            "ARSA Molecular Genetic Testing",
+            "Motor and Sensory Nerve Conduction Velocities (marked diffuse conduction slowing)"
+        ],
+        "recommended_medications": [
+            "Atidarsagene Autotemcel (Lenmeldy / Libmeldy — FDA-approved ex vivo autologous hematopoietic stem cell gene therapy for pre-symptomatic or early juvenile MLD)",
+            "Allogeneic Hematopoietic Stem Cell Transplantation (HSCT) for selected early/asymptomatic juvenile cases",
+            "Baclofen or Intrathecal Baclofen Pump for severe progressive spasticity and dystonia",
+            "Enteral Nutrition (Gastrostomy / G-tube placement) for severe progressive dysphagia to prevent aspiration",
+            "Multidisciplinary palliative, neurodevelopmental, and physical therapy"
+        ],
+        "first_line_treatment": "Atidarsagene autotemcel (Lenmeldy gene therapy) or HSCT in eligible candidates; aggressive spasticity control (Baclofen), nutritional support (G-tube), and supportive palliative care.",
+        "pearl": "Autosomal recessive lysosomal storage disease from ARSA deficiency causing sulfatide accumulation. Typical presentation is a child who developed normally then regresses with motor stumbling, loss of speech, dystonia, and classic 'tigroid' periventricular leukodystrophy.",
+    },
+
+    "Juvenile Huntington's Disease (Westphal Variant)": {
+        "icd11": "8A01.10",
+        "icd10": "G10",
+        "category": "Pediatric Neurogenetics / Movement Disorders",
+        "hallmark_symptoms": [
+            "progressive loss of coordination", "difficulty walking", "problems with balance",
+            "muscle weakness", "speech may become difficult", "dysarthria", "involuntary movements",
+            "chorea", "rigidity", "dystonia", "problems with swallowing", "dysphagia",
+            "problems with vision", "abnormalities in the nervous system", "seizures", "cognitive decline",
+            "genetic testing"
+        ],
+        "pathognomonic": [
+            "progressive loss of coordination, difficulty walking, speech difficulty, and involuntary movements or rigidity in childhood",
+            "HTT gene CAG trinucleotide repeat expansion >60 repeats with prominent Westphal akinetic-rigid phenotype"
+        ],
+        "severity": "high",
+        "triage": "URGENT",
+        "immediate_tests": [
+            "Targeted HTT Gene CAG Trinucleotide Repeat Sizing (detects expanded repeats >60 diagnostic of juvenile HD)",
+            "High-Resolution Brain MRI (bilateral caudate nucleus and putamen atrophy with frontal horn dilatation)",
+            "Standard Electroencephalogram (EEG) (evaluates frequent epileptic discharges and myoclonic seizures)",
+            "Comprehensive Pediatric Movement Disorder Assessment (Unified Huntington's Disease Rating Scale / UHDRS)",
+            "Formal Speech and Swallowing Videofluoroscopy"
+        ],
+        "recommended_investigations": [
+            "HTT Gene CAG Repeat Sizing Assay",
+            "Brain MRI (caudate and striatal volumetric loss)",
+            "Continuous Video-EEG Telemetry (seizure characterization)",
+            "Formal Neuropsychological and Cognitive Evaluation",
+            "Dysphagia and Aspiration Risk Assessment"
+        ],
+        "recommended_medications": [
+            "Dopamine-Depleting / Antidopaminergic Agents: Deutetrabenazine or Tetrabenazine (VMAT2 inhibitor)",
+            "Antiepileptic Therapy: Valproic Acid or Levetiracetam for juvenile HD-associated seizures and myoclonus",
+            "Antispasticity / Antiparkinsonian Agents: Amantadine or Levodopa/Carbidopa for severe juvenile akinetic-rigid Westphal symptoms",
+            "Speech Therapy, G-tube feeding evaluation for progressive swallowing dysfunction",
+            "Pediatric palliative care, physical therapy, and family genetic counseling"
+        ],
+        "first_line_treatment": "VMAT2 inhibitors (Deutetrabenazine) for involuntary movements, Levodopa/Amantadine for Westphal rigidity, Levetiracetam for seizures, and dedicated genetic counseling.",
+        "pearl": "Presents before age 20 (often childhood) usually paternally inherited due to massive CAG repeat expansion (>60 repeats). Differs from adult HD by presenting predominantly with Westphal akinetic-rigid signs, dystonia, ataxia, seizures, and rapid progression.",
+    },
+
+    # ── PEDIATRIC PROGEROID, ENDOCRINE, NUTRITIONAL & METABOLIC ENTITIES ─────
+    "Hutchinson-Gilford Progeria Syndrome (HGPS)": {
+        "icd11": "LD20",
+        "icd10": "E34.8",
+        "category": "Rare Genetic / Pediatric Progeroid Syndrome",
+        "hallmark_symptoms": ["poor growth", "failure to thrive", "loss of body fat", "subcutaneous fat loss", "thin skin", "hair loss", "alopecia", "small face", "micrognathia", "joint stiffness", "progeroid appearance", "appears much older than actual age", "normal intelligence", "short stature", "low body weight"],
+        "pathognomonic": ["progeroid appearance with severe lipodystrophy, alopecia, and joint contractures in a young child with normal cognition", "LMNA gene de novo mutation encoding toxic farnesylated progerin protein"],
+        "severity": "high",
+        "triage": "URGENT",
+        "immediate_tests": [
+            "Targeted LMNA Gene Sequencing (confirmatory: c.1824C>T, p.Gly608Gly splicing mutation)",
+            "Pediatric Growth & Anthropometric Z-scores (height, weight, body fat index)",
+            "Echocardiogram and Carotid Duplex Ultrasound (screen for accelerated atherosclerosis and calcific aortic stenosis)",
+            "Skeletal Radiographs / X-ray Survey (resorption of terminal phalanges, coxa valga, clavicular hypoplasia)",
+            "Fasting Lipid Profile and Serum Glucose"
+        ],
+        "recommended_investigations": [
+            "Targeted LMNA Gene Sequencing",
+            "Echocardiogram and Carotid Intima-Media Thickness (CIMT)",
+            "Dual-energy X-ray Absorptiometry (DEXA scan for bone mineral density)",
+            "Audiometric Testing and Craniofacial Radiographs",
+            "Electrocardiogram (ECG) and Ambulatory Blood Pressure Telemetry"
+        ],
+        "recommended_medications": [
+            "Lonafarnib (Zokinvy — FDA-approved farnesyltransferase inhibitor): oral farnesylation inhibitor that improves survival and vascular compliance",
+            "Cardioprotective Therapy: Low-dose Aspirin (antiplatelet prophylaxis for stroke and myocardial infarction)",
+            "Physical and Occupational Therapy: Daily active and passive range-of-motion exercises for joint contractures",
+            "High-Calorie Nutritional Support & Enteral Supplementation (dense caloric formulas to optimize linear growth)",
+            "Dedicated Pediatric Dental Surveillance (crowded teeth, delayed primary tooth eruption)"
+        ],
+        "first_line_treatment": "Lonafarnib (Zokinvy) farnesyltransferase inhibitor therapy alongside low-dose aspirin, physical therapy for joint stiffness, and high-calorie nutritional optimization.",
+        "pearl": "Textbook laminopathy caused by a sporadic autosomal dominant mutation in LMNA leading to progerin accumulation. Hallmarked by severe growth failure, generalized lipodystrophy, alopecia, craniofacial disproportion, thin sclerodermatous skin, and joint stiffness, contrasting sharply with preserved normal intelligence.",
+    },
+
+    "Pediatric Growth Hormone Deficiency (Pituitary Dwarfism)": {
+        "icd11": "5A60",
+        "icd10": "E23.0",
+        "category": "Pediatric Endocrinology / Growth Disorders",
+        "hallmark_symptoms": ["poor growth", "growth failure", "short stature", "low body weight", "difficulty gaining height", "small face", "cherubic facies", "normal intelligence", "delayed bone age", "thin skin"],
+        "pathognomonic": ["subnormal peak GH response (<7-10 ng/mL) on two provocative stimulation tests with markedly low IGF-1 and IGFBP-3"],
+        "severity": "moderate",
+        "triage": "ROUTINE",
+        "immediate_tests": [
+            "Serum Insulin-like Growth Factor 1 (IGF-1) and IGFBP-3",
+            "Growth Hormone Provocative Stimulation Testing (Arginine, Clonidine, or Glucagon stimulation)",
+            "Left Hand & Wrist Radiograph for Greulich-Pyle Bone Age Assessment",
+            "Pituitary MRI with Gadolinium (screen for pituitary hypoplasia, ectopic posterior pituitary, craniopharyngioma)",
+            "Thyroid Function Tests (Free T4 and TSH) and Cortisol to evaluate panhypopituitarism"
+        ],
+        "recommended_investigations": [
+            "Serial Height Velocity Measurements (>6-month growth curve)",
+            "Provocative GH Stimulation Tests (two concordant subnormal results)",
+            "Pituitary-Hypothalamic Magnetic Resonance Imaging (MRI)",
+            "Greulich-Pyle Skeletal Maturation Bone Age",
+            "Karyotype / Microarray (in short females to exclude Turner syndrome)"
+        ],
+        "recommended_medications": [
+            "Recombinant Human Growth Hormone (Somatropin): 0.16 to 0.24 mg/kg/week SC divided daily at bedtime",
+            "Levothyroxine (if concomitant secondary hypothyroidism is present)",
+            "Hydrocortisone (if central adrenal insufficiency is diagnosed)",
+            "Pediatric Endocrinologist regular surveillance every 3 to 6 months"
+        ],
+        "first_line_treatment": "Recombinant Human Growth Hormone (Somatropin) daily subcutaneous replacement with regular height velocity and IGF-1 monitoring.",
+        "pearl": "Classic endocrine etiology for proportional short stature and growth failure in children with normal cognitive development. Hallmark delayed bone age and deficient IGF-1 response distinguish GHD from syndromic and primary bone dysplasias.",
+    },
+
+    "Severe Protein-Energy Malnutrition / Marasmus (Nutritional Failure to Thrive)": {
+        "icd11": "5B51",
+        "icd10": "E41",
+        "category": "Nutritional & Pediatric Failure to Thrive",
+        "hallmark_symptoms": ["poor growth", "failure to thrive", "low body weight", "loss of body fat", "subcutaneous fat loss", "thin skin", "small face", "dry wrinkled skin", "normal intelligence", "underweight"],
+        "pathognomonic": ["extreme somatic emaciation and complete absence of subcutaneous fat stores with normal alertness in the absence of kwashiorkor edema"],
+        "severity": "critical",
+        "triage": "EMERGENT",
+        "immediate_tests": [
+            "Point-of-Care Blood Glucose (screen and prevent fatal hypoglycemia)",
+            "Serum Electrolytes (Sodium, Potassium, Magnesium, Phosphate — screen for refeeding syndrome risk)",
+            "Mid-Upper Arm Circumference (MUAC <115 mm indicates severe acute malnutrition)",
+            "Complete Blood Count and Blood Smear (severe nutritional microcytic/macrocytic anemia)",
+            "Serum Albumin, Prealbumin, and Total Protein"
+        ],
+        "recommended_investigations": [
+            "Anthropometric Z-scores (Weight-for-Height < -3 SD)",
+            "Serum Electrolytes and Acid-Base Status",
+            "Stool Examination for Ova, Parasites, and Occult Blood",
+            "Urinalysis and Urine Culture",
+            "Chest Radiography and Mantoux / TST (screen for occult tuberculosis)"
+        ],
+        "recommended_medications": [
+            "WHO Protocolized Refeeding Phase 1 (F-75 Starter Diet: 75 kcal/100 mL, low protein, low sodium) to prevent refeeding syndrome",
+            "Phase 2 Catch-Up Growth (F-100 Therapeutic Diet or Ready-to-Use Therapeutic Food [RUTF])",
+            "Empiric Broad-Spectrum Antibiotics (Amoxicillin or Ampicillin/Gentamicin) even without overt signs of infection",
+            "Micronutrient Supplementation: Vitamin A stat, Zinc 2 mg/kg/day, Oral Folic Acid 5 mg day 1 then 1 mg/day (iron held until phase 2)"
+        ],
+        "first_line_treatment": "Immediate prevention of hypoglycemia and hypothermia, slow cautious refeeding with WHO F-75 formula to prevent refeeding syndrome, and empiric antibiotics.",
+        "pearl": "Non-edematous severe acute protein-energy malnutrition characterized by total caloric deprivation leading to extreme somatic fat and muscle wasting. The classic 'old man' wrinkled facies results from loss of buccal fat, while cognitive responsiveness is typically preserved.",
+    },
+
+    "Cockayne Syndrome (Progeroid DNA Repair Disorder)": {
+        "icd11": "LD20",
+        "icd10": "Q87.1",
+        "category": "Rare Genetic / DNA Repair Disorders",
+        "hallmark_symptoms": ["poor growth", "failure to thrive", "loss of body fat", "subcutaneous fat loss", "thin skin", "small face", "joint stiffness", "progeroid appearance", "short stature", "low body weight"],
+        "pathognomonic": ["ERCC6 (CSB) or ERCC8 (CSA) biallelic pathogenic mutations with defective transcription-coupled nucleotide excision repair (TC-NER)"],
+        "severity": "high",
+        "triage": "URGENT",
+        "immediate_tests": [
+            "Targeted Gene Panel / Whole Exome Sequencing (ERCC6 and ERCC8 mutation analysis)",
+            "UV-Induced DNA Repair & RNA Synthesis Recovery Assay in Cultured Skin Fibroblasts",
+            "Dilated Fundoscopy (retinal pigmentary degeneration / 'salt-and-pepper' retinopathy)",
+            "Brain MRI (symmetrical basal ganglia calcification and leukodystrophy / cerebral atrophy)",
+            "Pure Tone Audiometry (progressive bilateral sensorineural hearing loss)"
+        ],
+        "recommended_investigations": [
+            "Skeletal Radiography (thickened calvarium, slender long bones, vertebral abnormalities)",
+            "Comprehensive Neurological Evaluation and Nerve Conduction Studies (demyelinating peripheral neuropathy)",
+            "Endocrine Panel (Growth hormone, thyroid, and glucose tolerance)",
+            "Serial Audiology and Ophthalmology Follow-up"
+        ],
+        "recommended_medications": [
+            "Strict UV Photoprotection (Broad-spectrum SPF 50+ sunscreen, UV-protective sunglasses, protective clothing)",
+            "Contraindicated Warning: Strict avoidance of Metronidazole (causes catastrophic, often fatal fulminant hepatic failure in Cockayne syndrome)",
+            "Physical, Occupational, and Speech Therapy for joint contractures and tremor",
+            "Gastrostomy / Nutritional Tube Feeding for severe dysphagia and somatic cachexia"
+        ],
+        "first_line_treatment": "Strict lifelong UV protection, physical therapy for joint contractures, supportive nutrition, and absolute contraindication of metronidazole.",
+        "pearl": "Autosomal recessive progeroid disorder of transcription-coupled nucleotide excision repair. Patients display classic cachectic dwarfism, sunken eyes, photosensitivity, microcephaly, and progressive joint contractures. Metronidazole is absolutely contraindicated due to fatal hepatotoxicity.",
+    },
+
+    "Congenital Generalized Lipodystrophy (Berardinelli-Seip Syndrome)": {
+        "icd11": "5B80",
+        "icd10": "E88.1",
+        "category": "Metabolic / Genetic Lipodystrophy",
+        "hallmark_symptoms": ["loss of body fat", "absence of subcutaneous fat", "poor growth", "low body weight", "joint stiffness", "thin skin", "short stature"],
+        "pathognomonic": ["Biallelic pathogenic mutations in AGPAT2 (type 1) or BSCL2 (type 2) with generalized subcutaneous fat loss and severe hypertriglyceridemia"],
+        "severity": "high",
+        "triage": "URGENT",
+        "immediate_tests": [
+            "Fasting Serum Triglycerides and Lipid Panel (marked severe hypertriglyceridemia >1000 mg/dL)",
+            "Fasting Glucose, Serum Insulin, and Hemoglobin A1c (extreme insulin resistance)",
+            "Abdominal Ultrasound (marked hepatosplenomegaly, hepatic steatosis)",
+            "Echocardiogram (screen for early biventricular hypertrophic cardiomyopathy)",
+            "Genetic Testing for AGPAT2, BSCL2, CAV1, and CAVIN1 mutations"
+        ],
+        "recommended_investigations": [
+            "Liver Biopsy / FibroScan (evaluates steatohepatitis and hepatic fibrosis)",
+            "Oral Glucose Tolerance Test (OGTT with concurrent insulin levels)",
+            "Serum Leptin Level (extremely low or undetectable)",
+            "Dual-energy X-ray Absorptiometry (DEXA whole-body fat quantification showing <3% total body fat)"
+        ],
+        "recommended_medications": [
+            "Metreleptin (Myalept — recombinant human leptin analog): 0.06 to 0.13 mg/kg/day SC to reverse hepatic steatosis and extreme hypertriglyceridemia",
+            "Very-Low-Fat Diet (20-30% of total caloric intake with medium-chain triglyceride supplementation)",
+            "Lipid-Lowering Pharmacotherapy: Fenofibrate or Omega-3 ethyl esters for hypertriglyceridemia",
+            "Insulin Sensitizers: Metformin or High-Dose Concentrated Insulin (U-500) for severe glycemic resistance"
+        ],
+        "first_line_treatment": "Recombinant leptin replacement therapy (Metreleptin) alongside strict dietary fat restriction and insulin sensitizers.",
+        "pearl": "Rare autosomal recessive metabolic disorder characterized by virtually zero subcutaneous adipose tissue from birth, prominent veins/muscles, marked hypertriglyceridemia, and severe insulin resistance. Metreleptin is the disease-specific orphan therapy.",
+    },
+
     # ── RARE & GENETIC METABOLIC DISEASES ────────────────────────────────────
     "Wilson's Disease (Hepatolenticular Degeneration)": {
         "icd11": "5C53.2",
@@ -958,8 +1327,13 @@ class OpenDomainMedicalEngine:
                     continue
 
                 # Match exact phrase or distinct multi-word subphrases (>= 2 words)
-                subphrases = [s.strip() for s in re.split(r"[,;+()]|\bwith\b|\bplus\b|\band\b", path_lower) if len(s.strip()) > 4]
-                has_hallmark = path_lower in full_text or any(sp in full_text for sp in subphrases if len(sp.split()) >= 2)
+                subphrases = [s.strip() for s in re.split(r"[,;+()]|\bwith\b|\bplus\b|\band\b|\bor\b", path_lower) if len(s.strip()) > 4]
+                valid_subphrases = [
+                    sp for sp in subphrases
+                    if len(sp.split()) >= 2
+                    and not re.match(r"^(?:type|stage|grade|class|level|group|phase)\s+[0-9a-z]+$", sp.lower().strip())
+                ]
+                has_hallmark = path_lower in full_text or any(sp in full_text for sp in valid_subphrases)
 
                 if has_hallmark:
                     score += 1.20
@@ -981,15 +1355,19 @@ class OpenDomainMedicalEngine:
                 if sym_lower in full_text or any(sym_lower in p for p in patient_tokens):
                     hallmark_matches += 1.0
                     matched_findings.append(sym)
-                else:
                     core_words = [w for w in re.findall(r"\w+", sym_lower) if len(w) > 3 and w not in GENERIC_OPEN_DOMAIN_STOPWORDS]
                     # Specific multi-word or non-generic token match
                     if core_words and any(w in full_text for w in core_words):
                         # Ensure not just a tiny substring
                         matched_words = [w for w in core_words if re.search(r"\b" + re.escape(w) + r"\b", full_text)]
                         if matched_words:
-                            hallmark_matches += 0.75
-                            matched_findings.append(sym)
+                            is_sufficient_match = (
+                                (len(core_words) == 1 and len(matched_words) >= 1)
+                                or (len(core_words) >= 2 and (len(matched_words) >= 2 or len(matched_words) / len(core_words) >= 0.5))
+                            )
+                            if is_sufficient_match:
+                                hallmark_matches += 0.75
+                                matched_findings.append(sym)
 
             # Require at least 2 distinct hallmark matches or high fraction if no pathognomonic match
             if hallmark_matches >= 1.5 or (hallmark_matches >= 1.0 and len(meta.get("hallmark_symptoms", [])) <= 2):
@@ -1028,6 +1406,36 @@ class OpenDomainMedicalEngine:
                     "pearl": meta.get("pearl", ""),
                     "is_open_domain": True,
                 })
+
+        # Supplement with Master Disease Catalog symptom match across 20,397+ conditions if needed
+        if len(candidates) < top_k:
+            try:
+                from app.services.master_disease_catalog import master_disease_catalog
+                catalog_matches = master_disease_catalog.match_symptoms(patient_symptoms, top_k=top_k - len(candidates))
+                existing_names = {c["disease"].lower() for c in candidates}
+                for cm in catalog_matches:
+                    if cm["disease"].lower() not in existing_names:
+                        raw_sc = cm.get("score", 1.0)
+                        norm_cm_sc = round(min(0.85, max(0.35, 0.30 + (raw_sc * 0.08))), 3)
+                        candidates.append({
+                            "disease": cm["disease"],
+                            "score": norm_cm_sc,
+                            "icd11": cm.get("icd11", ""),
+                            "icd10": cm.get("icd10", ""),
+                            "category": cm.get("category", "General Medicine"),
+                            "severity": cm.get("severity", "moderate"),
+                            "triage": cm.get("triage", "URGENT"),
+                            "supporting_findings": cm.get("matched_symptoms", []),
+                            "immediate_tests": cm.get("immediate_tests", []),
+                            "recommended_investigations": cm.get("recommended_investigations", []),
+                            "recommended_medications": cm.get("recommended_medications", []),
+                            "first_line_treatment": cm.get("first_line_treatment", ""),
+                            "treatment_summary": cm.get("first_line_treatment", ""),
+                            "pearl": cm.get("pearl", ""),
+                            "is_open_domain": True,
+                        })
+            except Exception as ex:
+                log.debug("catalog_symptom_match_supplement_failed", error=str(ex))
 
         # Sort descending by score
         candidates.sort(key=lambda x: x["score"], reverse=True)
@@ -1113,6 +1521,33 @@ class OpenDomainMedicalEngine:
                 res["disease_name"] = name
                 _LIVE_RESOLVED_CACHE[cache_key] = res
                 return res
+
+        # 1.5 Check Master Disease Catalog (20,397+ conditions offline)
+        try:
+            from app.services.master_disease_catalog import master_disease_catalog
+            cat_match = master_disease_catalog.get_disease_by_name(disease_name)
+            if cat_match:
+                res = {
+                    "disease_name": cat_match["name"],
+                    "icd10": cat_match.get("icd10", "R69"),
+                    "icd11": cat_match.get("icd11", ""),
+                    "orphacode": cat_match.get("orphacode", ""),
+                    "category": cat_match.get("category", "General Medicine"),
+                    "severity": cat_match.get("severity", "moderate"),
+                    "triage": cat_match.get("triage", "URGENT"),
+                    "summary": cat_match.get("pearl", ""),
+                    "immediate_tests": cat_match.get("immediate_tests", []),
+                    "recommended_investigations": cat_match.get("recommended_investigations", []),
+                    "recommended_medications": cat_match.get("recommended_medications", []),
+                    "first_line_treatment": cat_match.get("first_line_treatment", ""),
+                    "pearl": cat_match.get("pearl", ""),
+                    "is_open_domain": True,
+                    "source": cat_match.get("source", "Master Disease Catalog"),
+                }
+                _LIVE_RESOLVED_CACHE[cache_key] = res
+                return res
+        except Exception as e:
+            log.debug("master_disease_catalog_lookup_failed", error=str(e))
 
         # 2. Fetch live data from NLM, OpenFDA, and Wikipedia in parallel
         from app.services.realtime_medical_engine import (
@@ -1221,5 +1656,8 @@ class OpenDomainMedicalEngine:
             "medline_summary": medline_data.get("summary", "") if medline_data else "",
             "wiki_summary": wiki_data.get("summary", "") if wiki_data else "",
         }
+
+    # Compatibility alias
+    resolve_disease_from_all_sources = resolve_open_domain_disease
 
 open_domain_engine = OpenDomainMedicalEngine()

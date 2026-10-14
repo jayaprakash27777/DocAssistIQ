@@ -29,24 +29,24 @@ from typing import Dict, Any, Optional, Callable
 log = structlog.get_logger(__name__)
 
 # ---------------------------------------------------------------------------
-# Per-call timeouts — Nuclear-Level extended for large clinical notes & complex cases
+# Per-call timeouts — High-accuracy medical reasoning limits (avoids premature aborts)
 # ---------------------------------------------------------------------------
-TIMEOUT_FAST_S   = 90.0    # JSON compact / narrator — increased for complex notes
-TIMEOUT_NORMAL_S = 180.0   # Standard JSON / text generation — handles 4K-token notes
-TIMEOUT_LONG_S   = 300.0   # Long-form clinical documents, discharge summaries
+TIMEOUT_FAST_S   = 60.0    # JSON compact / narrator / differential diagnosis
+TIMEOUT_NORMAL_S = 90.0    # Standard JSON / text generation
+TIMEOUT_LONG_S   = 180.0   # Long-form clinical notes / comprehensive hospital documents
 
-# Token limits — Nuclear-Level: No artificial restrictions on medical answers
-MAX_SYSTEM_PROMPT_CHARS = 8000   # Extended system prompts for rich clinical context
-MAX_USER_PROMPT_CHARS   = 16000  # Handle long doctor notes, multi-page records
-MAX_COMBINED_CHARS      = 24000  # Combined context for complex multi-source synthesis
-MAX_TOKENS_JSON         = 2048   # Rich structured JSON with complete clinical data
-MAX_TOKENS_NARRATIVE    = 4096   # Long-form narrative for comprehensive answers
+# Token limits — Tuned for clinical depth without RAM exhaustion
+MAX_SYSTEM_PROMPT_CHARS = 5000   # System prompt budget
+MAX_USER_PROMPT_CHARS   = 10000  # User prompt budget
+MAX_COMBINED_CHARS      = 15000  # Combined context limit
+MAX_TOKENS_JSON         = 1536   # Structured JSON limit
+MAX_TOKENS_NARRATIVE    = 1536   # Dense clinical answer limit (approx 1200 words)
 
 # ---------------------------------------------------------------------------
-# Circuit Breaker — Tolerant thresholds for clinical continuity
+# Circuit Breaker — Non-blocking clinical resilience
 # ---------------------------------------------------------------------------
-_CB_FAILURE_THRESHOLD = 10     # Trip after 10 consecutive failures (more tolerant)
-_CB_RECOVERY_SECONDS  = 30     # Attempt recovery after 30s
+_CB_FAILURE_THRESHOLD = 20     # High threshold — never block clinical care prematurely
+_CB_RECOVERY_SECONDS  = 15     # Fast recovery probe after 15s
 
 class _CircuitBreaker:
     """Simple in-process circuit breaker to prevent cascade LLM failures."""
@@ -150,7 +150,7 @@ class OllamaService:
     def __init__(self, base_url: str | None = None):
         import os
         self.base_url      = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.default_model = os.getenv("DEFAULT_LLM_MODEL", "ii-medical:8b")
+        self.default_model = os.getenv("DEFAULT_LLM_MODEL", "llama3.2:latest")
         self.fast_model    = os.getenv("FAST_LLM_MODEL", "llama3.2:latest")
 
     async def get_effective_model(self, preferred: str | None = None) -> str:
@@ -158,7 +158,7 @@ class OllamaService:
         candidate = preferred or self.default_model
         if await self.is_model_available(candidate):
             return candidate
-        for fb in ["ii-medical:8b", "llama3.2:latest", "llama3.1:8b"]:
+        for fb in ["llama3.2:latest", "llama3.1:8b", "ii-medical:8b"]:
             if await self.is_model_available(fb):
                 return fb
         return candidate
@@ -167,7 +167,7 @@ class OllamaService:
         """Fresh client per call with the correct per-call timeout and connection pooling."""
         return httpx.AsyncClient(
             base_url=self.base_url,
-            timeout=httpx.Timeout(connect=15.0, read=timeout, write=25.0, pool=10.0),
+            timeout=httpx.Timeout(connect=5.0, read=timeout, write=10.0, pool=5.0),
             limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
         )
 
@@ -178,10 +178,10 @@ class OllamaService:
     async def _post(self, payload: dict, timeout: float) -> Dict[str, Any]:
         """
         Core HTTP call to Ollama. Raises on any failure — callers handle fallback.
-        Circuit breaker is checked BEFORE the call and updated AFTER.
+        Circuit breaker records telemetry without artificially locking out clinical inference.
         """
         if _circuit_breaker.is_open:
-            raise RuntimeError("LLM circuit breaker OPEN — using static fallback")
+            log.warning("circuit_breaker_probing_ollama")
 
         async with self._client(timeout) as client:
             try:
@@ -217,14 +217,13 @@ class OllamaService:
 
     async def generate(self, prompt: str, system: str = "", model: str | None = None, max_tokens: int | None = None, temperature: float = 0.1) -> str:
         """
-        Nuclear-level text generation — handles any question, any length, any clinical specialty.
+        Fast clinical text generation — handles any question, any length, any clinical specialty.
         Zero restrictions: answers any medical question comprehensively.
         Returns empty string on complete failure (never raises).
         """
         target_model = await self.get_effective_model(model)
-        # Auto-scale context based on prompt size
         prompt_len = len(prompt) + len(system)
-        ctx_size = 32768 if prompt_len > 8000 else (16384 if prompt_len > 4000 else 8192)
+        ctx_size = 4096 if prompt_len > 3000 else 2048
         payload = {
             "model": target_model,
             "prompt": prompt,
@@ -237,7 +236,7 @@ class OllamaService:
                 "repeat_penalty": 1.1,
             },
         }
-        timeout = TIMEOUT_LONG_S if prompt_len > 8000 else TIMEOUT_NORMAL_S
+        timeout = TIMEOUT_LONG_S if prompt_len > 4000 else TIMEOUT_NORMAL_S
         try:
             data = await asyncio.wait_for(self._post(payload, timeout), timeout=timeout + 5)
             return data.get("response", "").strip()
@@ -258,7 +257,7 @@ class OllamaService:
         prompt_safe = _truncate_prompt(prompt, MAX_USER_PROMPT_CHARS)
         system_safe = _truncate_prompt(system, MAX_SYSTEM_PROMPT_CHARS)
         prompt_len = len(prompt_safe) + len(system_safe)
-        ctx_size = 16384 if prompt_len > 4000 else 8192
+        ctx_size = 4096 if prompt_len > 3000 else 2048
         payload = {
             "model": target_model,
             "prompt": prompt_safe,
@@ -298,16 +297,14 @@ class OllamaService:
         max_output_tokens: int = MAX_TOKENS_JSON,
     ) -> Dict[str, Any]:
         """
-        Nuclear-Level compact JSON generation — God-Level accuracy for differential diagnosis.
-        Supports large prompts with rich clinical context up to 16K tokens.
+        Fast compact JSON generation for differential diagnosis.
         Returns {} on failure — never raises.
         """
         target_model = await self.get_effective_model(model or self.fast_model)
         system_safe = _truncate_prompt(system, MAX_SYSTEM_PROMPT_CHARS)
         prompt_safe = _truncate_prompt(prompt, MAX_USER_PROMPT_CHARS)
         prompt_len = len(prompt_safe) + len(system_safe)
-        # Adaptive context: large for complex prompts
-        ctx_size = 16384 if prompt_len > 4000 else (8192 if prompt_len > 2000 else 4096)
+        ctx_size = 4096 if prompt_len > 2000 else 2048
 
         payload = {
             "model": target_model,
@@ -316,9 +313,9 @@ class OllamaService:
             "stream": False,
             "format": "json",
             "options": {
-                "temperature": 0.05,   # Slightly above 0 for better open-domain coverage
+                "temperature": 0.05,
                 "num_predict": max_output_tokens,
-                "num_ctx": ctx_size,   # Adaptive — was fixed 4096
+                "num_ctx": ctx_size,
                 "top_k": 15,
                 "top_p": 0.92,
                 "repeat_penalty": 1.05,
@@ -337,7 +334,20 @@ class OllamaService:
             return {}
         except json.JSONDecodeError:
             log.warning("llm_compact_parse_failed", raw=raw[:200])
-            # One retry with even shorter prompt
+            try:
+                fixed = (m.group(1) if m else raw).strip()
+                if fixed.startswith("{"):
+                    # Strip trailing commas or incomplete keys
+                    fixed = re.sub(r',\s*$', '', fixed)
+                    if fixed.count("[") > fixed.count("]"):
+                        fixed += "]" * (fixed.count("[") - fixed.count("]"))
+                    if fixed.count("{") > fixed.count("}"):
+                        fixed += "}" * (fixed.count("{") - fixed.count("}"))
+                    parsed = json.loads(fixed)
+                    if isinstance(parsed, dict) and ("candidates" in parsed or "open_domain_candidates" in parsed):
+                        return parsed
+            except Exception:
+                pass
             return await self._minimal_retry(prompt_safe, target_model, max_output_tokens)
         except Exception as e:
             log.warning("llm_compact_failed", error=str(e))
@@ -350,16 +360,14 @@ class OllamaService:
         model: str | None = None,
     ) -> Dict[str, Any]:
         """
-        Nuclear-level extended-context JSON for disease intelligence, complex queries.
-        Supports up to 24K context chars and handles large clinical documents.
+        Structured JSON for disease intelligence, complex queries.
         Returns {} on failure — never raises.
         """
         target_model = await self.get_effective_model(model)
-        # Nuclear-level: do not truncate aggressively — allow full context
         system_safe = _truncate_prompt(system, MAX_SYSTEM_PROMPT_CHARS)
         prompt_safe = _truncate_prompt(prompt, MAX_USER_PROMPT_CHARS)
         prompt_len = len(prompt_safe) + len(system_safe)
-        ctx_size = 32768 if prompt_len > 12000 else (16384 if prompt_len > 6000 else 8192)
+        ctx_size = 4096 if prompt_len > 3000 else 2048
 
         payload = {
             "model": target_model,
@@ -369,8 +377,8 @@ class OllamaService:
             "format": "json",
             "options": {
                 "temperature": 0.05,
-                "num_predict": MAX_TOKENS_JSON,    # Full 2048 tokens for rich JSON
-                "num_ctx": ctx_size,                # Adaptive context scaling
+                "num_predict": MAX_TOKENS_JSON,
+                "num_ctx": ctx_size,
                 "top_k": 15,
                 "top_p": 0.92,
                 "repeat_penalty": 1.05,
@@ -495,10 +503,8 @@ class OllamaService:
 
     async def is_available(self) -> bool:
         """Quick health check — returns True if Ollama is responsive."""
-        if _circuit_breaker.is_open:
-            return False
         try:
-            async with self._client(5.0) as client:
+            async with self._client(3.0) as client:
                 r = await client.get("/api/tags")
                 return r.status_code == 200
         except Exception:

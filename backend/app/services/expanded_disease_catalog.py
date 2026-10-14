@@ -1119,6 +1119,252 @@ EXPANDED_DISEASE_CATALOG: Dict[str, Dict[str, Any]] = {
         ],
         "_treatment_summary": "Acute emergency stabilization: IV Dextrose 10% with electrolytes to stop catabolism; cautious bicarbonate for profound acidosis (pH <7.1). Cofactor supplementation: Coenzyme Q10 (10–30 mg/kg/day), Riboflavin (vitamin B2), Thiamine, L-Carnitine. Frequent feeds with avoidance of fasting.",
     },
+
+    # -----------------------------------------------------------------------
+    # PEDIATRIC GENETIC, PROGEROID, ENDOCRINE & METABOLIC DISORDERS
+    # -----------------------------------------------------------------------
+    "Hutchinson-Gilford Progeria Syndrome (HGPS)": {
+        "symptoms": [
+            "poor growth", "failure to thrive", "loss of body fat", "subcutaneous fat loss", "thin skin",
+            "hair loss", "alopecia", "small face", "micrognathia", "joint stiffness",
+            "progeroid appearance", "normal intelligence", "short stature", "low body weight"
+        ],
+        "cardinal_symptoms": ["progeroid appearance", "loss of body fat", "poor growth", "joint stiffness", "hair loss"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["genetic_pediatric_syndrome", "growth_failure_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+        "prevalence": "rare",
+        "_investigations": [
+            "Targeted LMNA Gene Sequencing (confirmatory: c.1824C>T, p.Gly608Gly splicing mutation)",
+            "Pediatric Growth & Anthropometric Z-scores (height, weight, body fat index)",
+            "Echocardiogram and Carotid Duplex Ultrasound (screen for accelerated atherosclerosis and calcific aortic stenosis)",
+            "Skeletal Radiographs / X-ray Survey (resorption of terminal phalanges, coxa valga, clavicular hypoplasia)",
+            "Fasting Lipid Profile and Serum Glucose"
+        ],
+        "_treatment_summary": "Lonafarnib (Zokinvy) farnesyltransferase inhibitor therapy alongside low-dose aspirin, physical therapy for joint stiffness, and high-calorie nutritional optimization.",
+    },
+
+    "Pediatric Growth Hormone Deficiency (Pituitary Dwarfism)": {
+        "symptoms": [
+            "poor growth", "growth failure", "short stature", "low body weight", "difficulty gaining height",
+            "small face", "cherubic facies", "normal intelligence", "delayed bone age", "thin skin"
+        ],
+        "cardinal_symptoms": ["poor growth", "short stature", "delayed bone age", "small face"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["endocrine_growth_syndrome", "growth_failure_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "moderate",
+        "prevalence": "moderate",
+        "_investigations": [
+            "Serum Insulin-like Growth Factor 1 (IGF-1) and IGFBP-3",
+            "Growth Hormone Provocative Stimulation Testing (Arginine, Clonidine, or Glucagon stimulation)",
+            "Left Hand & Wrist Radiograph for Greulich-Pyle Bone Age Assessment",
+            "Pituitary MRI with Gadolinium (screen for pituitary hypoplasia, ectopic posterior pituitary, craniopharyngioma)",
+            "Thyroid Function Tests (Free T4 and TSH) and Cortisol to evaluate panhypopituitarism"
+        ],
+        "_treatment_summary": "Recombinant Human Growth Hormone (Somatropin) daily subcutaneous replacement with regular height velocity and IGF-1 monitoring.",
+    },
+
+    "Severe Protein-Energy Malnutrition / Marasmus (Nutritional Failure to Thrive)": {
+        "symptoms": [
+            "poor growth", "failure to thrive", "low body weight", "loss of body fat", "subcutaneous fat loss",
+            "thin skin", "small face", "dry wrinkled skin", "normal intelligence", "underweight"
+        ],
+        "cardinal_symptoms": ["low body weight", "loss of body fat", "poor growth", "thin skin"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["nutritional_failure_syndrome", "growth_failure_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "critical",
+        "prevalence": "common",
+        "_investigations": [
+            "Point-of-Care Blood Glucose (screen and prevent fatal hypoglycemia)",
+            "Serum Electrolytes (Sodium, Potassium, Magnesium, Phosphate — screen for refeeding syndrome risk)",
+            "Mid-Upper Arm Circumference (MUAC <115 mm indicates severe acute malnutrition)",
+            "Complete Blood Count and Blood Smear (severe nutritional microcytic/macrocytic anemia)",
+            "Serum Albumin, Prealbumin, and Total Protein"
+        ],
+        "_treatment_summary": "Immediate prevention of hypoglycemia and hypothermia, slow cautious refeeding with WHO F-75 formula to prevent refeeding syndrome, and empiric antibiotics.",
+    },
+
+    "Cockayne Syndrome (Progeroid DNA Repair Disorder)": {
+        "symptoms": [
+            "poor growth", "failure to thrive", "loss of body fat", "subcutaneous fat loss", "thin skin",
+            "small face", "joint stiffness", "progeroid appearance", "short stature", "low body weight"
+        ],
+        "cardinal_symptoms": ["progeroid appearance", "poor growth", "joint stiffness", "loss of body fat"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["genetic_pediatric_syndrome", "growth_failure_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+        "prevalence": "rare",
+        "_investigations": [
+            "Targeted Gene Panel / Whole Exome Sequencing (ERCC6 and ERCC8 mutation analysis)",
+            "UV-Induced DNA Repair & RNA Synthesis Recovery Assay in Cultured Skin Fibroblasts",
+            "Dilated Fundoscopy (retinal pigmentary degeneration / 'salt-and-pepper' retinopathy)",
+            "Brain MRI (symmetrical basal ganglia calcification and leukodystrophy / cerebral atrophy)",
+            "Pure Tone Audiometry (progressive bilateral sensorineural hearing loss)"
+        ],
+        "_treatment_summary": "Strict lifelong UV protection, physical therapy for joint contractures, supportive nutrition, and absolute contraindication of metronidazole.",
+    },
+
+    "Congenital Generalized Lipodystrophy (Berardinelli-Seip Syndrome)": {
+        "symptoms": [
+            "loss of body fat", "absence of subcutaneous fat", "poor growth", "low body weight", "joint stiffness",
+            "thin skin", "short stature"
+        ],
+        "cardinal_symptoms": ["loss of body fat", "absence of subcutaneous fat", "joint stiffness"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["metabolic_lipodystrophy_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+        "prevalence": "rare",
+        "_investigations": [
+            "Fasting Serum Triglycerides and Lipid Panel (marked severe hypertriglyceridemia >1000 mg/dL)",
+            "Fasting Glucose, Serum Insulin, and Hemoglobin A1c (extreme insulin resistance)",
+            "Abdominal Ultrasound (marked hepatosplenomegaly, hepatic steatosis)",
+            "Echocardiogram (screen for early biventricular hypertrophic cardiomyopathy)",
+            "Genetic Testing for AGPAT2, BSCL2, CAV1, and CAVIN1 mutations"
+        ],
+        "_treatment_summary": "Recombinant leptin replacement therapy (Metreleptin) alongside strict dietary fat restriction and insulin sensitizers.",
+    },
+
+    # -----------------------------------------------------------------------
+    # PEDIATRIC NEUROGENETICS & HEREDITARY ATAXIA SPECTRUM
+    # -----------------------------------------------------------------------
+    "Friedreich's Ataxia (FRDA)": {
+        "symptoms": [
+            "progressive loss of coordination", "loss of coordination", "ataxia", "difficulty walking",
+            "muscle weakness", "weakness", "problems with balance", "balance problems",
+            "speech may become difficult", "dysarthria", "slurred speech", "involuntary movements",
+            "problems with swallowing", "dysphagia", "problems with vision", "visual disturbances",
+            "abnormalities in the nervous system", "neurological deficit", "loss of deep tendon reflexes",
+            "loss of proprioception", "pes cavus", "scoliosis", "hypertrophic cardiomyopathy"
+        ],
+        "cardinal_symptoms": ["progressive loss of coordination", "loss of coordination", "difficulty walking", "problems with balance", "speech may become difficult"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["neurological_syndrome", "genetic_pediatric_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+        "prevalence": "rare",
+        "_investigations": [
+            "FXN Gene Targeted Trinucleotide Repeat Expansion Analysis (confirmatory homozygous GAA repeat expansion in intron 1 of FXN on 9q21)",
+            "Comprehensive Pediatric Neurological Examination (gait ataxia, Romberg sign, dysmetria, loss of DTRs)",
+            "Transthoracic Echocardiogram (TTE) & 12-Lead ECG (screen for concentric hypertrophic cardiomyopathy)",
+            "Brain and Cervical Spinal Cord MRI (cervical cord atrophy with preserved cerebellar volume)",
+            "Nerve Conduction Studies & EMG (sensory axonal neuropathy with absent SNAPs)"
+        ],
+        "_treatment_summary": "Omaveloxolone (Skyclarys — FDA-approved Nrf2 activator) 100-150mg oral once daily alongside comprehensive physical therapy, cardioprotective management for hypertrophic cardiomyopathy, and speech-language therapy.",
+    },
+
+    "Ataxia-Telangiectasia (Louis-Bar Syndrome)": {
+        "symptoms": [
+            "progressive loss of coordination", "loss of coordination", "ataxia", "difficulty walking",
+            "problems with balance", "balance problems", "muscle weakness", "weakness",
+            "speech may become difficult", "dysarthria", "slurred speech", "involuntary movements",
+            "chorea", "dystonia", "problems with swallowing", "dysphagia", "problems with vision",
+            "visual disturbances", "oculomotor apraxia", "abnormalities in the nervous system",
+            "neurological deficit", "telangiectasias", "frequent respiratory infections"
+        ],
+        "cardinal_symptoms": ["progressive loss of coordination", "involuntary movements", "problems with balance", "speech may become difficult", "oculomotor apraxia"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["neurological_syndrome", "genetic_pediatric_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+        "prevalence": "rare",
+        "_investigations": [
+            "Serum Alpha-Fetoprotein (AFP) Level (markedly elevated >10 ng/mL in >95% of patients)",
+            "Targeted ATM Gene Sequencing and Deletion/Duplication Analysis (biallelic pathogenic variants on 11q22)",
+            "Quantitative Serum Immunoglobulins (IgA, IgG subclasses deficiency with T-cell lymphopenia)",
+            "Brain MRI (progressive cerebellar vermian and hemisphere cortical atrophy)",
+            "Chromosomal Radiosensitivity Assay (increased chromosomal breakage after ionizing radiation)"
+        ],
+        "_treatment_summary": "Multidisciplinary neurorehabilitation, infection prophylaxis with IVIG and antimicrobial therapy, strict radioprotection (absolute avoidance of unnecessary ionizing radiation/CT scans), and trihexyphenidyl for dystonia.",
+    },
+
+    "Juvenile Spinocerebellar Ataxia (SCA Spectrum)": {
+        "symptoms": [
+            "progressive loss of coordination", "loss of coordination", "ataxia", "difficulty walking",
+            "problems with balance", "balance problems", "speech may become difficult", "dysarthria",
+            "slurred speech", "involuntary movements", "muscle weakness", "weakness",
+            "problems with swallowing", "dysphagia", "problems with vision", "visual disturbances",
+            "abnormalities in the nervous system", "neurological deficit", "hyperreflexia", "slow saccades"
+        ],
+        "cardinal_symptoms": ["progressive loss of coordination", "difficulty walking", "problems with balance", "speech may become difficult", "dysarthria"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["neurological_syndrome", "genetic_pediatric_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+        "prevalence": "rare",
+        "_investigations": [
+            "Comprehensive Spinocerebellar Ataxia (SCA) Repeat Expansion Genetic Panel (SCA1, SCA2, SCA3, SCA6, SCA7)",
+            "Volumetric Brain MRI with Contrast (selective cerebellar vermian/hemispheric and olivopontocerebellar atrophy)",
+            "Scale for the Assessment and Rating of Ataxia (SARA standardized neurological score)",
+            "Video Fluoroscopic Swallowing Study (VFSS / modified barium swallow)",
+            "Neuro-Ophthalmologic Saccadic Velocity and Visual Evoked Potentials (VEP)"
+        ],
+        "_treatment_summary": "Riluzole (50mg oral BD) to improve cerebellar coordination and SARA scores, Baclofen for spasticity, intensive physical/occupational therapy, and speech-language therapy with aspiration precautions.",
+    },
+
+    "Metachromatic Leukodystrophy (MLD)": {
+        "symptoms": [
+            "progressive loss of coordination", "loss of coordination", "difficulty walking",
+            "muscle weakness", "weakness", "problems with balance", "balance problems",
+            "speech may become difficult", "dysarthria", "slurred speech", "involuntary movements",
+            "dystonia", "problems with swallowing", "dysphagia", "problems with vision",
+            "visual disturbances", "abnormalities in the nervous system", "neurological deficit",
+            "developmental regression", "optic atrophy"
+        ],
+        "cardinal_symptoms": ["progressive loss of coordination", "difficulty walking", "muscle weakness", "speech may become difficult", "involuntary movements"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["neurological_syndrome", "genetic_pediatric_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "critical",
+        "prevalence": "rare",
+        "_investigations": [
+            "Arylsulfatase A (ARSA) Enzyme Activity Assay in Leukocytes or Cultured Fibroblasts (markedly deficient)",
+            "Urinary Sulfatides Quantification by Mass Spectrometry (elevated 24-hr urinary sulfatide excretion)",
+            "Brain MRI with Contrast (confluent symmetrical T2/FLAIR periventricular tigroid leukodystrophy sparing U-fibers)",
+            "ARSA Gene Molecular Sequencing (excludes pseudodeficiency alleles)",
+            "Nerve Conduction Studies (profound demyelinating motor and sensory polyneuropathy)"
+        ],
+        "_treatment_summary": "Atidarsagene Autotemcel (Lenmeldy / Libmeldy — FDA-approved ex vivo autologous hematopoietic stem cell gene therapy for early/pre-symptomatic MLD) or allogeneic HSCT; aggressive baclofen for dystonia/spasticity, G-tube nutrition, and palliative care.",
+    },
+
+    "Juvenile Huntington's Disease (Westphal Variant)": {
+        "symptoms": [
+            "progressive loss of coordination", "difficulty walking", "problems with balance",
+            "balance problems", "muscle weakness", "weakness", "speech may become difficult",
+            "dysarthria", "slurred speech", "involuntary movements", "chorea", "dystonia",
+            "rigidity", "problems with swallowing", "dysphagia", "problems with vision",
+            "visual disturbances", "abnormalities in the nervous system", "neurological deficit",
+            "seizures", "cognitive decline"
+        ],
+        "cardinal_symptoms": ["involuntary movements", "progressive loss of coordination", "difficulty walking", "speech may become difficult", "rigidity"],
+        "hemorrhagic": False,
+        "geographic_zones": ["Global"],
+        "clusters": ["neurological_syndrome", "genetic_pediatric_syndrome"],
+        "incubation_min": 0, "incubation_max": 0,
+        "severity": "high",
+        "prevalence": "rare",
+        "_investigations": [
+            "Targeted HTT Gene CAG Trinucleotide Repeat Sizing (detects expanded repeats >60 repeats confirming juvenile HD)",
+            "Brain MRI with Volumetric Analysis (marked bilateral caudate nucleus and putamen striatal atrophy)",
+            "Continuous Video-EEG Telemetry (evaluates juvenile HD-associated myoclonus and epilepsy)",
+            "Unified Huntington's Disease Rating Scale (UHDRS standardized assessment)",
+            "Formal Dysphagia and Videofluoroscopic Swallowing Study"
+        ],
+        "_treatment_summary": "VMAT2 inhibitors (Deutetrabenazine or Tetrabenazine) for choreic/involuntary movements, Levodopa or Amantadine for akinetic-rigid Westphal parkinsonian features, Levetiracetam/Valproate for seizures, and specialized pediatric neuro-palliative care.",
+    },
 }
 
 # Alias mappings for short/legacy names pointing to primary nuanced entities

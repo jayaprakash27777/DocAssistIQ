@@ -19,7 +19,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.platform import API_RESPONSES, PagedResponse, PaginationParams, paginate
@@ -637,4 +637,380 @@ async def probe_ai_engine(
             mode="static_kb_fallback",
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
+
+
+# ============================================================
+# Deep Infrastructure Telemetry & Operational System Control
+# ============================================================
+
+
+class DatabaseTelemetry(BaseModel):
+    status: str
+    latency_ms: float
+    postgres_version: str
+    active_connections: int
+    table_counts: dict[str, int]
+
+
+class RedisTelemetry(BaseModel):
+    status: str
+    latency_ms: float
+    redis_version: str
+    connected_clients: int
+    used_memory_human: str
+    total_keys: int
+
+
+class StorageTelemetry(BaseModel):
+    status: str
+    latency_ms: float
+    bucket_name: str
+    endpoint: str
+    total_objects: int
+    total_size_bytes: int
+
+
+class InfrastructureTelemetryResponse(BaseModel):
+    database: DatabaseTelemetry
+    redis: RedisTelemetry
+    storage: StorageTelemetry
+    ai_engine: dict[str, Any]
+    maintenance_mode: bool
+    maintenance_reason: str | None = None
+    system_uptime_seconds: float
+    platform_info: dict[str, str]
+    timestamp: str
+
+
+@router.get(
+    "/infrastructure-telemetry",
+    response_model=InfrastructureTelemetryResponse,
+    summary="Get real-time deep infrastructure telemetry",
+    responses=API_RESPONSES,
+)
+async def get_infrastructure_telemetry(
+    _current_admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> InfrastructureTelemetryResponse:
+    """Returns live connection telemetry, exact table counts, Redis memory stats, and S3 object metrics."""
+    import time
+    import sys
+    from datetime import datetime, timezone
+    from app.infrastructure.redis import get_async_client
+    from app.services.llm_service import llm_service
+
+    now_ts = datetime.now(timezone.utc).isoformat()
+
+    # 1. Probe Database
+    db_start = time.perf_counter()
+    try:
+        ver_res = await db.execute(text("SHOW server_version;"))
+        pg_ver = ver_res.scalar() or "PostgreSQL"
+
+        conn_res = await db.execute(text("SELECT count(*) FROM pg_stat_activity;"))
+        active_conns = conn_res.scalar() or 1
+
+        # Table counts
+        from app.models.consultation import Consultation
+        from app.models.doctor import Doctor
+        
+        counts = {}
+        for model_cls, key in [
+            (User, "users"),
+            (Doctor, "doctors"),
+            (Consultation, "consultations"),
+            (AuditLog, "audit_logs"),
+        ]:
+            c = await db.scalar(select(func.count(model_cls.id)))
+            counts[key] = c or 0
+
+        try:
+            from app.models.patient_profile import PatientProfile
+            counts["patient_profiles"] = (await db.scalar(select(func.count(PatientProfile.id)))) or 0
+        except Exception:
+            pass
+
+        try:
+            from app.models.clinical_note import ClinicalNote
+            counts["clinical_notes"] = (await db.scalar(select(func.count(ClinicalNote.id)))) or 0
+        except Exception:
+            pass
+
+        db_lat = round((time.perf_counter() - db_start) * 1000, 2)
+        db_telemetry = DatabaseTelemetry(
+            status="healthy",
+            latency_ms=db_lat,
+            postgres_version=str(pg_ver),
+            active_connections=int(active_conns),
+            table_counts=counts,
+        )
+    except Exception as ex:
+        db_lat = round((time.perf_counter() - db_start) * 1000, 2)
+        db_telemetry = DatabaseTelemetry(
+            status="degraded",
+            latency_ms=db_lat,
+            postgres_version="Error",
+            active_connections=0,
+            table_counts={},
+        )
+
+    # 2. Probe Redis
+    redis_start = time.perf_counter()
+    maintenance_mode = False
+    maintenance_reason = None
+    try:
+        r = get_async_client()
+        await r.ping()
+        redis_lat = round((time.perf_counter() - redis_start) * 1000, 2)
+        info = await r.info()
+        r_ver = info.get("redis_version", "unknown")
+        clients = info.get("connected_clients", 1)
+        used_mem = info.get("used_memory_human", "0B")
+        dbsize = await r.dbsize()
+
+        m_flag = await r.get("system:maintenance_mode")
+        if m_flag:
+            maintenance_mode = True
+            try:
+                m_data = json.loads(m_flag)
+                maintenance_reason = m_data.get("reason", "Scheduled System Maintenance")
+            except Exception:
+                maintenance_reason = str(m_flag)
+
+        redis_telemetry = RedisTelemetry(
+            status="healthy",
+            latency_ms=redis_lat,
+            redis_version=str(r_ver),
+            connected_clients=int(clients),
+            used_memory_human=str(used_mem),
+            total_keys=int(dbsize),
+        )
+    except Exception as ex:
+        redis_lat = round((time.perf_counter() - redis_start) * 1000, 2)
+        redis_telemetry = RedisTelemetry(
+            status="degraded",
+            latency_ms=redis_lat,
+            redis_version="Error",
+            connected_clients=0,
+            used_memory_human="0B",
+            total_keys=0,
+        )
+
+    # 3. Probe Storage (MinIO)
+    storage_start = time.perf_counter()
+    try:
+        s3 = get_s3_client()
+        s3.head_bucket(Bucket=settings.object_storage_bucket)
+        objects_resp = s3.list_objects_v2(Bucket=settings.object_storage_bucket, MaxKeys=1000)
+        obj_count = objects_resp.get("KeyCount", 0)
+        total_size = sum(item.get("Size", 0) for item in objects_resp.get("Contents", []))
+        storage_lat = round((time.perf_counter() - storage_start) * 1000, 2)
+
+        storage_telemetry = StorageTelemetry(
+            status="healthy",
+            latency_ms=storage_lat,
+            bucket_name=settings.object_storage_bucket,
+            endpoint=settings.object_storage_endpoint,
+            total_objects=obj_count,
+            total_size_bytes=total_size,
+        )
+    except Exception as ex:
+        storage_lat = round((time.perf_counter() - storage_start) * 1000, 2)
+        storage_telemetry = StorageTelemetry(
+            status="degraded",
+            latency_ms=storage_lat,
+            bucket_name=settings.object_storage_bucket,
+            endpoint=settings.object_storage_endpoint,
+            total_objects=0,
+            total_size_bytes=0,
+        )
+
+    # 4. AI Engine Telemetry
+    ai_status = await llm_service.get_detailed_status()
+
+    return InfrastructureTelemetryResponse(
+        database=db_telemetry,
+        redis=redis_telemetry,
+        storage=storage_telemetry,
+        ai_engine=ai_status,
+        maintenance_mode=maintenance_mode,
+        maintenance_reason=maintenance_reason,
+        system_uptime_seconds=time.time() - getattr(sys, "_start_time", time.time() - 3600),
+        platform_info={
+            "app_name": settings.app_name,
+            "version": settings.app_version,
+            "environment": settings.app_env,
+            "python_version": sys.version.split()[0],
+        },
+        timestamp=now_ts,
+    )
+
+
+class CacheFlushRequest(BaseModel):
+    namespace: str = "all"  # "all", "consultations", "outbreaks", "diagnostics"
+
+
+class CacheFlushResponse(BaseModel):
+    ok: bool
+    keys_purged: int
+    namespace: str
+    timestamp: str
+
+
+@router.post(
+    "/cache/flush",
+    response_model=CacheFlushResponse,
+    summary="Flush real-time Redis cache",
+    responses=API_RESPONSES,
+)
+async def flush_admin_cache(
+    payload: CacheFlushRequest,
+    _current_admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> CacheFlushResponse:
+    from app.infrastructure.redis import get_async_client
+    from datetime import datetime, timezone
+
+    r = get_async_client()
+    purged = 0
+    if payload.namespace == "all":
+        # Keep system maintenance flag if present
+        m_flag = await r.get("system:maintenance_mode")
+        dbsize = await r.dbsize()
+        await r.flushdb()
+        purged = dbsize
+        if m_flag:
+            await r.set("system:maintenance_mode", m_flag)
+    else:
+        pattern = f"{payload.namespace}:*"
+        keys = []
+        async for key in r.scan_iter(match=pattern):
+            keys.append(key)
+        if keys:
+            purged = await r.delete(*keys)
+
+    await log_event(
+        db,
+        action="admin.cache_flushed",
+        entity_type="cache",
+        actor_id=_current_admin.id,
+        diff=json.dumps({"namespace": payload.namespace, "keys_purged": purged}),
+        severity="warning",
+    )
+    await db.commit()
+
+    return CacheFlushResponse(
+        ok=True,
+        keys_purged=purged,
+        namespace=payload.namespace,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+class MaintenanceModeRequest(BaseModel):
+    enabled: bool
+    reason: str | None = "Emergency Platform Maintenance"
+
+
+class MaintenanceModeResponse(BaseModel):
+    ok: bool
+    maintenance_mode: bool
+    reason: str | None = None
+    timestamp: str
+
+
+@router.post(
+    "/system/maintenance",
+    response_model=MaintenanceModeResponse,
+    summary="Toggle emergency system maintenance mode",
+    responses=API_RESPONSES,
+)
+async def toggle_maintenance_mode(
+    payload: MaintenanceModeRequest,
+    _current_admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> MaintenanceModeResponse:
+    from app.infrastructure.redis import get_async_client
+    from datetime import datetime, timezone
+
+    r = get_async_client()
+    if payload.enabled:
+        meta = {
+            "enabled_by": _current_admin.email,
+            "reason": payload.reason or "System Maintenance",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        await r.set("system:maintenance_mode", json.dumps(meta))
+    else:
+        await r.delete("system:maintenance_mode")
+
+    await log_event(
+        db,
+        action="admin.maintenance_mode_toggled",
+        entity_type="system",
+        actor_id=_current_admin.id,
+        diff=json.dumps({"enabled": payload.enabled, "reason": payload.reason}),
+        severity="critical" if payload.enabled else "info",
+    )
+    await db.commit()
+
+    try:
+        from app.api.v1.endpoints.ws import manager
+        await manager.broadcast("system.maintenance", {
+            "enabled": payload.enabled,
+            "reason": payload.reason,
+            "by": _current_admin.email,
+        })
+    except Exception:
+        pass
+
+    return MaintenanceModeResponse(
+        ok=True,
+        maintenance_mode=payload.enabled,
+        reason=payload.reason if payload.enabled else None,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+class DbAnalyzeResponse(BaseModel):
+    ok: bool
+    duration_ms: float
+    timestamp: str
+
+
+@router.post(
+    "/database/analyze",
+    response_model=DbAnalyzeResponse,
+    summary="Run live PostgreSQL ANALYZE to optimize query plans",
+    responses=API_RESPONSES,
+)
+async def run_db_analyze(
+    _current_admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> DbAnalyzeResponse:
+    import time
+    from datetime import datetime, timezone
+
+    start = time.perf_counter()
+    await db.commit()
+    await db.execute(text("ANALYZE;"))
+    duration = round((time.perf_counter() - start) * 1000, 2)
+
+    await log_event(
+        db,
+        action="admin.database_analyzed",
+        entity_type="database",
+        actor_id=_current_admin.id,
+        diff=json.dumps({"duration_ms": duration}),
+        severity="info",
+    )
+    await db.commit()
+
+    return DbAnalyzeResponse(
+        ok=True,
+        duration_ms=duration,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+
 

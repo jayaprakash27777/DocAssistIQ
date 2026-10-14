@@ -149,7 +149,23 @@ async def query_rxnorm_drug(drug_name: str) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 async def query_hpo_phenotype(symptom: str) -> List[Dict[str, Any]]:
     """Queries Monarch Initiative API v3 for official HPO phenotype terms."""
-    cache_key = f"hpo_{symptom.lower()}"
+    if not symptom or not str(symptom).strip():
+        return []
+
+    clean_sym = str(symptom).strip()
+    # If a long clinical narrative was passed, extract core clinical terms
+    if len(clean_sym) > 40:
+        words = [
+            w for w in re.split(r"[\s,;.]+", clean_sym)
+            if len(w) > 3 and w.lower() not in {
+                "this", "that", "with", "have", "been", "feeling", "they",
+                "often", "very", "some", "when", "year", "weeks", "student",
+                "looks", "usual", "shows", "level", "count", "test", "blood"
+            }
+        ]
+        clean_sym = " ".join(words[:3]) if words else clean_sym[:40]
+
+    cache_key = f"hpo_{clean_sym.lower()}"
     now = time.time()
     if cache_key in _TERMINOLOGY_CACHE:
         ts, data = _TERMINOLOGY_CACHE[cache_key]
@@ -158,8 +174,8 @@ async def query_hpo_phenotype(symptom: str) -> List[Dict[str, Any]]:
 
     results = []
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            url = f"https://api.monarchinitiative.org/v3/api/search?q={quote(symptom)}&category=biolink:PhenotypicFeature&limit=4"
+        async with httpx.AsyncClient(timeout=3.5) as client:
+            url = f"https://api.monarchinitiative.org/v3/api/search?q={quote(clean_sym)}&category=biolink:PhenotypicFeature&limit=4"
             r = await client.get(url, headers={"Accept": "application/json"})
             if r.status_code == 200:
                 items = r.json().get("items", [])
@@ -173,7 +189,7 @@ async def query_hpo_phenotype(symptom: str) -> List[Dict[str, Any]]:
                     })
         _TERMINOLOGY_CACHE[cache_key] = (now, results)
     except Exception as e:
-        log.warning("hpo_query_failed", symptom=symptom, error=str(e))
+        log.debug("hpo_query_failed", symptom=clean_sym, error=str(e))
 
     return results
 

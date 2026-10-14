@@ -371,6 +371,28 @@ class OutbreakScanner:
         profile = await generate_dynamic_profile(disease_name, context)
         if profile:
             put_dynamic_kb_entry(disease_name, profile, disease_display_name=disease_name)
+            
+            # Automatically register as active outbreak in live surveillance radar
+            registered_alert = None
+            try:
+                from app.services.india_outbreak_surveillance import register_dynamic_live_outbreak, ALL_INDIAN_STATES_AND_UTS
+                st_match = next((st for st in ALL_INDIAN_STATES_AND_UTS if st.lower() in context.lower()), None)
+                registered_alert = register_dynamic_live_outbreak({
+                    "disease_name": disease_name,
+                    "pathogen": profile.get("pathogen", disease_name),
+                    "state_or_country": st_match if st_match else "Global Watch",
+                    "region_type": "india_state" if st_match else "global",
+                    "alert_level": "CRITICAL" if profile.get("severity") in ("critical", "high") else "HIGH",
+                    "cardinal_symptoms": profile.get("cardinal_symptoms") or profile.get("symptoms", [])[:5],
+                    "vector_reservoir": profile.get("transmission", "Under Investigation / Live Signal"),
+                    "reporting_agency": f"Live Disease Scanner ({alert.get('source', 'WHO/CDC/ECDC')})",
+                    "clinical_pearl": alert.get("summary") or f"Active outbreak alert detected for {disease_name}.",
+                    "reported_cases": "Active Live Signal Monitored",
+                    "data_source": f"Live {alert.get('source', 'Public Health')} Feed",
+                })
+            except Exception as ex:
+                log.debug("auto_outbreak_registration_skipped", error=str(ex))
+
             if not in_static:
                 self.discovered.append({
                     "name": disease_name,
@@ -387,6 +409,16 @@ class OutbreakScanner:
                         "severity": profile.get("severity", "high"),
                         "source": alert.get("source"),
                         "headline": alert.get("title", "")[:100],
+                    })
+                    if registered_alert:
+                        await manager.broadcast("outbreak_alert", {
+                            "action": "new_outbreak",
+                            "alert": registered_alert,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        })
+                    await manager.broadcast("surveillance_feed_updated", {
+                        "disease_name": disease_name,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     })
                 except Exception as ex:
                     log.debug("ws_outbreak_broadcast_skipped", error=str(ex))
@@ -436,30 +468,26 @@ class OutbreakScanner:
         return []
 
     async def _fetch_reliefweb(self) -> List[dict]:
-        """Fetch from ReliefWeb REST API (JSON, no key, free)."""
+        """Fetch from ReliefWeb RSS updates feed (free, active, zero-key)."""
         try:
             import httpx
-            payload = {
-                "query": {"value": "outbreak epidemic disease emerging alert", "operator": "AND"},
-                "fields": {"include": ["title", "body"]},
-                "sort": ["date:desc"],
-                "limit": 10,
-                "filter": {"field": "type.name", "value": "Situation Report"}
-            }
-            async with httpx.AsyncClient(timeout=8.0) as c:
-                r = await c.post(
-                    "https://api.reliefweb.int/v1/reports?appname=docassistiq",
-                    json=payload,
+            import xml.etree.ElementTree as ET
+            async with httpx.AsyncClient(timeout=6.0) as c:
+                r = await c.get(
+                    "https://reliefweb.int/updates/rss.xml",
+                    headers={"User-Agent": "DocAssistIQ-Medical/1.0"},
+                    follow_redirects=True,
                 )
-                if r.status_code not in (200, 201):
+                if r.status_code != 200:
                     return []
+                root = ET.fromstring(r.text)
                 alerts = []
-                for item in r.json().get("data", []):
-                    fields = item.get("fields", {})
-                    title = fields.get("title", "")
-                    body = re.sub(r"<[^>]+>", " ", fields.get("body", ""))[:300]
-                    if title:
-                        alerts.append({"source": "reliefweb", "title": title, "summary": body})
+                for item in root.findall(".//item")[:10]:
+                    title = getattr(item.find("title"), "text", "") or ""
+                    desc = getattr(item.find("description"), "text", "") or ""
+                    clean_desc = re.sub(r"<[^>]+>", " ", desc).strip()[:300]
+                    if title and any(kw in f"{title} {clean_desc}".lower() for kw in ["health", "disease", "outbreak", "epidemic", "cholera", "fever", "virus"]):
+                        alerts.append({"source": "reliefweb", "title": title.strip(), "summary": clean_desc})
                 return alerts
         except Exception as e:
             log.debug("reliefweb_fetch_failed", error=str(e)[:80])

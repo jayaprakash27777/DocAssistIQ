@@ -20,56 +20,63 @@ SECTION_HEADERS = [
     (
         "CHIEF_COMPLAINT_AND_HPI",
         re.compile(
-            r"(?:^|\n)\s*(?:chief\s+complaint|c/?o|reason\s+for\s+(?:visit|admission)|history\s+of\s+present\s+illness|hpi|presenting\s+complaint|clinical\s+presentation|history\s+of\s+illness)\s*[:\-]",
+            r"(?:^|\n)\s*(?:#{1,6}\s*)?(?:chief\s+complaint|c/?o|reason\s+for\s+(?:visit|admission)|history\s+of\s+present\s+illness|hpi|presenting\s+complaint|clinical\s+presentation|history\s+of\s+illness|subjective)\s*[:\-\n]",
+            re.IGNORECASE
+        )
+    ),
+    (
+        "REVIEW_OF_SYSTEMS",
+        re.compile(
+            r"(?:^|\n)\s*(?:#{1,6}\s*)?(?:review\s+of\s+systems|ros|pertinent\s+negatives(?:\s+and\s+positives)?|systems\s+review)\s*[:\-\n]",
             re.IGNORECASE
         )
     ),
     (
         "PHYSICAL_EXAM",
         re.compile(
-            r"(?:^|\n)\s*(?:physical\s+exam(?:ination)?|o/?e|on\s+examination|exam(?:ination)?\s+reveals|clinical\s+findings|objective\s+findings|heent|vital\s+signs|vitals)\s*[:\-]",
+            r"(?:^|\n)\s*(?:#{1,6}\s*)?(?:physical\s+exam(?:ination)?|o/?e|on\s+examination|exam(?:ination)?\s+reveals|clinical\s+findings|objective(?:\s+findings)?|heent|vital\s+signs|vitals)\s*[:\-\n]",
             re.IGNORECASE
         )
     ),
     (
         "LABS_AND_DIAGNOSTICS",
         re.compile(
-            r"(?:^|\n)\s*(?:laboratory\s+(?:data|evaluation|testing|tests|investigations)|labs?|investigations?|diagnostic\s+(?:studies|tests|findings)|imaging|ct\s+scan|mri|x-?ray|ultrasound|ecg|ekg|csf\s+analysis|blood\s+tests)\s*[:\-]",
+            r"(?:^|\n)\s*(?:#{1,6}\s*)?(?:laboratory\s+(?:data|evaluation|testing|tests|investigations)|labs?|investigations?|diagnostic\s+(?:studies|tests|findings)|imaging|ct\s+scan|mri|x-?ray|ultrasound|ecg|ekg|csf\s+analysis|blood\s+tests)\s*[:\-\n]",
             re.IGNORECASE
         )
     ),
     (
         "PAST_MEDICAL_HISTORY",
         re.compile(
-            r"(?:^|\n)\s*(?:past\s+medical\s+history|pmh|medical\s+history|past\s+history|surgical\s+history|psh|prior\s+illnesses|underlying\s+conditions)\s*[:\-]",
+            r"(?:^|\n)\s*(?:#{1,6}\s*)?(?:past\s+medical\s+history|pmh|medical\s+history|past\s+history|surgical\s+history|psh|prior\s+illnesses|underlying\s+conditions)\s*[:\-\n]",
             re.IGNORECASE
         )
     ),
     (
         "FAMILY_HISTORY",
         re.compile(
-            r"(?:^|\n)\s*(?:family\s+history|fhx?|maternal\s+history|paternal\s+history|hereditary\s+history|family\s+background)\s*[:\-]",
+            r"(?:^|\n)\s*(?:#{1,6}\s*)?(?:family\s+history|fhx?|maternal\s+history|paternal\s+history|hereditary\s+history|family\s+background)\s*[:\-\n]",
             re.IGNORECASE
         )
     ),
     (
         "MEDICATIONS_AND_EXPOSURES",
         re.compile(
-            r"(?:^|\n)\s*(?:current\s+medications|medications?|meds|drug\s+history|prescriptions|supplements?|allergies|exposures?|toxic\s+exposures?)\s*[:\-]",
+            r"(?:^|\n)\s*(?:#{1,6}\s*)?(?:current\s+medications|medications?|meds|drug\s+history|prescriptions|supplements?|allergies|exposures?|toxic\s+exposures?)\s*[:\-\n]",
             re.IGNORECASE
         )
     ),
     (
         "SOCIAL_AND_TRAVEL",
         re.compile(
-            r"(?:^|\n)\s*(?:social\s+history|shx?|travel\s+history|recent\s+travel|travel|itinerary|epidemiological\s+history)\s*[:\-]",
+            r"(?:^|\n)\s*(?:#{1,6}\s*)?(?:social\s+history|shx?|travel\s+history|recent\s+travel|travel|itinerary|epidemiological\s+history)\s*[:\-\n]",
             re.IGNORECASE
         )
     ),
     (
         "ASSESSMENT_AND_PLAN",
         re.compile(
-            r"(?:^|\n)\s*(?:assessment(?:\s+and\s+plan)?|impression|differential(?:\s+diagnosis)?|plan|a/?p)\s*[:\-]",
+            r"(?:^|\n)\s*(?:#{1,6}\s*)?(?:assessment(?:\s+and\s+plan)?|impression|differential(?:\s+diagnosis)?|plan|a/?p)\s*[:\-\n]",
             re.IGNORECASE
         )
     ),
@@ -100,12 +107,14 @@ class ClinicalSectionSegmenter:
         if not note_text or not note_text.strip():
             return {
                 "CHIEF_COMPLAINT_AND_HPI": "",
+                "REVIEW_OF_SYSTEMS": "",
                 "PHYSICAL_EXAM": "",
                 "LABS_AND_DIAGNOSTICS": "",
                 "PAST_MEDICAL_HISTORY": "",
                 "FAMILY_HISTORY": "",
                 "MEDICATIONS_AND_EXPOSURES": "",
                 "SOCIAL_AND_TRAVEL": "",
+                "ASSESSMENT_AND_PLAN": "",
                 "UNSEGMENTED_NARRATIVE": "",
             }
 
@@ -117,11 +126,12 @@ class ClinicalSectionSegmenter:
             for m in pattern.finditer(text):
                 matches.append((m.start(), m.end(), sec_name))
 
-        # If 2 or more explicit headers found, use header-based slicing
-        if len(matches) >= 2:
+        # If 1 or more explicit headers found, use header-based slicing
+        if len(matches) >= 1:
             matches.sort(key=lambda x: x[0])
             sections: Dict[str, List[str]] = {
                 "CHIEF_COMPLAINT_AND_HPI": [],
+                "REVIEW_OF_SYSTEMS": [],
                 "PHYSICAL_EXAM": [],
                 "LABS_AND_DIAGNOSTICS": [],
                 "PAST_MEDICAL_HISTORY": [],

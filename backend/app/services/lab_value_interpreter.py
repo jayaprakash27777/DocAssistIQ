@@ -427,9 +427,32 @@ class LabValueInterpreter:
                 diagnostic_flags.append("elevated D-dimer")
 
         # ---------------------------------------------------------------------
-        # 18. Arterial Blood Gas (ABG): pH, PaCO2, PaO2
+        # 18. Arterial Blood Gas (ABG): pH, PaCO2, PaO2 vs Urinalysis Urine pH
         # ---------------------------------------------------------------------
-        ph_match = re.search(r"\bph\b[^\d\n]{0,8}?([67]\.\d{1,3})", text, re.IGNORECASE)
+        # First, detect and isolate Urinalysis / Urine pH
+        urine_ph_match = re.search(
+            r"(?:urinalysis|urine|u/?a)[^\n.]{0,50}?\bph\b[^\d\n]{0,8}?([4-9](?:\.\d{1,2})?)|"
+            r"\bph\b[^\d\n]{0,8}?([4-9](?:\.\d{1,2})?)[^\n.]{0,40}?(?:urinalysis|urine|u/?a|specific\s+gravity|sp\.?\s*gr)",
+            text,
+            re.IGNORECASE
+        )
+        if urine_ph_match:
+            u_ph_str = urine_ph_match.group(1) or urine_ph_match.group(2)
+            if u_ph_str:
+                extracted_labs["urine_ph"] = {"value": float(u_ph_str), "unit": "pH units"}
+
+        # For Arterial / Blood Gas pH: require ABG context OR exclude Urinalysis / urine proximity
+        ph_match = None
+        for m in re.finditer(r"\bph\b[^\d\n]{0,8}?([67]\.\d{1,3})", text, re.IGNORECASE):
+            # Check surrounding context (40 characters before and after)
+            start_span = max(0, m.start() - 40)
+            end_span = min(len(text), m.end() + 40)
+            surrounding = text[start_span:end_span].lower()
+            if any(w in surrounding for w in ["urine", "urinalysis", "u/a", "specific gravity", "sp. gr", "sp gr"]):
+                continue  # Skip urine pH
+            ph_match = m
+            break
+
         pco2_match = re.search(r"\b(?:paco2|pco2)\b[^\d\n]{0,10}?(\d{1,3}(?:\.\d)?)\s*(?:mmhg)?", text, re.IGNORECASE)
         pao2_match = re.search(r"\b(?:pao2|po2)\b[^\d\n]{0,10}?(\d{1,3}(?:\.\d)?)\s*(?:mmhg)?", text, re.IGNORECASE)
 

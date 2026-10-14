@@ -465,6 +465,33 @@ Generate the interaction report as JSON.
             seen_pairs.add(pair_key)
             merged_interactions.append(item)
 
+        # Merge Phase 6 Pharmacovigilance Engine (CYP450, QTc, Triple Whammy)
+        try:
+            from app.services.deterministic_pharmacovigilance_engine import deterministic_pharmacovigilance_engine
+            from app.schemas.clinical_qa import PharmacovigilanceAuditRequest
+            pv_audit = deterministic_pharmacovigilance_engine.audit_patient_regimen(
+                PharmacovigilanceAuditRequest(
+                    medications=all_meds,
+                    egfr=egfr,
+                    creatinine=creatinine,
+                    patient_age=age,
+                )
+            )
+            for ddi in pv_audit.drug_drug_interactions:
+                p_item = InteractionDetail(
+                    severity=ddi.get("severity", "WARNING"),
+                    drugs_involved=ddi.get("drugs_involved", []),
+                    mechanism=ddi.get("mechanism", "Pharmacological interaction"),
+                    clinical_effect=ddi.get("clinical_effect", ""),
+                    recommendation=ddi.get("recommendation", ""),
+                )
+                pair_key = tuple(sorted([d.lower() for d in p_item.drugs_involved]))
+                if pair_key not in seen_pairs:
+                    seen_pairs.add(pair_key)
+                    merged_interactions.append(p_item)
+        except Exception as e:
+            log.warning("failed_to_merge_pv_audit", error=str(e))
+
         # Merge LLM items if not already covered
         for item in llm_interactions:
             pair_key = tuple(sorted([d.lower() for d in item.drugs_involved]))

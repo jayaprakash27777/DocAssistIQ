@@ -18,9 +18,11 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
   const [showSimulator, setShowSimulator] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       setLoading(true);
       const res = await getMedicationsForDisease(consultationId, disease);
+      if (cancelled) return;
       if (res.ok) {
         setData(res.data);
       } else {
@@ -31,6 +33,7 @@ export default function MedicationPanel({ consultationId, disease }: { consultat
       setLoading(false);
     }
     load();
+    return () => { cancelled = true; };
   }, [consultationId, disease]);
 
   if (loading) {

@@ -22,6 +22,14 @@ class DifferentialDiagnosisItem(BaseModel):
     is_outbreak_match: bool = Field(default=False, description="True if matched active state or global epidemic surveillance")
     outbreak_badge: Optional[str] = Field(default=None, description="Outbreak alert banner text")
     outbreak_details: Optional[dict] = Field(default=None, description="Detailed outbreak alert payload")
+    icd11_code: Optional[str] = Field(default=None, description="WHO ICD-11 Linearization Code from Clinical Gateway")
+    snomed_ct: Optional[str] = Field(default=None, description="SNOMED CT Concept ID from UMLS Gateway")
+    mondo_id: Optional[str] = Field(default=None, description="MONDO Disease Ontology Identifier")
+    hpo_phenotypes: List[str] = Field(default_factory=list, description="Human Phenotype Ontology (HPO) matched terms")
+    clinical_trials: List[dict] = Field(default_factory=list, description="Active trials from ClinicalTrials.gov v2 REST API")
+    europe_pmc_citations: List[dict] = Field(default_factory=list, description="Open-access literature from Europe PMC")
+    boxed_warning_alert: Optional[str] = Field(default=None, description="FDA Boxed Warning alert from openFDA")
+    clinical_gateway_verified: bool = Field(default=False, description="True if verified across 52+ authoritative gateways")
 
 class DifferentialDiagnosisResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -35,4 +43,8 @@ class DifferentialDiagnosisResponse(BaseModel):
     outbreak_detected: bool = Field(default=False, description="True if symptoms match an active state or global outbreak")
     outbreak_matches: List[dict] = Field(default_factory=list, description="Matched state or global outbreak alerts")
     outbreak_summary: Optional[str] = Field(default=None, description="Clinical summary of active outbreak matches")
+    clinical_gateway_52_sources: Optional[str] = Field(default="ACTIVE", description="52+ Authoritative Clinical Gateways Status")
+    active_knowledge_sources: List[str] = Field(default_factory=list, description="List of active knowledge source APIs queried")
+    hpo_phenotype_matches: List[dict] = Field(default_factory=list, description="Monarch Human Phenotype Ontology matches")
+    rare_disease_matches: List[dict] = Field(default_factory=list, description="Orphanet / ORDO rare disease registry matches")
 

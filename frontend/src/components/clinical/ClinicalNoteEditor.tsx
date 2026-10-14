@@ -872,36 +872,33 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
   return (
     <div className="bg-white flex flex-col h-full overflow-hidden text-slate-900">
       {/* ── Top Hospital Bar ── */}
-      <div className="shrink-0 bg-white px-5 py-3 border-b border-slate-200 shadow-2xs">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-teal-50 border border-teal-200 rounded-xl flex items-center justify-center text-teal-700 shadow-2xs">
-              <FileSpreadsheet className="w-5 h-5" />
+      <div className="shrink-0 bg-white px-4 py-2.5 border-b border-slate-200 shadow-2xs">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 bg-teal-50 border border-teal-200 rounded-xl flex items-center justify-center text-teal-700 shadow-2xs shrink-0">
+              <FileSpreadsheet className="w-4 h-4" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-slate-900 font-extrabold text-sm tracking-tight font-heading">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-slate-900 font-extrabold text-xs sm:text-sm tracking-tight font-heading whitespace-nowrap">
                   INPATIENT CLINICAL NOTE
                 </h2>
-                <span className="text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
+                <span className="text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
                   {note.status || "DRAFT"}
                 </span>
                 {patientHeader?.mrn_uhid && (
-                  <span className="text-[10px] font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+                  <span className="text-[9px] font-mono font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 shrink-0">
                     UHID: {patientHeader.mrn_uhid}
                   </span>
                 )}
               </div>
-              <p className="text-slate-500 text-[10px] font-semibold mt-0.5">
-                Clinical Progress Note · Electronic Health Record · Version {note.version}
-              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap shrink-0">
             {/* Completeness Ring */}
-            <div className="flex items-center gap-2 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
-              <svg className="w-6 h-6 -rotate-90" viewBox="0 0 32 32">
+            <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200" title={`Note completeness: ${pct}%`}>
+              <svg className="w-5 h-5 -rotate-90" viewBox="0 0 32 32">
                 <circle cx="16" cy="16" r="12" fill="none" stroke="#e2e8f0" strokeWidth="3" />
                 <circle
                   cx="16"
@@ -916,28 +913,18 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
                 />
               </svg>
               <div className="text-right">
-                <div className="text-slate-900 font-extrabold text-[11px] leading-none">{pct}%</div>
-                <div className="text-slate-400 text-[8px] font-bold uppercase tracking-wider">Filled</div>
+                <div className="text-slate-900 font-extrabold text-[10px] leading-none">{pct}%</div>
               </div>
             </div>
 
             {/* Save Status */}
             <div
-              className={`flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-lg ${
+              className={`flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-lg ${
                 saving ? "text-amber-700 bg-amber-50 border border-amber-200" : "text-emerald-700 bg-emerald-50 border border-emerald-200"
               }`}
             >
-              {saving ? (
-                <>
-                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />
-                  Saving
-                </>
-              ) : (
-                <>
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                  Saved
-                </>
-              )}
+              <span className={`w-1.5 h-1.5 rounded-full ${saving ? "bg-amber-500 animate-ping" : "bg-emerald-500"}`} />
+              <span>{saving ? "Saving" : "Saved"}</span>
             </div>
 
             {/* EHR Markdown 1-Click Copy */}
@@ -945,12 +932,12 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
               type="button"
               onClick={handleCopyFullHospitalNote}
               title="Copy complete hospital note formatted for EHR/EMR (matching Example 1 & 2)"
-              className="text-xs font-bold text-teal-800 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-xl border border-teal-200 transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              className="text-xs font-bold text-teal-800 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-2.5 py-1 rounded-xl border border-teal-200 transition-colors shadow-2xs flex items-center gap-1 cursor-pointer shrink-0"
             >
               {copiedFull ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-emerald-700 font-extrabold">Copied for EHR!</span>
+                  <span className="text-emerald-700 font-extrabold">Copied!</span>
                 </>
               ) : (
                 <>
@@ -971,53 +958,52 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
                 }
               }}
               title="Toggle all categories"
-              className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
+              className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200 transition-colors shadow-2xs flex items-center gap-1 cursor-pointer shrink-0"
             >
               <ChevronsUpDown className="w-3.5 h-3.5 text-slate-500" />
               <span>Toggle</span>
             </button>
 
-            {/* PDF Export */}
-            <button
-              type="button"
-              onClick={() => handleExport("pdf")}
-              title="Download official hospital clinical note as PDF"
-              className="text-xs font-bold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-xl border border-rose-200 transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
-            >
-              <FileText className="w-3.5 h-3.5 text-rose-600" />
-              <span>PDF</span>
-            </button>
-
-            {/* DOCX Export */}
-            <button
-              type="button"
-              onClick={() => handleExport("docx")}
-              title="Download official hospital clinical note as Microsoft Word DOCX"
-              className="text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-xl border border-indigo-200 transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5 text-indigo-600" />
-              <span>DOCX</span>
-            </button>
-
-            {/* FHIR Export */}
-            <button
-              type="button"
-              onClick={() => handleExport("fhir")}
-              title="Export as HL7 FHIR R4 Bundle"
-              className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
-            >
-              <Share2 className="w-3.5 h-3.5 text-slate-500" />
-              <span>FHIR</span>
-            </button>
+            {/* Export Actions Pill */}
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
+              <span className="text-[9px] font-bold text-slate-500 uppercase px-1 hidden sm:inline">Export:</span>
+              <button
+                type="button"
+                onClick={() => handleExport("pdf")}
+                title="Download official hospital clinical note as PDF"
+                className="text-xs font-bold text-rose-700 hover:text-rose-900 bg-white hover:bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200 shadow-2xs flex items-center gap-1 cursor-pointer"
+              >
+                <FileText className="w-3.5 h-3.5 text-rose-600" />
+                <span>PDF</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExport("docx")}
+                title="Download official hospital clinical note as Microsoft Word DOCX"
+                className="text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200 shadow-2xs flex items-center gap-1 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-indigo-600" />
+                <span>DOCX</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExport("fhir")}
+                title="Export as HL7 FHIR R4 Bundle"
+                className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200 shadow-2xs flex items-center gap-1 cursor-pointer"
+              >
+                <Share2 className="w-3.5 h-3.5 text-slate-500" />
+                <span>FHIR</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* View Switcher Tabs */}
-        <div className="flex items-center gap-1 mt-3 border-t border-slate-100 pt-2">
+        <div className="flex items-center gap-1 mt-2.5 border-t border-slate-100 pt-2 overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab("note")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
               activeTab === "note"
                 ? "bg-slate-900 text-white shadow-2xs"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -1030,7 +1016,7 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
           <button
             type="button"
             onClick={() => setActiveTab("timeline")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
               activeTab === "timeline"
                 ? "bg-teal-700 text-white shadow-2xs"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -1046,7 +1032,7 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
           <button
             type="button"
             onClick={() => setActiveTab("investigations")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
               activeTab === "investigations"
                 ? "bg-blue-700 text-white shadow-2xs"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -1062,7 +1048,7 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
           <button
             type="button"
             onClick={() => setActiveTab("differential")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
               activeTab === "differential"
                 ? "bg-purple-700 text-white shadow-2xs"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -1084,59 +1070,63 @@ export default function ClinicalNoteEditor({ consultationId }: { consultationId:
               PATIENT / ENCOUNTER HEADER (Matches Example 1 & Example 2)
               ══════════════════════════════════════════════════════════════════ */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-teal-600" />
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 min-w-0">
+                <Building2 className="w-4 h-4 text-teal-600 shrink-0" />
                 <h3 className="text-xs font-black tracking-wider uppercase text-slate-800 font-heading">
                   PATIENT / ENCOUNTER INFORMATION
                 </h3>
               </div>
-              <span className="text-[10px] font-mono text-slate-400">
+              <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 shrink-0">
                 Generated: {patientHeader?.date_time_of_note || "Current local time"}
               </span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 text-xs">
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 min-w-0">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Patient Name</span>
-                <span className="font-extrabold text-slate-900">{patientHeader?.patient_name || "Not documented"}</span>
+                <span className="font-extrabold text-slate-900 break-words line-clamp-1 block" title={patientHeader?.patient_name}>
+                  {patientHeader?.patient_name || "Not documented"}
+                </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 min-w-0">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">MRN / UHID</span>
-                <span className="font-mono font-bold text-teal-700">{patientHeader?.mrn_uhid || "Pending assignment"}</span>
+                <span className="font-mono font-bold text-teal-700 truncate block">{patientHeader?.mrn_uhid || "Pending assignment"}</span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 min-w-0">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Age / Sex</span>
-                <span className="font-semibold text-slate-800">
+                <span className="font-semibold text-slate-800 truncate block">
                   {patientHeader?.age_sex || patientHeader?.dob_age || "Not documented"}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 min-w-0">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Encounter Type</span>
-                <span className="font-semibold text-slate-800">{patientHeader?.encounter_type || "Inpatient Encounter"}</span>
+                <span className="font-semibold text-slate-800 truncate block">{patientHeader?.encounter_type || "Inpatient Encounter"}</span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 min-w-0">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Admission Date</span>
-                <span className="font-semibold text-slate-800">{patientHeader?.date_of_admission || "Pending admission"}</span>
+                <span className="font-semibold text-slate-800 truncate block">{patientHeader?.date_of_admission || "Pending admission"}</span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 min-w-0">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Discharge Date</span>
-                <span className="font-semibold text-slate-800">{patientHeader?.date_of_discharge || "Active Inpatient"}</span>
+                <span className="font-semibold text-slate-800 truncate block">{patientHeader?.date_of_discharge || "Active Inpatient"}</span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 min-w-0">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Ward / Unit</span>
-                <span className="font-semibold text-slate-800">{patientHeader?.ward_unit || "General Medicine Ward"}</span>
+                <span className="font-semibold text-slate-800 break-words line-clamp-2 block" title={patientHeader?.ward_unit}>
+                  {patientHeader?.ward_unit || "General Medicine Ward"}
+                </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 min-w-0">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Consultant / Author</span>
-                <span className="font-semibold text-slate-800 truncate block" title={patientHeader?.attending_consultant}>
+                <span className="font-semibold text-slate-800 break-words line-clamp-2 block" title={patientHeader?.attending_consultant}>
                   {patientHeader?.attending_consultant || "Attending Physician"}
                 </span>
               </div>

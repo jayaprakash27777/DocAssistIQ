@@ -11,6 +11,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { getStoredToken } from "@/lib/api";
 import { getSharedRealtimeClient } from "@/lib/ws";
@@ -172,11 +173,16 @@ function DiseaseCard({ disease }: { disease: DynamicDisease }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function LiveOutbreakBanner() {
+  const pathname = usePathname();
+  const isOutbreaksPage = pathname?.startsWith("/outbreaks");
+  const isConsultationRoom = Boolean(pathname?.startsWith("/consultations/") && pathname.length > "/consultations/".length);
   const [status, setStatus] = useState<ScannerStatus | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"state_outbreaks" | "diseases" | "status">("state_outbreaks");
+
+  if (isConsultationRoom) return null;
 
   const fetchStatus = useCallback(async () => {
     const data = await apiFetch<ScannerStatus>("/api/v1/intelligence/outbreak-scanner/status");
@@ -338,7 +344,17 @@ export function LiveOutbreakBanner() {
               <div className="p-4 max-h-[520px] overflow-y-auto">
                 {activeTab === "state_outbreaks" && (
                   <div className="pb-2">
-                    <StateOutbreakRadar />
+                    {isOutbreaksPage ? (
+                      <div className="text-center py-6 px-4 bg-slate-50 rounded-2xl border border-slate-200">
+                        <Globe className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
+                        <h4 className="text-sm font-bold text-slate-800">State &amp; Global Radar Active</h4>
+                        <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                          The full interactive State &amp; Global Outbreak Surveillance Radar is actively displayed directly below on this page.
+                        </p>
+                      </div>
+                    ) : (
+                      <StateOutbreakRadar />
+                    )}
                   </div>
                 )}
                 {activeTab === "diseases" && (

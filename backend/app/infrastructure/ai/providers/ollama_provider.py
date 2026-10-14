@@ -39,6 +39,7 @@ class OllamaGenerationProvider(GenerationProvider):
             "stream": False,
             "options": {
                 "temperature": request.temperature,
+                "num_ctx": 4096,
             }
         }
         
@@ -51,8 +52,8 @@ class OllamaGenerationProvider(GenerationProvider):
         if request.json_schema:
             payload["format"] = "json"
 
-        gen_timeout = timeout or 30.0
-        client_timeout = httpx.Timeout(connect=3.0, read=gen_timeout, write=10.0, pool=3.0)
+        gen_timeout = timeout or 90.0
+        client_timeout = httpx.Timeout(connect=5.0, read=gen_timeout, write=15.0, pool=5.0)
         try:
             async with self._client if hasattr(self, '_client') else httpx.AsyncClient(timeout=client_timeout) as client:
                 response = await client.post(f"{self.base_url}/api/generate", json=payload)

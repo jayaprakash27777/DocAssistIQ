@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -92,3 +93,12 @@ class ConsultationEventResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+ConsultationCreate.model_rebuild()
+ConsultationResponse.model_rebuild()
+ConsultationSummary.model_rebuild()
+ConsultationAuditResponse.model_rebuild()
+ConsultationEventCreate.model_rebuild()
+ConsultationEventResponse.model_rebuild()
+

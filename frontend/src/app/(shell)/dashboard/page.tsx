@@ -41,7 +41,8 @@ import {
   Radio,
   ExternalLink,
   Brain,
-  FileCheck
+  FileCheck,
+  Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/shell/ToastProvider";
@@ -177,30 +178,33 @@ export default function DashboardPage() {
     >
       {/* Welcome Clinical Banner */}
       <motion.section variants={itemVariants} className="dashboard-welcome">
-        <div className="relative overflow-hidden rounded-3xl glass-panel-dark-4k gpu-accelerated text-white shadow-2xl">
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-teal-500/20 blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none" />
+        <div className="relative overflow-hidden rounded-3xl bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow text-slate-900">
+          {/* Subtle Ambient Clinical Atmospheric Glows */}
+          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-r from-teal-500/[0.02] via-transparent to-indigo-500/[0.03] pointer-events-none" />
           
-          <div className="relative z-10 px-8 py-10 sm:px-12 sm:py-12 flex flex-col sm:flex-row items-center gap-8">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-br from-teal-400 via-emerald-500 to-indigo-600 text-white flex items-center justify-center text-4xl sm:text-5xl font-black shadow-2xl ring-4 ring-white/20 shrink-0">
+          <div className="relative z-10 px-6 py-8 sm:px-10 sm:py-10 flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-teal-500 via-teal-600 to-indigo-600 text-white flex items-center justify-center text-3xl sm:text-4xl font-black shadow-lg ring-4 ring-teal-100 shrink-0 font-heading">
               {user.full_name.replace(/^dr\.?\s*/i, '').charAt(0).toUpperCase() || 'D'}
             </div>
             <div className="text-center sm:text-left flex-1">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mb-2">
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white m-0 font-heading">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 mb-2">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 m-0 font-heading">
                   Welcome back, Dr. {user.full_name.replace(/^dr\.?\s*/i, '').split(' ')[0] || user.full_name.split('@')[0]}
                 </h1>
-                <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-xs px-3 py-1 rounded-full font-bold shadow-sm backdrop-blur-md">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs px-3 py-1 rounded-full font-bold shadow-2xs font-heading">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   {user.is_verified ? "Licensed Clinician" : "License Pending"}
                 </span>
                 {isAdmin && (
-                  <span className="bg-gradient-to-r from-teal-400 to-emerald-400 text-slate-950 text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full font-black shadow-sm">
+                  <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-800 border border-indigo-200 text-[11px] uppercase tracking-wider px-3 py-1 rounded-full font-black shadow-2xs font-heading">
+                    <Shield className="w-3 h-3 text-indigo-600" />
                     Administrator
                   </span>
                 )}
               </div>
-              <p className="text-sm sm:text-base text-slate-300 max-w-2xl leading-relaxed m-0">
+              <p className="text-sm sm:text-base text-slate-600 font-normal max-w-2xl leading-relaxed m-0">
                 {isAdmin 
                   ? "Hospital EHR command center: clinical intake, AI differential diagnosis, outbreak surveillance, and audit trails."
                   : "Your clinical intelligence cockpit is active. Capture patient encounters, review real-time differential diagnosis, and sign compliant notes."}
@@ -211,24 +215,23 @@ export default function DashboardPage() {
                 <Button 
                   onClick={() => router.push('/consultations/new')} 
                   variant="primary" 
-                  className="rounded-2xl h-11 px-6 shadow-xl transition-all gap-2 text-sm font-bold bg-gradient-to-r from-teal-500 to-emerald-600 text-white hover:brightness-110 active:opacity-90 cursor-pointer"
-                  style={{ boxShadow: "0 6px 20px rgba(13,148,136,0.35), inset 0 1px 0 rgba(255,255,255,0.3)" }}
+                  className="rounded-2xl h-11 px-6 shadow-md transition-all gap-2 text-sm font-bold bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white cursor-pointer"
                 >
                   <PlayCircle className="w-4 h-4" /> Start Consultation
                 </Button>
                 <Button 
                   onClick={() => router.push('/consultations')} 
                   variant="outline" 
-                  className="rounded-2xl h-11 px-6 border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-all gap-2 text-sm font-semibold active:opacity-90 cursor-pointer"
+                  className="rounded-2xl h-11 px-6 border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-800 transition-all gap-2 text-sm font-semibold shadow-2xs cursor-pointer"
                 >
-                  <FileEdit className="w-4 h-4" /> View Records ({totalConsultations})
+                  <FileEdit className="w-4 h-4 text-slate-600" /> View Records ({totalConsultations})
                 </Button>
                 <Button 
                   onClick={() => router.push('/notes')} 
                   variant="outline" 
-                  className="rounded-2xl h-11 px-6 border-white/15 bg-white/5 hover:bg-white/15 text-slate-200 backdrop-blur-md transition-all gap-2 text-sm font-semibold active:opacity-90 cursor-pointer"
+                  className="rounded-2xl h-11 px-6 border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-800 transition-all gap-2 text-sm font-semibold shadow-2xs cursor-pointer"
                 >
-                  <FileText className="w-4 h-4" /> Clinical Notes
+                  <FileText className="w-4 h-4 text-slate-600" /> Clinical Notes
                 </Button>
               </div>
             </div>

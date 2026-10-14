@@ -51,8 +51,8 @@ class TreatmentSuggestionResponse(BaseModel):
 class DoctorPostCreate(BaseModel):
     disease_name: str = Field(..., description="Name of the disease/condition")
     clinical_findings: str = Field(..., description="Key clinical findings and presentation")
-    diagnosis: str = Field(..., description="Final or differential diagnosis")
-    treatment_plan: str = Field(..., description="Detailed treatment plan")
+    diagnosis: Optional[str] = Field("Pending Differential Evaluation", description="Final or differential diagnosis")
+    treatment_plan: Optional[str] = Field("Under Clinical Review", description="Detailed treatment plan")
     drugs_used: List[str] = Field(default_factory=list, description="List of generic drugs used")
     specialty_tags: List[str] = Field(default_factory=list, description="Specialties this post is related to")
     attachment_ids: List[uuid.UUID] = Field(default_factory=list, description="IDs of previously uploaded files")

@@ -133,20 +133,73 @@ function FormattedClinicalContent({ content }: { content: string }) {
     });
   };
 
-  const lines = content.split("\n");
+  const rawLines = content.split("\n");
+  const blocks: Array<{ type: "table"; headers: string[]; rows: string[][] } | { type: "line"; text: string; idx: number }> = [];
+
+  let i = 0;
+  while (i < rawLines.length) {
+    const current = rawLines[i].trim();
+    // Check if line looks like markdown table header with divider next
+    if (
+      current.startsWith("|") &&
+      current.endsWith("|") &&
+      i + 1 < rawLines.length &&
+      rawLines[i + 1].trim().startsWith("|") &&
+      rawLines[i + 1].includes("---")
+    ) {
+      const headers = current.split("|").slice(1, -1).map(h => h.trim());
+      i += 2; // skip header and divider
+      const rows: string[][] = [];
+      while (i < rawLines.length && rawLines[i].trim().startsWith("|") && rawLines[i].trim().endsWith("|")) {
+        const rowCells = rawLines[i].trim().split("|").slice(1, -1).map(c => c.trim());
+        rows.push(rowCells);
+        i++;
+      }
+      blocks.push({ type: "table", headers, rows });
+    } else {
+      blocks.push({ type: "line", text: rawLines[i], idx: i });
+      i++;
+    }
+  }
+
   return (
     <div className="space-y-1.5 text-sm text-slate-800 leading-relaxed">
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
+      {blocks.map((block, bIdx) => {
+        if (block.type === "table") {
+          return (
+            <div key={`table-${bIdx}`} className="overflow-x-auto my-3 rounded-xl border border-slate-200 bg-white shadow-2xs">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase tracking-wider text-[10px] font-black">
+                  <tr>
+                    {block.headers.map((h, hi) => (
+                      <th key={hi} className="p-2.5 font-bold">{renderInline(h)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {block.rows.map((row, ri) => (
+                    <tr key={ri} className="hover:bg-slate-50/60 transition-colors">
+                      {row.map((cell, ci) => (
+                        <td key={ci} className="p-2.5 align-top text-slate-700">{renderInline(cell)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+
+        const trimmed = block.text.trim();
         if (!trimmed) {
-          return <div key={idx} className="h-1" />;
+          return <div key={`line-${block.idx}`} className="h-1" />;
         }
         if (trimmed === "---") {
-          return <hr key={idx} className="my-2.5 border-slate-200" />;
+          return <hr key={`line-${block.idx}`} className="my-2.5 border-slate-200" />;
         }
         if (trimmed.startsWith("### ")) {
           return (
-            <h4 key={idx} className="text-sm font-bold text-indigo-900 pt-2 pb-0.5 border-b border-indigo-100 flex items-center gap-1.5">
+            <h4 key={`line-${block.idx}`} className="text-sm font-bold text-indigo-900 pt-2 pb-0.5 border-b border-indigo-100 flex items-center gap-1.5">
               <span className="w-1.5 h-3.5 bg-indigo-600 rounded-sm inline-block" />
               {renderInline(trimmed.slice(4))}
             </h4>
@@ -154,7 +207,7 @@ function FormattedClinicalContent({ content }: { content: string }) {
         }
         if (trimmed.startsWith("## ")) {
           return (
-            <h3 key={idx} className="text-base font-bold text-slate-900 pt-2.5 pb-1 flex items-center gap-2">
+            <h3 key={`line-${block.idx}`} className="text-base font-bold text-slate-900 pt-2.5 pb-1 flex items-center gap-2">
               <span className="w-2 h-4 bg-indigo-500 rounded-sm inline-block" />
               {renderInline(trimmed.slice(3))}
             </h3>
@@ -162,14 +215,14 @@ function FormattedClinicalContent({ content }: { content: string }) {
         }
         if (trimmed.startsWith("# ")) {
           return (
-            <h2 key={idx} className="text-lg font-bold text-slate-950 pt-2.5 pb-1">
+            <h2 key={`line-${block.idx}`} className="text-lg font-bold text-slate-950 pt-2.5 pb-1">
               {renderInline(trimmed.slice(2))}
             </h2>
           );
         }
         if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
           return (
-            <div key={idx} className="flex items-start gap-2 pl-1.5 py-0.5">
+            <div key={`line-${block.idx}`} className="flex items-start gap-2 pl-1.5 py-0.5">
               <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2" />
               <span className="flex-1 text-slate-700">{renderInline(trimmed.slice(2))}</span>
             </div>
@@ -178,15 +231,15 @@ function FormattedClinicalContent({ content }: { content: string }) {
         const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
         if (numMatch) {
           return (
-            <div key={idx} className="flex items-start gap-2 pl-1.5 py-0.5">
+            <div key={`line-${block.idx}`} className="flex items-start gap-2 pl-1.5 py-0.5">
               <span className="shrink-0 font-semibold text-xs text-indigo-700 mt-0.5 w-4">{numMatch[1]}.</span>
               <span className="flex-1 text-slate-700">{renderInline(numMatch[2])}</span>
             </div>
           );
         }
         return (
-          <p key={idx} className="text-slate-800">
-            {renderInline(line)}
+          <p key={`line-${block.idx}`} className="text-slate-800">
+            {renderInline(block.text)}
           </p>
         );
       })}
@@ -2244,7 +2297,7 @@ function AIPageContent() {
                       letterSpacing: "0.08em",
                     }}
                   >
-                    GOD-LEVEL AI
+                    EXPERT CLINICAL AI
                   </span>
                 </div>
 
@@ -2341,7 +2394,7 @@ function AIPageContent() {
                       className="flex justify-end"
                     >
                       <div
-                        className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm font-medium text-white"
+                        className="max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm font-medium text-white whitespace-pre-wrap leading-relaxed shadow-sm"
                         style={{
                           background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
                           boxShadow: "0 4px 16px rgba(79,70,229,0.2)",

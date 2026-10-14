@@ -34,6 +34,25 @@
   --color-neutral-800: #1f2937;
   --color-neutral-900: #111827;
   --color-neutral-950: #030712;
+
+  --font-sans: var(--font-sans), var(--font-family-sans), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: var(--font-heading), var(--font-family-heading), "Outfit", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@utility font-heading {
+  font-family: var(--font-heading), var(--font-family-heading), "Outfit", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@utility font-sans {
+  font-family: var(--font-sans), var(--font-family-sans), "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.font-heading {
+  font-family: var(--font-heading), var(--font-family-heading), "Outfit", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+.font-sans {
+  font-family: var(--font-sans), var(--font-family-sans), "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
 :root {
@@ -42,7 +61,6 @@
   --surface-secondary: #f8fafc;
   --surface-tertiary: #f1f5f9;
 
-  --bg-gradient-animated: linear-gradient(135deg, #f9fafb, #ffffff, #f4fbf8, #e5f6ee);
   --glass-bg: rgba(255, 255, 255, 0.92);
   --glass-blur: blur(24px);
   --text-primary: var(--color-neutral-900);
@@ -61,6 +79,20 @@
 
   --font-family-sans: "Inter", system-ui, sans-serif;
   --font-family-heading: "Outfit", "Inter", sans-serif;
+
+  /* Centralized Motion Tokens */
+  --motion-duration-press: 120ms;
+  --motion-duration-hover: 140ms;
+  --motion-duration-tooltip: 140ms;
+  --motion-duration-card: 160ms;
+  --motion-duration-tabs: 180ms;
+  --motion-duration-page: 200ms;
+  --motion-duration-modal: 220ms;
+  --motion-duration-layout: 240ms;
+
+  --motion-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
 *, *::before, *::after {
@@ -74,6 +106,19 @@ html {
   -webkit-text-size-adjust: 100%;
   overflow-x: hidden;
   overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 body {
@@ -81,9 +126,7 @@ body {
   min-height: 100vh;
   font-family: var(--font-family-sans);
   color: var(--text-primary);
-  background: var(--bg-gradient-animated);
-  background-size: 400% 400%;
-  animation: gradientBG 15s ease infinite;
+  background: #f8fafc;
   overflow-x: hidden;
   overflow-y: auto;
   text-rendering: optimizeLegibility;
@@ -110,15 +153,9 @@ body:has(.shell) {
   background: rgba(75, 170, 160, 0.55);
 }
 
-@keyframes gradientBG {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
 .shell { display: flex; height: 100vh; width: 100vw; overflow: hidden; position: relative; }
-.shell-content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.shell-main { flex: 1; overflow-y: auto; position: relative; z-index: 1; }
+.shell-content { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.shell-main { flex: 1; overflow-y: auto; min-height: 0; position: relative; z-index: 1; }
 .shell-main:has(.consultation-workspace-root),
 .shell-main:has(.review-workspace-root) { overflow-y: hidden; display: flex; flex-direction: column; }
 

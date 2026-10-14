@@ -19,6 +19,8 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
+_INVESTIGATION_CACHE: dict = {}
+
 
 class AwaitableInvestigationResponse(InvestigationResponse):
     """InvestigationResponse that can be used directly or awaited."""
@@ -870,6 +872,8 @@ def _get_investigation_panel(disease_name: str) -> list:
     if not disease_name:
         return []
     disease_lower = disease_name.lower().strip()
+    if disease_lower in ("unknowndisease", "unknown disease", "unknown", "none", "n/a", "invalid"):
+        return []
 
     # 1. Exact match in INVESTIGATION_PANELS
     if disease_lower in INVESTIGATION_PANELS:
@@ -906,6 +910,38 @@ def _get_investigation_panel(disease_name: str) -> list:
                 return res_list
     except Exception as e:
         log.debug("investigation_clinical_profile_lookup_failed", error=str(e))
+
+    # 2b. Master Disease Catalog Offline Warehouse (20,397 conditions)
+    try:
+        from app.services.master_disease_catalog import master_disease_catalog
+        entry = master_disease_catalog.get_disease(disease_name)
+        if entry:
+            imm_tests = entry.get("immediate_tests") or []
+            rec_tests = entry.get("recommended_investigations") or []
+            res_list = []
+            seen = set()
+            for t in imm_tests:
+                if t.lower() not in seen:
+                    seen.add(t.lower())
+                    res_list.append({
+                        "name": t,
+                        "priority": "HIGH PRIORITY",
+                        "rationale": f"Stat/immediate diagnostic evaluation for {disease_name}.",
+                        "evidence": f"Master Disease Catalog (ICD-10: {entry.get('icd10', 'N/A')}) / Clinical Guidelines",
+                    })
+            for t in rec_tests:
+                if t.lower() not in seen:
+                    seen.add(t.lower())
+                    res_list.append({
+                        "name": t,
+                        "priority": "CONDITIONAL",
+                        "rationale": f"Recommended laboratory and imaging workup for {disease_name}.",
+                        "evidence": f"Master Disease Catalog (ICD-10: {entry.get('icd10', 'N/A')}) / Clinical Guidelines",
+                    })
+            if res_list:
+                return res_list
+    except Exception as e:
+        log.debug("master_catalog_investigation_lookup_failed", error=str(e))
 
     # 3. Substring & high-specificity keyword match in INVESTIGATION_PANELS
     _STOP_WORDS = {"acute", "chronic", "syndrome", "disease", "disorder", "severe", "fever", "crisis", "shock", "type", "with", "from", "left", "right"}
@@ -1057,91 +1093,25 @@ class InvestigationProvider:
         self,
         db: AsyncSession,
         disease_name: str,
-        representation: "ClinicalRepresentationResponse",
+        representation: "ClinicalRepresentationResponse" = None,
         competing: list = None,
     ) -> InvestigationResponse:
         competing = competing or []
-        import asyncio
+        cache_key = (disease_name or "").lower().strip()
+        if not cache_key:
+            return InvestigationResponse(disease=disease_name or "", suggestions=[])
 
-        # ------------------------------------------------------------------ #
-        # 1. Offline Investigation Panel (always fast, always real)
-        # ------------------------------------------------------------------ #
+        # Check in-memory LRU cache if no patient-specific representation is provided
+        if not representation and cache_key in _INVESTIGATION_CACHE:
+            return _INVESTIGATION_CACHE[cache_key]
+
+        # 1. Offline Investigation Panel (always fast, specialist-grade evidence)
         offline_panel = _get_investigation_panel(disease_name)
-        log.info("investigation_offline_panel_loaded",
-                 disease=disease_name,
-                 panel_size=len(offline_panel))
 
-        # ------------------------------------------------------------------ #
-        # 2. Fetch live medical knowledge in parallel
-        # ------------------------------------------------------------------ #
-        from app.services.medical_knowledge_api import (
-            fetch_disease_intelligence,
-            build_context_string,
-        )
         from app.services.intelligence_engine import get_disease_class, get_investigation_template
-
         disease_class = get_disease_class(disease_name)
         template_investigations = get_investigation_template(disease_class) if disease_class else []
 
-        # Build country keywords from representation
-        countries = []
-        if representation and getattr(representation, "travel_history", None):
-            countries = [getattr(item, "value", str(item)) for item in representation.travel_history
-                         if getattr(item, "value", str(item)).lower() not in ("none", "ongoing infectious disease outbreak area")]
-
-        try:
-            rag_coro = retrieve_medical_context(db, f"{disease_name} investigations workup", top_k=3) if db is not None else asyncio.sleep(0, result="")
-            lab_coro = retrieve_investigation_context(db, f"tests for {disease_name}", top_k=4) if db is not None else asyncio.sleep(0, result="")
-            rag_ctx, lab_ctx, live_sources = await asyncio.wait_for(
-                asyncio.gather(
-                    rag_coro,
-                    lab_coro,
-                    fetch_disease_intelligence(
-                        disease_name=disease_name,
-                        country_keywords=countries[:2],
-                        include_literature=True,
-                    ),
-                    return_exceptions=True,
-                ),
-                timeout=4.0,
-            )
-        except asyncio.TimeoutError:
-            rag_ctx, lab_ctx, live_sources = "", "", {}
-
-        if isinstance(rag_ctx, Exception): rag_ctx = ""
-        if isinstance(lab_ctx, Exception): lab_ctx = ""
-        if isinstance(live_sources, Exception): live_sources = {}
-
-        # Build live context string (max 600 chars — to keep LLM prompt short)
-        live_ctx = build_context_string(
-            live_sources,
-            priority_order=["icd11", "medlineplus", "wikipedia", "pubmed", "europe_pmc", "mesh"],
-            max_chars=600,
-        )
-        if lab_ctx:
-            live_ctx = f"RAG LAB CONTEXT: {lab_ctx[:200]}\n\n{live_ctx}"
-
-        # ------------------------------------------------------------------ #
-        # 3. Build patient context (short)
-        # ------------------------------------------------------------------ #
-        symptoms = ", ".join(getattr(item, "value", str(item)) for item in representation.symptoms) if (representation and getattr(representation, "symptoms", None)) else "None"
-        vitals = ", ".join(getattr(item, "value", str(item)) for item in representation.vitals) if (representation and getattr(representation, "vitals", None)) else "None"
-        history = ", ".join(getattr(item, "value", str(item)) for item in representation.history) if (representation and getattr(representation, "history", None)) else "None"
-        travel = ", ".join(getattr(item, "value", str(item)) for item in representation.travel_history) if (representation and getattr(representation, "travel_history", None)) else "None"
-        competing_str = ", ".join(competing) if competing else "None"
-
-        patient_ctx = (
-            f"Symptoms: {symptoms[:200]}\n"
-            f"Vitals: {vitals[:100]}\n"
-            f"History: {history[:100]}\n"
-            f"Travel: {travel[:100]}\n"
-            f"Differentials to rule out: {competing_str[:100]}"
-        )
-
-        # ------------------------------------------------------------------ #
-        # 4. Build pre-built investigation list for LLM narrator
-        # ------------------------------------------------------------------ #
-        # Combine offline panel + intelligence_engine template (dedup by name)
         seen_names = set()
         pre_built = []
         for item in offline_panel:
@@ -1155,67 +1125,18 @@ class InvestigationProvider:
                 seen_names.add(t["name"].lower())
                 pre_built.append({
                     "name": t["name"],
-                    "priority": t["priority"],
-                    "rationale": t["rationale"],
-                    "evidence": t["evidence"],
+                    "priority": t.get("priority", "CONDITIONAL"),
+                    "rationale": t.get("rationale", f"Standard diagnostic workup for {disease_name}."),
+                    "evidence": t.get("evidence", "Clinical Practice Guidelines"),
                 })
 
-        # Sort: HIGH PRIORITY first
         priority_order = {"HIGH PRIORITY": 0, "CONDITIONAL": 1, "IF INDICATED": 2}
         pre_built.sort(key=lambda x: priority_order.get(x.get("priority", "IF INDICATED"), 3))
 
-        # Format pre-built list for LLM
-        pre_built_str = "\n".join(
-            f"- [{item['priority']}] {item['name']}: {item['rationale'][:100]}"
-            for item in pre_built[:10]
-        )
-
-        # ------------------------------------------------------------------ #
-        # 5. LLM Narrator — short prompt, only adds rationale detail
-        # ------------------------------------------------------------------ #
-        if pre_built:
-            system_prompt = (
-                f"You are a senior clinical pathologist. "
-                f"The investigation list is PRE-BUILT from WHO/CDC/NIH guidelines for '{disease_name}' "
-                f"(class: {disease_class or 'unclassified'}). "
-                f"DO NOT change the test names or priorities. "
-                f"For each test, write 1 sentence tailoring the rationale to THIS specific patient. "
-                f"Return ONLY valid JSON."
-            )
-            user_prompt = (
-                f"Patient: {patient_ctx[:300]}\n\n"
-                f"PRE-BUILT INVESTIGATION LIST (DO NOT CHANGE NAMES OR PRIORITIES):\n{pre_built_str}\n\n"
-                f"MEDICAL KNOWLEDGE CONTEXT:\n{live_ctx[:400]}\n\n"
-                f"For each investigation, provide patient-specific rationale. "
-                f"Return JSON: {{\"suggestions\": [{{\"name\": \"...\", \"priority\": \"...\", "
-                f"\"rationale\": \"patient-specific 1 sentence\", "
-                f"\"relevant_clinical_finding\": \"...\", \"evidence\": \"...\", "
-                f"\"limitations\": \"...\", \"safety_flags\": [], \"provenance\": \"evidence_based\"}}]}}"
-            )
-
-            try:
-                data = await asyncio.wait_for(
-                    llm_service.generate_json_compact(
-                        prompt=user_prompt,
-                        system=system_prompt,
-                        max_output_tokens=500,
-                    ),
-                    timeout=90.0,  # Extended from 3.5s — LLM needs 20-90s on consumer hardware
-                )
-                llm_suggestions = data.get("suggestions", [])
-                log.info("investigation_llm_narrator_success", count=len(llm_suggestions))
-            except Exception as e:
-                log.warning("investigation_llm_narrator_failed", error=str(e))
-                llm_suggestions = []
-        else:
-            llm_suggestions = []
-
-        # ------------------------------------------------------------------ #
-        # 6. Build final suggestions — merge LLM narrations with pre-built
-        # ------------------------------------------------------------------ #
-        llm_lookup = {
-            s.get("name", "").lower(): s for s in llm_suggestions
-        }
+        # Patient clinical context for rationale tailoring
+        symptoms_str = ""
+        if representation and getattr(representation, "symptoms", None):
+            symptoms_str = ", ".join(getattr(item, "value", str(item)) for item in representation.symptoms[:4])
 
         final_suggestions = []
         final_seen = set()
@@ -1227,17 +1148,17 @@ class InvestigationProvider:
                 continue
             final_seen.add(name_lower)
 
-            llm_data = llm_lookup.get(name_lower, {})
-            rationale = (llm_data.get("rationale") or "").strip() or item.get("rationale", "")
-            finding = (llm_data.get("relevant_clinical_finding") or "").strip() or f"Based on {disease_name} workup"
-            evidence = item.get("evidence") or llm_data.get("evidence") or "WHO/CDC/NIH Clinical Guidelines"
-            limitations = (llm_data.get("limitations") or "").strip() or ""
-            safety_flags = llm_data.get("safety_flags") or []
+            base_rationale = (item.get("rationale") or f"Diagnostic evaluation for {disease_name}.").strip()
+            if symptoms_str and len(base_rationale) < 180 and "reported" not in base_rationale.lower():
+                rationale = f"{base_rationale} Indicated to correlate with reported {symptoms_str}."
+            else:
+                rationale = base_rationale
 
-            # Add BSL-4 safety flag for VHF tests
+            finding = f"Reported {symptoms_str}" if symptoms_str else f"Diagnostic workup for {disease_name}"
+            evidence = item.get("evidence") or "WHO/CDC/NIH Clinical Practice Guidelines"
+            safety_flags = []
             if any(kw in name.lower() for kw in ["bsl-4", "bsl4", "ebolavirus", "marburg", "filovirus", "lassa"]):
-                if "BSL-4 containment required" not in safety_flags:
-                    safety_flags.append("BSL-4 containment required — notify infection control immediately")
+                safety_flags.append("BSL-4 containment required — notify infection control immediately")
 
             try:
                 final_suggestions.append(InvestigationSuggestion(
@@ -1246,81 +1167,52 @@ class InvestigationProvider:
                     rationale=rationale,
                     relevant_clinical_finding=finding,
                     evidence=evidence,
-                    limitations=limitations,
+                    limitations=item.get("limitations", ""),
                     safety_flags=safety_flags,
                     provenance="offline_clinical_guideline_panel",
                 ))
             except Exception as ex:
                 log.debug("investigation_suggestion_build_failed", error=str(ex))
 
-        # Add any unique LLM-suggested tests not in pre-built (de-duped)
-        for s in llm_suggestions:
-            name = s.get("name", "")
-            if name and name.lower() not in final_seen:
-                final_seen.add(name.lower())
-                try:
-                    final_suggestions.append(InvestigationSuggestion(
-                        name=name,
-                        priority=s.get("priority", "IF INDICATED"),
-                        rationale=s.get("rationale", ""),
-                        relevant_clinical_finding=s.get("relevant_clinical_finding", ""),
-                        evidence=s.get("evidence", "LLM clinical knowledge"),
-                        limitations=s.get("limitations", ""),
-                        safety_flags=s.get("safety_flags", []),
-                        provenance="llm_supplemental",
-                    ))
-                except Exception:
-                    pass
-
-        # Final sort
-        final_suggestions.sort(key=lambda x: priority_order.get(x.priority, 3))
-
+        # Last resort fallback if empty
         if not final_suggestions:
-            # Last resort: return template or universal clinical workup panel
-            for t in template_investigations:
+            universal_panel = [
+                ("Complete Blood Count (CBC) with Differential", "HIGH PRIORITY", f"Assesses leukocytosis, anemia, and platelet count for {disease_name}.", "WHO / UpToDate Practice Guidelines"),
+                ("Comprehensive Metabolic Panel (CMP)", "HIGH PRIORITY", f"Evaluates renal function, hepatic integrity, and electrolyte balance for {disease_name}.", "Standard Clinical Practice"),
+                ("High-Sensitivity C-Reactive Protein (hs-CRP) and ESR", "HIGH PRIORITY", f"Assesses acute systemic inflammatory cascade and tracks progression for {disease_name}.", "Clinical Practice Guidelines"),
+                ("Urinalysis with Microscopic Examination", "CONDITIONAL", "Screens for occult hematuria, proteinuria, and systemic organ involvement.", "Clinical Practice Guidelines"),
+                ("12-Lead Electrocardiogram (ECG)", "CONDITIONAL", "Establishes baseline cardiac rhythm and conduction status.", "AHA/ACC Practice Standards"),
+                ("Chest Radiograph (PA and Lateral Views)", "IF INDICATED", "Screens for cardiopulmonary pathology, infiltrates, or secondary complications.", "ACR Appropriateness Criteria"),
+            ]
+            for uname, uprio, urat, uevid in universal_panel:
                 try:
                     final_suggestions.append(InvestigationSuggestion(
-                        name=t["name"],
-                        priority=t["priority"],
-                        rationale=t["rationale"],
-                        relevant_clinical_finding="Based on disease class template",
-                        evidence=t["evidence"],
+                        name=uname,
+                        priority=uprio,
+                        rationale=urat,
+                        relevant_clinical_finding=f"Workup for {disease_name}",
+                        evidence=uevid,
                         limitations="",
                         safety_flags=[],
-                        provenance="disease_class_template_fallback",
+                        provenance="universal_evidence_based_panel",
                     ))
                 except Exception:
                     pass
 
-            if not final_suggestions:
-                universal_panel = [
-                    ("Complete Blood Count (CBC) with Differential", "HIGH PRIORITY", f"Assesses leukocytosis, anemia, and platelet count for {disease_name}.", "WHO / UpToDate Practice Guidelines"),
-                    ("Comprehensive Metabolic Panel (CMP)", "HIGH PRIORITY", f"Evaluates renal function, hepatic integrity, and electrolyte balance for {disease_name}.", "Standard Clinical Practice"),
-                    ("High-Sensitivity C-Reactive Protein (hs-CRP) and ESR", "HIGH PRIORITY", "Assesses acute systemic inflammatory cascade and tracks progression.", "Clinical Practice Guidelines"),
-                    ("Urinalysis with Microscopic Examination", "CONDITIONAL", "Screens for occult hematuria, proteinuria, and systemic organ involvement.", "Clinical Practice Guidelines"),
-                    ("12-Lead Electrocardiogram (ECG)", "CONDITIONAL", "Establishes baseline cardiac rhythm and conduction status.", "AHA/ACC Practice Standards"),
-                    ("Chest Radiograph (PA and Lateral Views)", "IF INDICATED", "Screens for cardiopulmonary pathology, infiltrates, or secondary complications.", "ACR Appropriateness Criteria"),
-                ]
-                for uname, uprio, urat, uevid in universal_panel:
-                    try:
-                        final_suggestions.append(InvestigationSuggestion(
-                            name=uname,
-                            priority=uprio,
-                            rationale=urat,
-                            relevant_clinical_finding=f"Workup for {disease_name}",
-                            evidence=uevid,
-                            limitations="",
-                            safety_flags=[],
-                            provenance="universal_evidence_based_panel",
-                        ))
-                    except Exception:
-                        pass
+        final_suggestions.sort(key=lambda x: priority_order.get(x.priority, 3))
+        response = InvestigationResponse(disease=disease_name, suggestions=final_suggestions)
 
-        log.info("investigation_response_built",
+        # Store in cache
+        if len(_INVESTIGATION_CACHE) > 500:
+            _INVESTIGATION_CACHE.clear()
+        _INVESTIGATION_CACHE[cache_key] = response
+
+        log.info("investigation_response_built_fast",
                  disease=disease_name,
                  total_investigations=len(final_suggestions))
 
-        return InvestigationResponse(disease=disease_name, suggestions=final_suggestions)
+        return response
+
 
 
 investigation_provider = InvestigationProvider()

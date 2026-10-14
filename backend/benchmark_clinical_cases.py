@@ -92,31 +92,39 @@ clinical_cases = [
     ("severe sore throat, tonsillar exudate, tender anterior cervical lymphadenopathy, fever, absence of cough", ["Streptococcal Pharyngitis", "Strep Throat"]),
 ]
 
-failures = []
-successes = []
+if __name__ == "__main__":
+    failures = []
+    successes = []
 
-for query, expected_keywords in clinical_cases:
-    res = realtime_prediction_service.predict(query)
-    cands = res.get("top_candidates", [])
-    top3_names = [c["disease"] for c in cands[:3]]
-    
-    # Check if any expected keyword is in any of top 3 candidate names
-    matched = False
-    for expected in expected_keywords:
-        if any(expected.lower() in d.lower() for d in top3_names):
-            matched = True
-            break
-            
-    if matched:
-        successes.append((query, top3_names))
-    else:
-        failures.append((query, expected_keywords, top3_names))
+    print(f"Executing Clinical Diagnostic Benchmark Suite ({len(clinical_cases)} cases)...\n", flush=True)
+    for i, (query, expected_keywords) in enumerate(clinical_cases):
+        res = realtime_prediction_service.predict(query)
+        cands = res.get("top_candidates", [])
+        top3_names = [c["disease"] for c in cands[:3]]
+        
+        # Check if any expected keyword is in any of top 3 candidate names
+        matched = False
+        for expected in expected_keywords:
+            if any(expected.lower() in d.lower() for d in top3_names):
+                matched = True
+                break
+                
+        if matched:
+            successes.append((query, top3_names))
+            print(f"  [{i+1:02d}/{len(clinical_cases)}] PASS: '{query[:38]}' -> {top3_names[0] if top3_names else ''}", flush=True)
+        else:
+            failures.append((query, expected_keywords, top3_names))
+            print(f"  [{i+1:02d}/{len(clinical_cases)}] FAIL: '{query[:38]}' -> Expected: {expected_keywords}, Got: {top3_names}", flush=True)
 
-print(f"TOTAL CASES: {len(clinical_cases)}")
-print(f"PASSED: {len(successes)}")
-print(f"FAILED: {len(failures)}")
-print("\n--- DETAILED FAILURES ---")
-for query, expected, top3 in failures:
-    print(f"QUERY: '{query}'")
-    print(f"  EXPECTED ONE OF: {expected}")
-    print(f"  ACTUAL TOP 3: {top3}\n")
+    print(f"\n==========================================", flush=True)
+    print(f"TOTAL CASES: {len(clinical_cases)}", flush=True)
+    print(f"PASSED: {len(successes)} ({len(successes)/len(clinical_cases)*100:.1f}%)", flush=True)
+    print(f"FAILED: {len(failures)}", flush=True)
+    print(f"==========================================", flush=True)
+
+    if failures:
+        print("\n--- DETAILED FAILURES ---", flush=True)
+        for query, expected, top3 in failures:
+            print(f"QUERY: '{query}'")
+            print(f"  EXPECTED ONE OF: {expected}")
+            print(f"  ACTUAL TOP 3: {top3}\n")

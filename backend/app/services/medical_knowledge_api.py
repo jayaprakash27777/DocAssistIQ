@@ -27,6 +27,7 @@ import json
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Optional, Any
 from urllib.parse import quote
+import httpx
 import structlog
 
 log = structlog.get_logger(__name__)
@@ -390,9 +391,11 @@ async def fetch_who_afro_alerts(keywords: List[str]) -> str:
 async def fetch_ecdc_surveillance(keywords: List[str]) -> str:
     """ECDC — European Centre for Disease Prevention and Control surveillance."""
     try:
-        import httpx
         async with httpx.AsyncClient(timeout=3.0, follow_redirects=True) as c:
-            r = await c.get("https://www.ecdc.europa.eu/en/publications-data/rss")
+            r = await c.get(
+                "https://www.ecdc.europa.eu/en/taxonomy/term/1295/feed",
+                headers={"User-Agent": "DocAssistIQ-Medical/1.0"},
+            )
             if r.status_code != 200:
                 return ""
             root = ET.fromstring(r.text)

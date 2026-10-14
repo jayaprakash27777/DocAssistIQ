@@ -188,7 +188,22 @@ class DiscriminativeTestEngine:
             d2 = str(candidate_2)
             c2_dict = {"disease": d2}
 
-        # 1. Check explicit rules (both (d1, d2) and (d2, d1))
+        # 1. Check Offline Warehouse Database (D:\OFFLINE DATA\disease_investigation_mappings.db)
+        try:
+            from app.services.offline_data_service import offline_data_service
+            offline_rule = offline_data_service.get_discriminative_test_for_pair(d1, d2)
+            if offline_rule:
+                return {
+                    "candidate_1": d1,
+                    "candidate_2": d2,
+                    "differentiating_investigation": offline_rule["highest_yield_test"],
+                    "clinical_rationale": offline_rule["clinical_rationale"],
+                    "urgency": offline_rule["urgency"],
+                }
+        except Exception:
+            pass
+
+        # 2. Check explicit in-memory rules (both (d1, d2) and (d2, d1))
         if (d1, d2) in DISCRIMINATIVE_PAIR_RULES:
             rule = DISCRIMINATIVE_PAIR_RULES[(d1, d2)]
             return {
@@ -208,9 +223,28 @@ class DiscriminativeTestEngine:
                 "urgency": rule["urgency"],
             }
 
-        # 2. Algorithmic Fallback: Select candidate 1's top specific test not shared by candidate 2
+        # 3. Algorithmic Fallback: Select candidate 1's top specific test not shared by candidate 2
         tests_1 = c1_dict.get("recommended_investigations") or c1_dict.get("immediate_tests") or []
         tests_2 = set(c2_dict.get("recommended_investigations") or c2_dict.get("immediate_tests") or [])
+
+        # Enrich tests from offline disease workups if empty
+        if not tests_1:
+            try:
+                from app.services.offline_data_service import offline_data_service
+                w1 = offline_data_service.get_investigations_for_disease(d1)
+                if w1:
+                    tests_1 = w1.get("confirmatory_tests") or w1.get("immediate_tests") or []
+            except Exception:
+                pass
+
+        if not tests_2:
+            try:
+                from app.services.offline_data_service import offline_data_service
+                w2 = offline_data_service.get_investigations_for_disease(d2)
+                if w2:
+                    tests_2 = set(w2.get("confirmatory_tests") or w2.get("immediate_tests") or [])
+            except Exception:
+                pass
 
         differentiating_test = None
         for t in tests_1:
@@ -234,3 +268,4 @@ class DiscriminativeTestEngine:
 
 
 discriminative_test_engine = DiscriminativeTestEngine()
+

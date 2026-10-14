@@ -184,8 +184,8 @@ DISEASE_KB: Dict[str, Dict] = {
     # ========================================================
     "Dengue Fever": {
         "symptoms": [
-            "fever", "severe headache", "retro-orbital pain", "eye pain",
-            "muscle aches", "myalgia", "joint pain", "arthralgia",
+            "fever", "severe headache", "retro-orbital pain", "retro-orbital headache", "eye pain",
+            "muscle aches", "myalgia", "joint pain", "severe joint pain", "bone pain", "arthralgia",
             "rash", "maculopapular rash", "fatigue", "nausea", "vomiting", "loss of appetite"
         ],
         "cardinal_symptoms": ["fever", "severe headache", "retro-orbital pain", "rash"],
@@ -1076,11 +1076,12 @@ DISEASE_KB: Dict[str, Dict] = {
     "Urinary Tract Infection (Lower)": {
         "symptoms": [
             "dysuria", "painful urination", "burning urination", "frequency",
-            "urinary frequency", "urinary urgency", "suprapubic pain", "suprapubic tenderness",
+            "urinary frequency", "frequent urination", "urinary urgency", "urgency", "urgent need to urinate",
+            "suprapubic pain", "suprapubic tenderness", "lower abdominal pain",
             "cloudy urine", "foul-smelling urine", "hematuria", "blood in urine",
             "nocturia", "incomplete bladder emptying"
         ],
-        "cardinal_symptoms": ["dysuria", "frequency", "urgency", "suprapubic pain"],
+        "cardinal_symptoms": ["dysuria", "urinary frequency", "frequency", "urinary urgency", "urgency", "suprapubic tenderness", "suprapubic pain"],
         "hemorrhagic": False,
         "geographic_zones": ["Global"],
         "clusters": ["renal_syndrome"],

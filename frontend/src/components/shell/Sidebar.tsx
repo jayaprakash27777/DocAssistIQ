@@ -93,6 +93,16 @@ const Icons = {
       <polyline points="9 12 11 14 15 10" />
     </svg>
   ),
+  catalog: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+      <path d="M8 7h8" />
+      <path d="M8 11h8" />
+      <path d="M8 15h5" />
+      <circle cx="17.5" cy="17.5" r="2.5" />
+      <path d="m19.5 19.5 2 2" />
+    </svg>
+  ),
 };
 
 interface Props {
@@ -217,6 +227,13 @@ export function Sidebar({ mobileOpen, onMobileClose }: Props) {
             href="/outbreaks"
             label="Outbreak Radar"
             icon={Icons.outbreak}
+            collapsed={collapsed}
+          />
+          <SidebarItem
+            href="/catalog"
+            label="Disease Catalog"
+            icon={Icons.catalog}
+            badge="20k+"
             collapsed={collapsed}
           />
           <SidebarItem

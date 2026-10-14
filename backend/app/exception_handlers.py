@@ -123,7 +123,13 @@ def register_exception_handlers(app: FastAPI) -> None:
             503: "SERVICE_UNAVAILABLE",
         }
         code = code_map.get(exc.status_code, "HTTP_ERROR")
-        logger.info("http_exception", status_code=exc.status_code, code=code)
+        logger.warning(
+            "http_exception",
+            status_code=exc.status_code,
+            code=code,
+            path=str(request.url.path),
+            detail=str(exc.detail),
+        )
         return _make_error_response(
             status_code=exc.status_code,
             code=code,

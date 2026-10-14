@@ -3,7 +3,7 @@
 /* eslint-disable react/no-unescaped-entities */
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { 
   getDifferentialDiagnosis, 
   predictRealtime, 
@@ -217,6 +217,7 @@ export default function DifferentialDiagnosis({
   // Sub-30ms Real-Time Prediction state
   const [realtimeResult, setRealtimeResult] = useState<RealtimePredictionResponse | null>(null);
   const [isPredicting, setIsPredicting] = useState(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Instant real-time prediction trigger
   const triggerRealtimePredict = useCallback(async (queryText: string) => {
@@ -231,6 +232,26 @@ export default function DifferentialDiagnosis({
     }
     setIsPredicting(false);
   }, [consultationId]);
+
+  // Debounced trigger for active typing (prevents request storms & network thrashing)
+  const debouncedPredict = useCallback((val: string) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    if (!val.trim()) {
+      setRealtimeResult(null);
+      return;
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      triggerRealtimePredict(val);
+    }, 280);
+  }, [triggerRealtimePredict]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
 
   const handleBedsideAnswer = (token: string) => {
     const updated = symptomInput.trim() ? `${symptomInput.trim()}, ${token}` : token;
@@ -265,6 +286,19 @@ export default function DifferentialDiagnosis({
       setTimeout(() => setCopiedMdm(false), 3000);
     }
   };
+
+  // Reset state on consultationId change to prevent cross-consultation data leaks
+  useEffect(() => {
+    setData(null);
+    setRealtimeResult(null);
+    setError(null);
+    setHasLoaded(false);
+    setSymptomInput(initialQuery || "");
+    setExpandedIndex(null);
+    setShowInvestigationsFor(null);
+    setShowMedicationsFor(null);
+    setRealtimePanelFor(null);
+  }, [consultationId, initialQuery]);
 
   // Sync symptomInput if initialQuery arrives late (e.g. consultation fetch)
   useEffect(() => {
@@ -405,10 +439,13 @@ export default function DifferentialDiagnosis({
                 <Zap className="w-4 h-4 text-teal-600 animate-pulse" />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm tracking-tight flex items-center gap-2 font-heading text-slate-900 m-0">
+                <h3 className="font-extrabold text-sm tracking-tight flex flex-wrap items-center gap-2 font-heading text-slate-900 m-0">
                   Real-Time Clinical Diagnostic Predictor
                   <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
                     ⚡ Sub-10ms Inference
+                  </span>
+                  <span className="text-[10px] bg-sky-50 text-sky-800 border border-sky-200 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-2xs">
+                    🌐 52+ Global Medical APIs (HPO · Orphanet · MONDO · Trials · PMC · FDA)
                   </span>
                 </h3>
               </div>
@@ -472,8 +509,15 @@ export default function DifferentialDiagnosis({
                   type="text"
                   value={symptomInput}
                   onChange={e => {
-                    setSymptomInput(e.target.value);
-                    triggerRealtimePredict(e.target.value);
+                    const val = e.target.value;
+                    setSymptomInput(val);
+                    debouncedPredict(val);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+                      triggerRealtimePredict(symptomInput);
+                    }
                   }}
                   placeholder="Enter clinical presentation, symptoms, or select a case benchmark above (e.g. 59yo male with acute crushing chest pressure...)"
                   className="w-full text-xs sm:text-sm font-medium rounded-xl pl-10 pr-24 py-2.5 outline-none border border-slate-300 bg-white text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all shadow-2xs leading-relaxed"
@@ -1556,7 +1600,7 @@ export default function DifferentialDiagnosis({
                             <h5 className="font-black text-slate-900 text-lg leading-tight font-heading">
                               {cand.disease}
                             </h5>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
                               {cand.icd10 && (
                                 <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200 font-mono">
                                   ICD-10: {cand.icd10}
@@ -1567,7 +1611,33 @@ export default function DifferentialDiagnosis({
                                   ICD-11: {cand.icd11}
                                 </span>
                               )}
+                              {cand.mondo_id && (
+                                <span className="text-[10px] font-bold bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md border border-purple-200 font-mono">
+                                  {cand.mondo_id}
+                                </span>
+                              )}
+                              {cand.snomed_ct && (
+                                <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md border border-teal-200 font-mono">
+                                  SNOMED: {cand.snomed_ct}
+                                </span>
+                              )}
+                              {cand.clinical_gateway_verified && (
+                                <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                  52-Gateway
+                                </span>
+                              )}
                             </div>
+                            {cand.hpo_phenotypes && cand.hpo_phenotypes.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                                <span className="text-[9px] uppercase font-bold text-slate-400">HPO:</span>
+                                {cand.hpo_phenotypes.slice(0, 3).map((hp, hpi) => (
+                                  <span key={hpi} className="text-[9px] font-semibold bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded border border-slate-200">
+                                    {hp}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -2131,6 +2201,61 @@ export default function DifferentialDiagnosis({
                           candidate.safety_decision.decision === 'ABSTAIN' ? 'text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200' : 'text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200'
                         }`}>
                           <ShieldAlert className="w-3.5 h-3.5"/> {candidate.safety_decision.decision === 'ABSTAIN' ? 'UNSAFE' : 'WARNING'}
+                        </span>
+                      </>
+                    )}
+
+                    {candidate.icd11_code && (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 font-mono">
+                          ICD-11: {candidate.icd11_code}
+                        </span>
+                      </>
+                    )}
+
+                    {candidate.snomed_ct && (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                        <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200 font-mono">
+                          SNOMED: {candidate.snomed_ct}
+                        </span>
+                      </>
+                    )}
+
+                    {candidate.mondo_id && (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                        <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200 font-mono">
+                          {candidate.mondo_id}
+                        </span>
+                      </>
+                    )}
+
+                    {candidate.clinical_trials && candidate.clinical_trials.length > 0 && (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                        <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                          🔬 {candidate.clinical_trials.length} Active Trials (ClinicalTrials.gov)
+                        </span>
+                      </>
+                    )}
+
+                    {candidate.europe_pmc_citations && candidate.europe_pmc_citations.length > 0 && (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          📚 Europe PMC
+                        </span>
+                      </>
+                    )}
+
+                    {candidate.boxed_warning_alert && (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                        <span className="text-[10px] font-bold text-rose-800 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-300 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-rose-600" />
+                          {candidate.boxed_warning_alert}
                         </span>
                       </>
                     )}

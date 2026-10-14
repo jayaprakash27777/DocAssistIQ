@@ -58,6 +58,16 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application-level resources across startup and shutdown."""
     logger.info("docassistiq_startup", version=application.version)
 
+    # Verify database readiness asynchronously
+    try:
+        from app.infrastructure.database import get_engine, Base
+        engine = get_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("database_schema_verified")
+    except Exception as e:
+        logger.warning("database_schema_check_skipped", error=str(e))
+
     # Start real-time disease outbreak scanner (background task)
     try:
         from app.services.live_disease_scanner import outbreak_scanner, get_merged_disease_kb
@@ -68,6 +78,25 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
                     poll_interval_min=15)
     except Exception as e:
         logger.warning("outbreak_scanner_start_failed", error=str(e))
+
+    # Pre-warm Master Disease Catalog and Real-Time CDS Engine for instant (<10ms) responses
+    try:
+        from app.services.global_disease_matrix_service import global_disease_matrix_service
+        global_disease_matrix_service.ensure_loaded()
+        from app.services.master_disease_catalog import master_disease_catalog
+        master_disease_catalog._ensure_initialized()
+        from app.services.realtime_prediction_service import realtime_prediction_service
+        realtime_prediction_service.predict(symptoms=["fever", "headache"], travel_history=["India"])
+        from app.services.investigation_service import investigation_provider
+        await investigation_provider._get_investigations_async(None, "Dengue Fever")
+        from app.services.medication_service import medication_provider
+        await medication_provider._get_medications_async(None, "Dengue Fever")
+        from app.services.disease_intelligence_service import generate_disease_intelligence
+        await generate_disease_intelligence(None, "Dengue Fever")
+        logger.info("realtime_cds_and_master_catalog_warmed_up")
+    except Exception as e:
+        logger.warning("realtime_cds_prewarm_skipped", error=str(e))
+
 
     yield
 

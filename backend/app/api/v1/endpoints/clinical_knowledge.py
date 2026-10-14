@@ -111,3 +111,108 @@ async def export_patient_fhir(payload: Dict[str, Any] = Body(...)):
         observations=observations,
         medications=medications,
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Universal Clinical Q&A & Deterministic Pharmacovigilance Endpoints
+# ---------------------------------------------------------------------------
+
+from app.schemas.clinical_qa import (
+    UniversalClinicalQARequest,
+    UniversalClinicalQAResponse,
+    PharmacovigilanceAuditRequest,
+    PharmacovigilanceAuditResponse,
+)
+from app.services.universal_clinical_qa_engine import universal_clinical_qa_engine
+from app.services.deterministic_pharmacovigilance_engine import deterministic_pharmacovigilance_engine
+
+
+@router.post("/universal-qa", response_model=UniversalClinicalQAResponse, summary="Universal Multi-Specialty Clinical Q&A")
+async def answer_clinical_question_endpoint(payload: UniversalClinicalQARequest):
+    """
+    Sub-second, authoritative, guideline-backed clinical question answering across all specialties.
+    Zero hallucination with verified clinical scores, diagnostic workup, and pharmacotherapy regimens.
+    """
+    return universal_clinical_qa_engine.answer_clinical_question(payload)
+
+
+@router.post("/pharmacovigilance-audit", response_model=PharmacovigilanceAuditResponse, summary="Deterministic Multi-Drug Pharmacovigilance Audit")
+async def pharmacovigilance_audit_endpoint(payload: PharmacovigilanceAuditRequest):
+    """
+    Exhaustive deterministic pharmacovigilance screening:
+    CYP450 metabolism profiles, cardiac QTc stacking, Triple Whammy AKI hazard,
+    Serotonin syndrome index, bleeding risks, organ clearance adjustments, and Beers criteria.
+    """
+    return deterministic_pharmacovigilance_engine.audit_patient_regimen(payload)
+
+
+# ---------------------------------------------------------------------------
+# Phase 7: Automated Hospital-Grade SOAP Note Generator Endpoint
+# ---------------------------------------------------------------------------
+
+from app.schemas.soap_note import (
+    HospitalGradeSOAPRequest,
+    HospitalGradeSOAPResponse,
+)
+from app.services.hospital_soap_generator import hospital_soap_generator
+
+
+@router.post("/generate-soap", response_model=HospitalGradeSOAPResponse, summary="Automated Hospital-Grade SOAP Note Generator")
+async def generate_hospital_soap_endpoint(payload: HospitalGradeSOAPRequest):
+    """
+    Synthesizes a Joint Commission International (JCI) and CMS E/M 2024 compliant
+    hospital-grade SOAP progress note with 14-point ROS, systemic physical exam,
+    calibrated Bayesian assessment, ICD-11 coding, and 6-pillar management plan.
+    """
+    return hospital_soap_generator.generate_hospital_soap(payload)
+
+
+# ---------------------------------------------------------------------------
+# Phase 8: Temporal Trajectory & Clinical Timeline Delta Engine Endpoint
+# ---------------------------------------------------------------------------
+
+from app.schemas.temporal_trajectory import (
+    TemporalTrajectoryRequest,
+    TemporalTrajectoryResponse,
+)
+from app.services.temporal_trajectory_engine import temporal_trajectory_engine
+
+
+@router.post("/temporal-trajectory", response_model=TemporalTrajectoryResponse, summary="Temporal Trajectory & Clinical Timeline Delta Engine")
+async def evaluate_temporal_trajectory_endpoint(payload: TemporalTrajectoryRequest):
+    """
+    Evaluates serial clinical observations across time:
+    - Royal College of Physicians (RCP) NEWS2 score evaluation & dynamic delta tracking
+    - Hemodynamic Shock Index (HR / SBP) & occult hypoperfusion detection
+    - Sepsis-3 qSOFA scoring
+    - Serial Lab Delta kinetics & velocity (KDIGO AKI, acute troponin delta, lactate clearance)
+    - Multimodal Trajectory Forecasting & Decompensation Hazard Scoring (0.0 to 1.0)
+    - Chronological milestone event stream for clinical timeline visualization
+    """
+    return temporal_trajectory_engine.evaluate_temporal_trajectory(payload)
+
+
+# ---------------------------------------------------------------------------
+# Phase 9: Red Team Counterfactual Testing & Safety Guardrails Endpoint
+# ---------------------------------------------------------------------------
+
+from app.schemas.clinical_safety import (
+    SafetyGuardrailCheckRequest,
+    SafetyGuardrailAuditResponse,
+)
+from app.services.clinical_safety_guardrails import clinical_safety_guardrails_engine
+
+
+@router.post("/safety-guardrail-audit", response_model=SafetyGuardrailAuditResponse, summary="Red Team Counterfactual Safety Guardrails")
+async def audit_safety_guardrails_endpoint(payload: SafetyGuardrailCheckRequest):
+    """
+    Deterministic clinical protection against fatal contraindication traps and lethal mimics:
+    - Intercepts lethal drug/procedure contraindications (WPW AV blockers, Dissection antithrombotics, Pheo beta-blockers, etc.)
+    - Counterfactual minimal-difference mimic auditing (STEMI vs Dissection, Migraine vs SAH, etc.)
+    - Removes hazardous orders and injects guideline-directed lifesaving alternatives.
+    """
+    return clinical_safety_guardrails_engine.audit_clinical_safety(payload)
+
+
+
+

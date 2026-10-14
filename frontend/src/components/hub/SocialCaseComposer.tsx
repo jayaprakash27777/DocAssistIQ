@@ -83,10 +83,13 @@ export function SocialCaseComposer({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!diseaseName.trim() || !clinicalFindings.trim() || !diagnosis.trim() || !treatmentPlan.trim()) {
-      toast.info("Please fill in disease name, clinical findings, diagnosis, and treatment plan.");
+    if (!diseaseName.trim() || !clinicalFindings.trim()) {
+      toast.info("Please fill in case presentation/condition summary and clinical findings.");
       return;
     }
+
+    const finalDiagnosis = diagnosis.trim() || "Pending Differential Evaluation";
+    const finalTreatmentPlan = treatmentPlan.trim() || "Under Clinical Review";
 
     const drugs = drugsInput
       .split(",")
@@ -105,8 +108,8 @@ export function SocialCaseComposer({
           {
             disease_name: diseaseName.trim(),
             clinical_findings: clinicalFindings.trim(),
-            diagnosis: diagnosis.trim(),
-            treatment_plan: treatmentPlan.trim(),
+            diagnosis: finalDiagnosis,
+            treatment_plan: finalTreatmentPlan,
             drugs_used: drugs,
             specialty_tags: tags.length > 0 ? tags : ["#ClinicalCase"],
             is_urgent_consult: isUrgent,
@@ -124,8 +127,11 @@ export function SocialCaseComposer({
             const formData = new FormData();
             formData.append("file", f);
             const upRes = await uploadFile(formData);
-            if (upRes.ok && upRes.data?.file?.id) {
-              attachmentIds.push(upRes.data.file.id);
+            if (upRes.ok) {
+              const uploadedId = upRes.data.file?.id || (upRes.data as any)?.id;
+              if (uploadedId) {
+                attachmentIds.push(uploadedId);
+              }
             }
           }
         }
@@ -133,8 +139,8 @@ export function SocialCaseComposer({
         const payload = {
           disease_name: diseaseName.trim(),
           clinical_findings: clinicalFindings.trim(),
-          diagnosis: diagnosis.trim(),
-          treatment_plan: treatmentPlan.trim(),
+          diagnosis: finalDiagnosis,
+          treatment_plan: finalTreatmentPlan,
           drugs_used: drugs,
           specialty_tags: tags.length > 0 ? tags : ["#ClinicalCase"],
           is_urgent_consult: isUrgent,

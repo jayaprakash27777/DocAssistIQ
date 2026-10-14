@@ -9,11 +9,14 @@ Covers real-time epidemic intelligence for:
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import html
 import json
 import re
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 from pydantic import BaseModel, Field
@@ -45,6 +48,8 @@ class OutbreakAlert(BaseModel):
     reported_cases: Optional[str] = None
     fatality_rate: Optional[str] = None
     clinical_pearl: str
+    is_dynamic_live: Optional[bool] = False
+    data_source: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -1006,8 +1011,6 @@ INDIA_STATE_OUTBREAKS: List[Dict[str, Any]] = [
 #   6. Rootnet India MoHFW State-Wise Registry (api.rootnet.in)
 # ---------------------------------------------------------------------------
 
-# Preserved for backward-compatible symbol access; 0 mock data is kept here.
-STATIC_GLOBAL_OUTBREAKS: List[Dict[str, Any]] = []
 GLOBAL_OUTBREAKS: List[Dict[str, Any]] = []
 
 _LIVE_SURVEILLANCE_CACHE: Dict[str, Any] = {
@@ -1188,32 +1191,7 @@ _HEADERS = {
 }
 
 
-def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dict[str, Any]]:
-    """
-    Ingests 100% authentic real-time surveillance alerts from official public health APIs:
-      - US CDC Travel Health Notices RSS
-      - ECDC Communicable Disease Threats RSS
-      - Rootnet India MoHFW Official State Registry
-      - Disease.sh Global Pandemic Hotspots
-
-    Zero mock or synthetic data. Caches for 10 minutes to guarantee sub-millisecond
-    in-memory performance during live clinical diagnostic loops.
-    """
-    now = time.time()
-    if (
-        not force_refresh
-        and _LIVE_SURVEILLANCE_CACHE["global_alerts"]
-        and (now - _LIVE_SURVEILLANCE_CACHE["last_fetched"] < 600)
-    ):
-        return _LIVE_SURVEILLANCE_CACHE["global_alerts"]
-
-    parsed_global: List[Dict[str, Any]] = []
-    cdc_notices: List[Dict[str, Any]] = []
-    sources_health: Dict[str, Any] = {}
-    rootnet_state_cases: Dict[str, Any] = {}
-    iso_now = datetime.now(timezone.utc).isoformat()
-
-    # 1. Rootnet India Official MoHFW State-Wise Registry
+def _fetch_rootnet_task() -> tuple[Dict[str, Any], Dict[str, Any], Optional[str]]:
     t0 = time.perf_counter()
     try:
         req = urllib.request.Request(
@@ -1224,38 +1202,22 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
             data = json.loads(resp.read().decode("utf-8"))
             st_list = data.get("data", {}).get("statewise", [])
             lat = round((time.perf_counter() - t0) * 1000, 1)
-            sources_health["rootnet_india_mohfw"] = {
-                "status": "200 OK",
-                "latency_ms": lat,
-                "records": len(st_list),
-            }
+            cases: Dict[str, Any] = {}
             for st in st_list:
                 sname = st.get("state")
                 if sname:
-                    rootnet_state_cases[sname.lower()] = st
-
-            # Dynamically enrich INDIA_STATE_OUTBREAKS with live real-time caseloads
-            for alert in INDIA_STATE_OUTBREAKS:
-                st_key = alert["state_or_country"].lower()
-                matched_st = rootnet_state_cases.get(st_key)
-                if not matched_st:
-                    # Partial match
-                    for k, v in rootnet_state_cases.items():
-                        if k in st_key or st_key in k:
-                            matched_st = v
-                            break
-                if matched_st:
-                    act = int(matched_st.get("active", 0) or 0)
-                    conf = int(matched_st.get("confirmed", 0) or 0)
-                    rec = int(matched_st.get("recovered", 0) or 0)
-                    alert["reported_cases"] = f"Active: {act:,} | Confirmed: {conf:,} | Recovered: {rec:,} (Official MoHFW Registry)"
-                    alert["last_updated"] = data.get("lastRefreshed") or iso_now
-
+                    cases[sname.lower()] = st
+            return (
+                {"status": "200 OK", "latency_ms": lat, "records": len(st_list)},
+                cases,
+                data.get("lastRefreshed"),
+            )
     except Exception as e:
         log.warning("rootnet_india_fetch_failed", error=str(e))
-        sources_health["rootnet_india_mohfw"] = {"status": f"ERROR: {e}", "records": 0}
+        return ({"status": f"ERROR: {e}", "records": 0}, {}, None)
 
-    # 2. US CDC Travel Health Notices Live RSS Feed
+
+def _fetch_cdc_task(iso_now: str) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
     t0 = time.perf_counter()
     try:
         req = urllib.request.Request(
@@ -1266,11 +1228,7 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
             root = ET.fromstring(resp.read())
             items = root.findall(".//item")
             lat = round((time.perf_counter() - t0) * 1000, 1)
-            sources_health["cdc_travel_notices"] = {
-                "status": "200 OK",
-                "latency_ms": lat,
-                "records": len(items),
-            }
+            cdc_notices: List[Dict[str, Any]] = []
 
             for item in items:
                 raw_title = (item.find("title").text if item.find("title") is not None else "") or ""
@@ -1280,6 +1238,9 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
 
                 if not raw_title:
                     continue
+
+                clean_desc = html.unescape(re.sub(r"<[^>]+>", " ", desc))
+                clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
 
                 lower_title = raw_title.lower()
                 alert_level = (
@@ -1315,7 +1276,9 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
                     isolation_protocol = "Standard & Contact Precautions based on clinical syndrome"
                     confirmatory_test = "CDC Reference Diagnostic Protocol / PCR & Serology"
 
-                clean_id = f"cdc-live-{re.sub(r'[^a-z0-9]+', '-', disease.lower() + '-' + country.lower()).strip('-')}"
+                guid = hashlib.md5(f"{raw_title}-{link}-{pub_date}".encode()).hexdigest()[:6]
+                slug = re.sub(r"[^a-z0-9]+", "-", f"{disease.lower()}-{country.lower()}").strip("-")[:30]
+                clean_id = f"cdc-live-{slug}-{guid}"
 
                 alert_obj = {
                     "id": clean_id,
@@ -1342,16 +1305,20 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
                     "last_updated": pub_date or iso_now,
                     "reported_cases": "Active Multi-jurisdiction Surveillance",
                     "fatality_rate": "Variable based on prompt clinical care",
-                    "clinical_pearl": desc.strip() or f"US CDC Travel Health Notice active for {country}.",
+                    "clinical_pearl": clean_desc or f"US CDC Travel Health Notice active for {country}.",
                 }
-                parsed_global.append(alert_obj)
                 cdc_notices.append(alert_obj)
 
+            return (
+                {"status": "200 OK", "latency_ms": lat, "records": len(items)},
+                cdc_notices,
+            )
     except Exception as e:
         log.warning("cdc_live_rss_fetch_error", error=str(e))
-        sources_health["cdc_travel_notices"] = {"status": f"ERROR: {e}", "records": 0}
+        return ({"status": f"ERROR: {e}", "records": 0}, [])
 
-    # 3. ECDC Communicable Disease Threats Surveillance Feed
+
+def _fetch_ecdc_task(iso_now: str) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
     t0 = time.perf_counter()
     try:
         req = urllib.request.Request(
@@ -1362,11 +1329,7 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
             root = ET.fromstring(resp.read())
             items = root.findall(".//item")
             lat = round((time.perf_counter() - t0) * 1000, 1)
-            sources_health["ecdc_threats"] = {
-                "status": "200 OK",
-                "latency_ms": lat,
-                "records": len(items),
-            }
+            ecdc_notices: List[Dict[str, Any]] = []
 
             for item in items:
                 raw_title = (item.find("title").text if item.find("title") is not None else "") or ""
@@ -1377,7 +1340,10 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
                 if not raw_title:
                     continue
 
-                lower = (raw_title + " " + desc).lower()
+                clean_desc = html.unescape(re.sub(r"<[^>]+>", " ", desc))
+                clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
+
+                lower = (raw_title + " " + clean_desc).lower()
                 alert_level = (
                     "CRITICAL"
                     if ("ebola" in lower or "bundibugyo" in lower or "rapid outbreak" in lower or "threat" in lower)
@@ -1417,9 +1383,11 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
                     isolation_protocol = "Standard & Contact Precautions"
                     confirmatory_test = "ECDC Reference Diagnostic Protocol"
 
-                clean_id = f"ecdc-live-{re.sub(r'[^a-z0-9]+', '-', disease.lower() + '-' + country.lower()).strip('-')[:35]}"
+                guid = hashlib.md5(f"{raw_title}-{link}-{pub_date}".encode()).hexdigest()[:6]
+                slug = re.sub(r"[^a-z0-9]+", "-", f"{disease.lower()}-{country.lower()}").strip("-")[:30]
+                clean_id = f"ecdc-live-{slug}-{guid}"
 
-                parsed_global.append({
+                ecdc_notices.append({
                     "id": clean_id,
                     "region_type": "global",
                     "state_or_country": country,
@@ -1443,14 +1411,19 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
                     "last_updated": pub_date or iso_now,
                     "reported_cases": "Active Epidemiological Assessment",
                     "fatality_rate": "Variable based on pathogen and supportive care",
-                    "clinical_pearl": desc.strip() or f"ECDC Outbreak Threat Assessment active for {disease}.",
+                    "clinical_pearl": clean_desc or f"ECDC Outbreak Threat Assessment active for {disease}.",
                 })
 
+            return (
+                {"status": "200 OK", "latency_ms": lat, "records": len(items)},
+                ecdc_notices,
+            )
     except Exception as e:
         log.warning("ecdc_live_threats_fetch_error", error=str(e))
-        sources_health["ecdc_threats"] = {"status": f"ERROR: {e}", "records": 0}
+        return ({"status": f"ERROR: {e}", "records": 0}, [])
 
-    # 4. Disease.sh Real-Time Global Pandemic Hotspots
+
+def _fetch_diseasesh_task(iso_now: str) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
     t0 = time.perf_counter()
     try:
         req = urllib.request.Request(
@@ -1460,11 +1433,7 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
         with urllib.request.urlopen(req, timeout=5) as resp:
             c_list = json.loads(resp.read().decode("utf-8"))
             lat = round((time.perf_counter() - t0) * 1000, 1)
-            sources_health["diseasesh_global"] = {
-                "status": "200 OK",
-                "latency_ms": lat,
-                "records": len(c_list),
-            }
+            diseasesh_notices: List[Dict[str, Any]] = []
 
             for c in c_list[:5]:
                 cname = c.get("country", "")
@@ -1474,7 +1443,7 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
                 if not cname:
                     continue
 
-                parsed_global.append({
+                diseasesh_notices.append({
                     "id": f"live-diseasesh-{re.sub(r'[^a-z0-9]+', '-', cname.lower())}",
                     "region_type": "global",
                     "state_or_country": cname,
@@ -1501,32 +1470,95 @@ def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dic
                     "clinical_pearl": f"Active viral respiratory surge tracked in {cname} with {act:,} active cases per official registries.",
                 })
 
+            return (
+                {"status": "200 OK", "latency_ms": lat, "records": len(c_list)},
+                diseasesh_notices,
+            )
     except Exception as e:
         log.warning("diseasesh_fetch_error", error=str(e))
-        sources_health["diseasesh_global"] = {"status": f"ERROR: {e}", "records": 0}
+        return ({"status": f"ERROR: {e}", "records": 0}, [])
 
-    # Save to in-memory live cache
-    if parsed_global:
-        _LIVE_SURVEILLANCE_CACHE["global_alerts"] = parsed_global
-        _LIVE_SURVEILLANCE_CACHE["cdc_alerts"] = cdc_notices
-        _LIVE_SURVEILLANCE_CACHE["rootnet_cases"] = rootnet_state_cases
-        _LIVE_SURVEILLANCE_CACHE["sources_health"] = sources_health
-        _LIVE_SURVEILLANCE_CACHE["last_fetched"] = now
-        _LIVE_SURVEILLANCE_CACHE["last_synced_iso"] = iso_now
-        _CDC_CACHE["data"] = cdc_notices
-        _CDC_CACHE["last_fetched"] = now
-        log.info(
-            "live_public_health_surveillance_synced",
-            total_global_alerts=len(parsed_global),
-            cdc_notices=len(cdc_notices),
-            indian_states_tracked=len(rootnet_state_cases),
-        )
-        return parsed_global
 
-    if _LIVE_SURVEILLANCE_CACHE["global_alerts"]:
+def fetch_all_live_public_health_alerts(force_refresh: bool = False) -> List[Dict[str, Any]]:
+    """
+    Ingests 100% authentic real-time surveillance alerts from official public health APIs:
+      - US CDC Travel Health Notices RSS
+      - ECDC Communicable Disease Threats RSS
+      - Rootnet India MoHFW Official State Registry
+      - Disease.sh Global Pandemic Hotspots
+
+    Zero mock or synthetic data. Caches for 10 minutes to guarantee sub-millisecond
+    in-memory performance during live clinical diagnostic loops.
+    """
+    now = time.time()
+    if (
+        not force_refresh
+        and _LIVE_SURVEILLANCE_CACHE["global_alerts"]
+        and (now - _LIVE_SURVEILLANCE_CACHE["last_fetched"] < 600)
+    ):
         return _LIVE_SURVEILLANCE_CACHE["global_alerts"]
 
-    return []
+    iso_now = datetime.now(timezone.utc).isoformat()
+    sources_health: Dict[str, Any] = {}
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        f_rootnet = executor.submit(_fetch_rootnet_task)
+        f_cdc = executor.submit(_fetch_cdc_task, iso_now)
+        f_ecdc = executor.submit(_fetch_ecdc_task, iso_now)
+        f_diseasesh = executor.submit(_fetch_diseasesh_task, iso_now)
+
+        health_rootnet, rootnet_state_cases, last_refreshed = f_rootnet.result()
+        health_cdc, cdc_notices = f_cdc.result()
+        health_ecdc, ecdc_notices = f_ecdc.result()
+        health_diseasesh, diseasesh_notices = f_diseasesh.result()
+
+    sources_health["rootnet_india_mohfw"] = health_rootnet
+    sources_health["cdc_travel_notices"] = health_cdc
+    sources_health["ecdc_threats"] = health_ecdc
+    sources_health["diseasesh_global"] = health_diseasesh
+
+    # Dynamically enrich INDIA_STATE_OUTBREAKS with live real-time caseloads
+    for alert in INDIA_STATE_OUTBREAKS:
+        st_key = alert["state_or_country"].lower()
+        matched_st = rootnet_state_cases.get(st_key)
+        if not matched_st:
+            for k, v in rootnet_state_cases.items():
+                if k in st_key or st_key in k:
+                    matched_st = v
+                    break
+        if matched_st:
+            act = int(matched_st.get("active", 0) or 0)
+            conf = int(matched_st.get("confirmed", 0) or 0)
+            rec = int(matched_st.get("recovered", 0) or 0)
+            alert["reported_cases"] = f"Active: {act:,} | Confirmed: {conf:,} | Recovered: {rec:,} (Official MoHFW Registry)"
+            alert["last_updated"] = last_refreshed or iso_now
+
+    # Merge live feeds and deduplicate by ID
+    parsed_global: List[Dict[str, Any]] = []
+    seen_ids: Set[str] = set()
+
+    for item in (cdc_notices + ecdc_notices + diseasesh_notices):
+        iid = item.get("id")
+        if iid and iid not in seen_ids:
+            seen_ids.add(iid)
+            parsed_global.append(item)
+
+    _LIVE_SURVEILLANCE_CACHE["global_alerts"] = parsed_global
+    _LIVE_SURVEILLANCE_CACHE["cdc_alerts"] = cdc_notices
+    _LIVE_SURVEILLANCE_CACHE["rootnet_cases"] = rootnet_state_cases
+    _LIVE_SURVEILLANCE_CACHE["sources_health"] = sources_health
+    _LIVE_SURVEILLANCE_CACHE["last_fetched"] = now
+    _LIVE_SURVEILLANCE_CACHE["last_synced_iso"] = iso_now
+    _CDC_CACHE["data"] = _LIVE_SURVEILLANCE_CACHE["cdc_alerts"]
+    _CDC_CACHE["last_fetched"] = now
+
+    log.info(
+        "live_public_health_surveillance_synced",
+        total_global_alerts=len(parsed_global),
+        cdc_notices=len(cdc_notices),
+        indian_states_tracked=len(rootnet_state_cases),
+    )
+    return parsed_global
 
 
 def fetch_live_cdc_outbreaks() -> List[Dict[str, Any]]:
@@ -1540,6 +1572,77 @@ def fetch_live_cdc_outbreaks() -> List[Dict[str, Any]]:
     return _LIVE_SURVEILLANCE_CACHE.get("cdc_alerts", [])
 
 
+# ---------------------------------------------------------------------------
+# Dynamic Live Outbreak Registry (Real-Time Ingestion & Scanner Triggering)
+# ---------------------------------------------------------------------------
+
+_DYNAMIC_LIVE_OUTBREAKS: Dict[str, Dict[str, Any]] = {}
+
+
+def register_dynamic_live_outbreak(alert_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Registers a newly triggered real-time outbreak into the active surveillance registry.
+    Can be invoked by:
+      - Live Disease Scanner background loops (auto-detected novel diseases/outbreaks from WHO/CDC/ECDC/ProMED)
+      - Incoming public health webhooks (IDSP, WHO DON, CDC alerts)
+      - Dynamic simulation and clinician triggers
+    """
+    disease_name = alert_data.get("disease_name", "Novel Outbreak Signal").strip()
+    state_or_country = alert_data.get("state_or_country", "Global Notice").strip()
+
+    # Check if region is an Indian state/UT
+    region_type = alert_data.get("region_type")
+    if not region_type:
+        matched_state = next((st for st in ALL_INDIAN_STATES_AND_UTS if st.lower() in state_or_country.lower()), None)
+        region_type = "india_state" if matched_state else "global"
+        if matched_state:
+            state_or_country = matched_state
+
+    slug = hashlib.md5(f"{disease_name.lower()}-{state_or_country.lower()}".encode()).hexdigest()[:10]
+    outbreak_id = alert_data.get("id") or f"live-{slug}"
+
+    cardinal_symptoms = alert_data.get("cardinal_symptoms") or [
+        "fever", "acute illness", "systemic symptoms"
+    ]
+    if isinstance(cardinal_symptoms, str):
+        cardinal_symptoms = [s.strip() for s in cardinal_symptoms.split(",") if s.strip()]
+
+    alert: Dict[str, Any] = {
+        "id": outbreak_id,
+        "region_type": region_type,
+        "state_or_country": state_or_country,
+        "districts": alert_data.get("districts") or [state_or_country],
+        "pathogen": alert_data.get("pathogen") or disease_name,
+        "disease_name": disease_name,
+        "alert_level": alert_data.get("alert_level", "CRITICAL").upper(),
+        "status": alert_data.get("status", "Active Live Outbreak Alert"),
+        "cardinal_symptoms": cardinal_symptoms,
+        "hallmark_triggers": alert_data.get("hallmark_triggers") or [
+            disease_name.lower(),
+            state_or_country.lower(),
+        ],
+        "vector_reservoir": alert_data.get("vector_reservoir") or "Under Active Public Health Investigation",
+        "reporting_agency": alert_data.get("reporting_agency") or "Live Epidemiological Surveillance System",
+        "confirmatory_test": alert_data.get("confirmatory_test") or "Real-Time Multiplex RT-PCR & Reference Serology",
+        "isolation_protocol": alert_data.get("isolation_protocol") or "Standard, Contact & Airborne Isolation Precautions",
+        "immediate_actions": alert_data.get("immediate_actions") or [
+            "Immediate alert to District/State Surveillance Officer (DSO)",
+            "Collection of acute-phase specimens for reference lab confirmation",
+            "Active contact tracing and containment protocols",
+        ],
+        "reported_cases": alert_data.get("reported_cases") or "Active Cluster Monitored",
+        "fatality_rate": alert_data.get("fatality_rate") or "Under Evaluation",
+        "clinical_pearl": alert_data.get("clinical_pearl") or f"Newly detected outbreak of {disease_name} in {state_or_country}. Heightened clinical suspicion and immediate reporting recommended.",
+        "last_updated": datetime.now(timezone.utc).isoformat(),
+        "is_dynamic_live": True,
+        "data_source": alert_data.get("data_source") or "Live Feed Real-Time Ingestion",
+    }
+
+    _DYNAMIC_LIVE_OUTBREAKS[outbreak_id] = alert
+    log.info("dynamic_outbreak_registered_live", id=outbreak_id, disease=disease_name, region=state_or_country)
+    return alert
+
+
 # Combined live alert database accessor
 def get_all_surveillance_alerts(allow_network: bool = False) -> List[Dict[str, Any]]:
     """Merges all 36 Indian states/UTs and authentic cached live public health alerts."""
@@ -1547,7 +1650,30 @@ def get_all_surveillance_alerts(allow_network: bool = False) -> List[Dict[str, A
         live_global = fetch_all_live_public_health_alerts()
     else:
         live_global = _LIVE_SURVEILLANCE_CACHE.get("global_alerts") or []
-    return INDIA_STATE_OUTBREAKS + live_global
+
+    seen_ids: Set[str] = set()
+    combined = []
+
+    # Newly triggered dynamic outbreaks always take highest precedence
+    for alert in list(_DYNAMIC_LIVE_OUTBREAKS.values()):
+        aid = alert.get("id")
+        if aid and aid not in seen_ids:
+            seen_ids.add(aid)
+            combined.append(alert)
+
+    for alert in list(live_global):
+        aid = alert.get("id")
+        if aid and aid not in seen_ids:
+            seen_ids.add(aid)
+            combined.append(alert)
+
+    for alert in INDIA_STATE_OUTBREAKS:
+        aid = alert.get("id")
+        if aid and aid not in seen_ids:
+            seen_ids.add(aid)
+            combined.append(alert)
+
+    return combined
 
 
 # ---------------------------------------------------------------------------
@@ -1617,15 +1743,21 @@ def match_outbreaks_for_symptoms(
         matched_triggers: List[str] = []
         geo_matched = False
         
-        # Check geographic location matches (State or Country or Districts)
+        # Check geographic location matches (State or Country or Districts) with word boundaries
         state_name = alert["state_or_country"].lower()
-        if state_name in full_text:
+        if re.search(r"\b" + re.escape(state_name) + r"\b", full_text):
             geo_matched = True
             
         for dist in alert.get("districts", []):
-            if dist.lower() in full_text:
-                geo_matched = True
-                matched_triggers.append(f"District: {dist}")
+            dist_clean = dist.lower().strip()
+            # If district name is very short (<=3 characters like 'Mon' or 'Diu'), require explicit state context or word boundary
+            if len(dist_clean) <= 3:
+                if re.search(r"\b" + re.escape(dist_clean) + r"\b", full_text) and geo_matched:
+                    matched_triggers.append(f"District: {dist}")
+            else:
+                if re.search(r"\b" + re.escape(dist_clean) + r"\b", full_text):
+                    geo_matched = True
+                    matched_triggers.append(f"District: {dist}")
                 
         # Check hallmark triggers (words like "date palm sap", "monkey fever", "eschar", "sandfly")
         for trig in alert.get("hallmark_triggers", []):
@@ -1719,6 +1851,46 @@ def get_all_state_outbreaks(
     live_global = fetch_all_live_public_health_alerts(force_refresh=force_refresh)
     india_feed = list(INDIA_STATE_OUTBREAKS)
     global_feed = list(live_global)
+
+    # Ingest dynamic diseases automatically discovered by LiveDiseaseScanner
+    try:
+        from app.services.live_disease_scanner import get_all_dynamic_diseases
+        dyn_diseases = get_all_dynamic_diseases()
+        for slug, profile in dyn_diseases.items():
+            dname = profile.get("disease_name", slug.replace("_", " ").title())
+            dyn_id = f"dyn-kb-{slug}"
+            if dyn_id not in _DYNAMIC_LIVE_OUTBREAKS:
+                zones = profile.get("geographic_zones", [])
+                st_match = None
+                for z in zones:
+                    st_match = next((st for st in ALL_INDIAN_STATES_AND_UTS if st.lower() in str(z).lower()), None)
+                    if st_match:
+                        break
+
+                register_dynamic_live_outbreak({
+                    "id": dyn_id,
+                    "disease_name": dname,
+                    "pathogen": profile.get("pathogen", dname),
+                    "state_or_country": st_match if st_match else (zones[0] if zones else "Global Notice"),
+                    "region_type": "india_state" if st_match else "global",
+                    "alert_level": "CRITICAL" if profile.get("severity") in ("critical", "high") else "HIGH",
+                    "cardinal_symptoms": profile.get("cardinal_symptoms") or profile.get("symptoms", [])[:5],
+                    "vector_reservoir": profile.get("transmission", "Zoonotic / Respiratory Droplet"),
+                    "reporting_agency": "Live Public Health Intelligence (WHO / CDC / ProMED Scanner)",
+                    "clinical_pearl": profile.get("clinical_pearl") or f"Newly detected disease entity {dname} actively monitored by real-time epidemiological intelligence.",
+                    "data_source": "Live Public Health Scanner Feed",
+                })
+    except Exception as ex:
+        log.debug("dynamic_diseases_merge_skipped", error=str(ex))
+
+    # Prepend dynamically triggered live outbreaks at the top of feeds
+    for dyn_alert in reversed(list(_DYNAMIC_LIVE_OUTBREAKS.values())):
+        if dyn_alert.get("region_type") == "india_state":
+            if not any(a["id"] == dyn_alert["id"] for a in india_feed):
+                india_feed.insert(0, dyn_alert)
+        else:
+            if not any(a["id"] == dyn_alert["id"] for a in global_feed):
+                global_feed.insert(0, dyn_alert)
     
     if state_filter:
         sf = state_filter.lower().strip()
@@ -1755,6 +1927,7 @@ def get_all_state_outbreaks(
         "is_live_stream": True,
         "last_synced_at": _LIVE_SURVEILLANCE_CACHE.get("last_synced_iso") or datetime.now(timezone.utc).isoformat(),
         "total_active_alerts": len(india_feed) + len(global_feed),
+        "dynamic_outbreaks_active": len(_DYNAMIC_LIVE_OUTBREAKS),
         "india_states_covered": len(set(a["state_or_country"] for a in INDIA_STATE_OUTBREAKS)),
         "india_state_alerts": india_feed,
         "global_alerts": global_feed,

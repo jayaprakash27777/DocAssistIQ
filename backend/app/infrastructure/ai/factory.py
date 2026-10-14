@@ -1,3 +1,4 @@
+import os
 from app.infrastructure.ai.interfaces import GenerationProvider, EmbeddingProvider
 from app.infrastructure.ai.providers.baseline import BaselineGenerationProvider, BaselineEmbeddingProvider
 from app.infrastructure.ai.providers.ollama_provider import OllamaGenerationProvider, OllamaEmbeddingProvider
@@ -16,8 +17,7 @@ def get_generation_provider() -> GenerationProvider:
     # Check if we should use local offline Ollama models
     # Defaulting to Ollama for offline/free use cases
     try:
-        import os
-        model = settings.default_llm_model or os.getenv("DEFAULT_LLM_MODEL", "ii-medical:8b")
+        model = getattr(settings, "default_llm_model", None) or os.getenv("DEFAULT_LLM_MODEL", "llama3.2:latest")
         _generation_provider = OllamaGenerationProvider(model_name=model)
     except Exception as e:
         # Fallback to Baseline if anything fails

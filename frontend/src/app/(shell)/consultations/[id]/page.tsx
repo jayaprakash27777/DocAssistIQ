@@ -65,7 +65,9 @@ import {
   Brain,
   Maximize2,
   Minimize2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Share2,
+  CheckCircle2
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { noteKeys, consultationKeys } from "@/hooks/useConsultations";
@@ -87,6 +89,7 @@ import {
   getPatientProfile,
   type PatientProfileResponse,
   transcribeConsultationAudio,
+  shareConsultationToHub,
 } from "@/lib/api";
 import ClinicalNoteEditor from "@/components/clinical/ClinicalNoteEditor";
 import DifferentialDiagnosis from "@/components/clinical/DifferentialDiagnosis";
@@ -256,6 +259,15 @@ export default function ConsultationDetailPage({
   const [isSafetyAlertDismissed, setIsSafetyAlertDismissed] = useState(false);
   const [isSafetyAlertExpanded, setIsSafetyAlertExpanded] = useState(false);
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
+
+  // End Consultation & Clinical Hub Sharing Modals
+  const [showEndModal, setShowEndModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareQueryText, setShareQueryText] = useState("");
+  const [shareCategory, setShareCategory] = useState<string>("dilemma");
+  const [shareUrgency, setShareUrgency] = useState<string>("medium");
+  const [shareTagsText, setShareTagsText] = useState<string>("#DifferentialDiagnosis #InternalMedicine");
+  const [isSharingToHub, setIsSharingToHub] = useState(false);
 
   // Scratchpad Metrics
   const scratchpadStats = useMemo(() => {
@@ -643,6 +655,57 @@ export default function ConsultationDetailPage({
     }
   };
 
+  const handleReviewNote = async () => {
+    if (currentStatus !== "under_review" && currentStatus !== "finalized") {
+      await handleTransition("under_review");
+    }
+    setPaneMode("split");
+    toast.success("SOAP+ clinical note editor opened for review.");
+  };
+
+  const handleEndConsultation = async () => {
+    setShowEndModal(false);
+    if (currentStatus === "recording") {
+      audio.stop();
+    }
+    await handleTransition("finalized");
+  };
+
+  const handleShareToHub = async () => {
+    if (!consultation) return;
+    setIsSharingToHub(true);
+    try {
+      const parsedTags = shareTagsText
+        .split(/[\s,]+/)
+        .map(t => t.trim())
+        .filter(t => t.length > 0)
+        .map(t => t.startsWith("#") ? t : `#${t}`);
+
+      const content = shareQueryText.trim() || 
+        `Seeking peer physician differential insights regarding patient clinical findings.`;
+
+      const res = await shareConsultationToHub(consultation.id, {
+        content,
+        category: shareCategory,
+        urgency: shareUrgency,
+        tags: parsedTags.length > 0 ? parsedTags : ["#DifferentialDiagnosis", "#ClinicalCase"],
+        anonymous: false,
+      });
+
+      if (res.ok) {
+        toast.success("Case successfully published to Clinical Hub!");
+        setShowShareModal(false);
+        setShareQueryText("");
+      } else {
+        toast.error(res.error?.message || "Failed to share case to Clinical Hub");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to share case to Clinical Hub");
+    } finally {
+      setIsSharingToHub(false);
+    }
+  };
+
   // Findings filtering
   const filteredFindings = useMemo(() => {
     if (!consultation?.findings) return [];
@@ -832,6 +895,49 @@ export default function ConsultationDetailPage({
             <span>Sign Off Amendment</span>
           </Button>
         )}
+
+        {/* Universal Action 1: Review Note (when not already in under_review or finalized) */}
+        {currentStatus !== "under_review" && currentStatus !== "finalized" && currentStatus !== "analysis_ready" && (
+          <button
+            type="button"
+            onClick={handleReviewNote}
+            disabled={actionLoading}
+            className="h-8 px-3 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Review and edit the full SOAP+ clinical note"
+          >
+            <FileCheck className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Review Note</span>
+          </button>
+        )}
+
+        {/* Universal Action 2: Ask in Clinical Hub */}
+        <button
+          type="button"
+          onClick={() => {
+            const initialSummary = consultation.input_text || (representation?.symptoms?.map(s => s.value).join(", ")) || "";
+            setShareQueryText(initialSummary ? `Seeking clinical peer opinion: ${initialSummary.slice(0, 160)}...` : "");
+            setShowShareModal(true);
+          }}
+          className="h-8 px-3 rounded-xl text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer"
+          title="Share case directly to Clinical Hub for physician curbside opinion"
+        >
+          <Share2 className="w-3.5 h-3.5 text-teal-600" />
+          <span>Ask in Clinical Hub</span>
+        </button>
+
+        {/* Universal Action 3: End Consultation (when not already finalized) */}
+        {currentStatus !== "finalized" && (
+          <button
+            type="button"
+            onClick={() => setShowEndModal(true)}
+            disabled={actionLoading}
+            className="h-8 px-3 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 hover:text-rose-900 border border-rose-200 shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer"
+            title="End encounter, finalize and lock consultation note"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 text-rose-600" />
+            <span>End Consultation</span>
+          </button>
+        )}
       </div>
     );
   };
@@ -839,15 +945,15 @@ export default function ConsultationDetailPage({
   return (
     <div className="consultation-workspace-root flex flex-col h-full min-h-0 overflow-hidden relative w-full bg-slate-50/60 text-slate-900">
       
-      {/* ── Tier 1: Executive Clinical Command Header ───────────────────────────────── */}
+      {/* ── Executive Clinical Command Header (Structured 2-Tier Header) ────────────────────────── */}
       <header className="bg-white border-b border-slate-200 shrink-0 z-20 shadow-2xs">
-        {/* Main Header Bar */}
-        <div className="px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
+        {/* Tier 1: Identity, Patient Context, Workflow Stepper & View Mode */}
+        <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between gap-3 min-h-[46px]">
           {/* Left Metadata & Identity */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             <Link
               href="/consultations"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100/90 hover:bg-slate-200/80 transition-colors border border-slate-200/80 shrink-0"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100/90 hover:bg-slate-200/80 transition-colors border border-slate-200/80 shrink-0"
               title="Back to consultations directory"
             >
               <ChevronLeft className="w-4 h-4 text-slate-500" />
@@ -856,13 +962,13 @@ export default function ConsultationDetailPage({
 
             <span className="text-slate-300 hidden sm:inline">/</span>
 
-            <div className="flex items-center gap-2.5 min-w-0">
-              <h1 className="text-base sm:text-lg font-black font-heading text-slate-900 tracking-tight truncate m-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-sm sm:text-base font-black font-heading text-slate-900 tracking-tight truncate m-0">
                 Consultation Workspace
               </h1>
               
               {/* Status Badge */}
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-extrabold flex items-center gap-1.5 shrink-0 shadow-2xs ${
+              <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-extrabold flex items-center gap-1.5 shrink-0 shadow-2xs ${
                 currentStatus === 'finalized' ? 'bg-emerald-50 text-emerald-800 border border-emerald-300' : 
                 currentStatus === 'recording' ? 'bg-rose-50 text-rose-800 border border-rose-300 ring-2 ring-rose-200/50' : 
                 currentStatus === 'processing' ? 'bg-purple-50 text-purple-800 border border-purple-300' :
@@ -884,10 +990,10 @@ export default function ConsultationDetailPage({
                 <button
                   type="button"
                   onClick={() => setIsSafetyAlertDismissed(false)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition-all cursor-pointer shrink-0"
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition-all cursor-pointer shrink-0"
                   title="Click to review critical clinical safety warning"
                 >
-                  <AlertOctagon className="w-3.5 h-3.5 text-rose-100" />
+                  <AlertOctagon className="w-3 h-3 text-rose-100" />
                   <span>Safety Alert ({representation.safety_decision.flags.length})</span>
                 </button>
               )}
@@ -897,7 +1003,7 @@ export default function ConsultationDetailPage({
             <button
               type="button"
               onClick={handleCopyId}
-              className="group hidden md:inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 font-mono transition-colors bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 shrink-0 cursor-pointer"
+              className="group hidden md:inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 font-mono transition-colors bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200 shrink-0 cursor-pointer"
               title="Click to copy encounter ID"
             >
               <span>ENC #{consultation.id.slice(0, 8)}</span>
@@ -912,74 +1018,116 @@ export default function ConsultationDetailPage({
             {(patientProfile || consultation.patient_ref) ? (
               <Link
                 href={`/patients/${patientProfile?.id || consultation.patient_id}`}
-                className="inline-flex items-center gap-1.5 text-xs text-teal-800 bg-teal-50 hover:bg-teal-100 px-2.5 py-1 rounded-lg border border-teal-200 transition-colors shadow-2xs"
+                className="inline-flex items-center gap-1.5 text-xs text-teal-800 bg-teal-50 hover:bg-teal-100 px-2.5 py-0.5 rounded-lg border border-teal-200 transition-colors shadow-2xs shrink-0 max-w-[260px] truncate"
                 title={`Patient: ${patientProfile?.patient_ref || consultation.patient_ref}`}
               >
-                <User className="w-3 h-3 text-teal-600" />
-                <span className="font-bold">{patientProfile?.patient_ref || consultation.patient_ref}</span>
+                <User className="w-3 h-3 text-teal-600 shrink-0" />
+                <span className="font-bold truncate">{patientProfile?.patient_ref || consultation.patient_ref}</span>
                 {(patientProfile?.age_group || consultation.patient_demographics?.age_group) && (
-                  <span className="opacity-70">({patientProfile?.age_group || consultation.patient_demographics?.age_group})</span>
+                  <span className="opacity-70 shrink-0">({patientProfile?.age_group || consultation.patient_demographics?.age_group})</span>
                 )}
                 {(patientProfile?.biological_sex || consultation.patient_demographics?.biological_sex) && (
-                  <span className="opacity-70 capitalize">{patientProfile?.biological_sex || consultation.patient_demographics?.biological_sex}</span>
+                  <span className="opacity-70 capitalize shrink-0">{patientProfile?.biological_sex || consultation.patient_demographics?.biological_sex}</span>
                 )}
               </Link>
             ) : null}
           </div>
 
-          {/* Right Controls: View Mode Switcher, Consent, and Primary Action CTA */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          {/* Right Section: Lifecycle Stepper & View Mode Switcher */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Inline Workflow Stage Badge */}
+            <div className="hidden lg:flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200/80 text-xs shrink-0" title={`Stage ${currentStageIndex + 1} of 7: ${WORKFLOW_STAGES[currentStageIndex]?.desc}`}>
+              <span className="w-3.5 h-3.5 rounded-full bg-teal-600 text-white flex items-center justify-center text-[9px] font-bold">
+                {currentStageIndex + 1}
+              </span>
+              <span className="font-bold text-slate-800 text-[11px]">
+                {WORKFLOW_STAGES[currentStageIndex]?.label || currentStatus.replace('_', ' ')}
+              </span>
+              <div className="flex items-center gap-0.5 ml-1">
+                {WORKFLOW_STAGES.map((st, idx) => (
+                  <span
+                    key={st.id}
+                    className={`h-1.5 rounded-full transition-all ${
+                      st.id === currentStatus
+                        ? "w-3 bg-teal-600"
+                        : currentStageIndex > idx
+                        ? "w-1.5 bg-emerald-500"
+                        : "w-1.5 bg-slate-300"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Recording Audio Visualizer */}
+            {currentStatus === "recording" && (
+              <div className="px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 font-mono text-xs font-bold flex items-center gap-1.5 shadow-2xs shrink-0">
+                <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
+                <span>REC {formatElapsed(audio.elapsedMs)}</span>
+                <div className="flex items-end gap-0.5 ml-0.5 h-2.5">
+                  <span className="w-0.5 bg-rose-500 rounded-full" style={{ height: `${Math.max(20, Math.min(100, audio.audioLevel * 1.2))}%` }} />
+                  <span className="w-0.5 bg-rose-500 rounded-full" style={{ height: `${Math.max(15, Math.min(100, audio.audioLevel * 0.8))}%` }} />
+                  <span className="w-0.5 bg-rose-500 rounded-full" style={{ height: `${Math.max(25, Math.min(100, audio.audioLevel * 1.4))}%` }} />
+                </div>
+              </div>
+            )}
+
             {/* View Mode Switcher */}
-            <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200">
+            <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 shrink-0">
               <button
                 type="button"
                 onClick={() => setPaneMode("full-cockpit")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
                   paneMode === "full-cockpit"
                     ? "bg-white text-teal-700 shadow-2xs font-extrabold"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
                 title="Cockpit View (Full screen diagnostic cockpit)"
               >
-                <Maximize2 className="w-3.5 h-3.5 text-teal-600" />
+                <Maximize2 className="w-3 h-3 text-teal-600" />
                 <span>Cockpit</span>
               </button>
               <button
                 type="button"
                 onClick={() => setPaneMode("split")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
                   paneMode === "split"
                     ? "bg-white text-slate-900 shadow-2xs font-extrabold"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
                 title="Split View (Side-by-side Cockpit + Notes)"
               >
-                <Columns className="w-3.5 h-3.5" />
+                <Columns className="w-3 h-3" />
                 <span>Split</span>
               </button>
               <button
                 type="button"
                 onClick={() => setPaneMode("full-notes")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
                   paneMode === "full-notes"
                     ? "bg-white text-slate-900 shadow-2xs font-extrabold"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
                 title="Notes View (Full screen note editor)"
               >
-                <PanelRightOpen className="w-3.5 h-3.5" />
+                <PanelRightOpen className="w-3 h-3" />
                 <span>Notes</span>
               </button>
             </div>
+          </div>
+        </div>
 
-            {/* Informed Consent Status Badge */}
+        {/* Tier 2: Informed Consent & Primary Clinical Actions Toolbar */}
+        <div className="px-4 py-1.5 bg-slate-50/70 flex items-center justify-between gap-3 min-h-[42px]">
+          {/* Informed Consent Status Badge */}
+          <div className="shrink-0 flex items-center">
             {consent ? (
               <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-xl border border-emerald-200 text-xs font-bold shadow-2xs">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="hidden sm:inline">Consent Verified</span>
+                <span>Consent Granted</span>
                 {["created", "recording"].includes(currentStatus) && (
                   showRevokeConfirm ? (
-                    <span className="ml-1 inline-flex items-center gap-1.5 text-[10px] bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                    <span className="ml-1 inline-flex items-center gap-1 text-[10px] bg-rose-50 px-1 py-0.5 rounded border border-rose-200">
                       <span className="text-rose-800 font-bold">Revoke?</span>
                       <button
                         type="button"
@@ -1024,65 +1172,12 @@ export default function ConsultationDetailPage({
                 <span>Consent Required</span>
               </button>
             )}
+          </div>
 
-            {/* Primary Action Button (The ONLY action button, no duplicates!) */}
+          {/* Primary Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
             {renderWorkflowActions()}
           </div>
-        </div>
-
-        {/* Stepper Sub-Bar with Timeline & Audio Telemetry */}
-        <div className="px-4 sm:px-6 py-1.5 bg-slate-50/80 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100">
-          <div className="flex items-center gap-2.5 shrink-0">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
-              Workflow Stage:
-            </span>
-            <div className="flex items-center gap-1.5 bg-white px-2.5 py-0.5 rounded-lg border border-slate-200 shadow-2xs">
-              <span className="w-3.5 h-3.5 rounded-full bg-teal-600 text-white flex items-center justify-center text-[9px] font-bold">
-                {currentStageIndex + 1}
-              </span>
-              <span className="text-xs font-bold text-slate-800">
-                {WORKFLOW_STAGES[currentStageIndex]?.label || currentStatus.replace('_', ' ')}
-              </span>
-              <span className="text-[10px] text-slate-400 font-medium">
-                ({currentStageIndex + 1} of 7)
-              </span>
-            </div>
-
-            {/* Micro progress trail */}
-            <div className="flex items-center gap-1" role="progressbar" aria-valuenow={currentStageIndex + 1} aria-valuemin={1} aria-valuemax={7}>
-              {WORKFLOW_STAGES.map((st, idx) => {
-                const isCurrent = st.id === currentStatus;
-                const isPassed = currentStageIndex > idx;
-                return (
-                  <div
-                    key={st.id}
-                    title={`Stage ${idx + 1}: ${st.label} — ${st.desc}`}
-                    className={`h-1.5 rounded-full transition-all ${
-                      isCurrent
-                        ? "w-4 bg-teal-600 ring-1 ring-teal-300"
-                        : isPassed
-                        ? "w-2 bg-emerald-500"
-                        : "w-1.5 bg-slate-200"
-                    }`}
-                  />
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Recording Audio Visualizer */}
-          {currentStatus === "recording" && (
-            <div className="px-2.5 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 font-mono text-xs font-bold flex items-center gap-2 shadow-2xs">
-              <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
-              <span>REC {formatElapsed(audio.elapsedMs)}</span>
-              <div className="flex items-end gap-0.5 ml-1 h-3" title={`Mic volume: ${audio.audioLevel}%`}>
-                <span className="w-1 bg-emerald-500 rounded-full transition-all duration-75" style={{ height: `${Math.max(20, Math.min(100, audio.audioLevel * 1.2))}%` }} />
-                <span className="w-1 bg-emerald-500 rounded-full transition-all duration-75" style={{ height: `${Math.max(15, Math.min(100, audio.audioLevel * 0.8))}%` }} />
-                <span className="w-1 bg-emerald-500 rounded-full transition-all duration-75" style={{ height: `${Math.max(25, Math.min(100, audio.audioLevel * 1.4))}%` }} />
-                <span className="w-1 bg-emerald-500 rounded-full transition-all duration-75" style={{ height: `${Math.max(10, Math.min(100, audio.audioLevel * 1.0))}%` }} />
-              </div>
-            </div>
-          )}
         </div>
       </header>
 
@@ -1167,12 +1262,12 @@ export default function ConsultationDetailPage({
             onValueChange={setActiveTab} 
             className="flex flex-1 flex-col h-full min-h-0 overflow-hidden"
           >
-            {/* Tabs Navigation Bar */}
-            <div className="px-4 sm:px-6 py-2 border-b border-slate-200 bg-white shrink-0 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-              <Tabs.List className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+            {/* Tabs Navigation Bar (Height-aligned with Right Pane Header) */}
+            <div className="px-4 py-1.5 border-b border-slate-200 bg-white shrink-0 flex items-center justify-between gap-2.5 shadow-2xs h-12">
+              <Tabs.List className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200">
                 <Tabs.Trigger 
                   value="ai-assistant" 
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-600 hover:text-slate-900 outline-none cursor-pointer"
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-600 hover:text-slate-900 outline-none cursor-pointer"
                 >
                   <Activity className="w-3.5 h-3.5 text-teal-600" />
                   <span>Clinical Cockpit</span>
@@ -1183,7 +1278,7 @@ export default function ConsultationDetailPage({
 
                 <Tabs.Trigger 
                   value="intelligence" 
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-600 hover:text-slate-900 outline-none cursor-pointer"
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-600 hover:text-slate-900 outline-none cursor-pointer"
                 >
                   <Zap className="w-3.5 h-3.5 text-amber-500" />
                   <span>Differential Diagnosis</span>
@@ -1196,7 +1291,7 @@ export default function ConsultationDetailPage({
 
                 <Tabs.Trigger 
                   value="scratchpad" 
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-600 hover:text-slate-900 outline-none cursor-pointer"
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-600 hover:text-slate-900 outline-none cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5 text-slate-600" />
                   <span>Doctor Notes</span>
@@ -1207,7 +1302,7 @@ export default function ConsultationDetailPage({
 
                 <Tabs.Trigger 
                   value="transcript" 
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-600 hover:text-slate-900 outline-none cursor-pointer"
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-600 hover:text-slate-900 outline-none cursor-pointer"
                 >
                   <Radio className="w-3.5 h-3.5 text-indigo-500" />
                   <span>Transcript &amp; Audit</span>
@@ -1215,16 +1310,16 @@ export default function ConsultationDetailPage({
 
                 <Tabs.Trigger 
                   value="evidence" 
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-600 hover:text-slate-900 outline-none cursor-pointer"
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs text-slate-600 hover:text-slate-900 outline-none cursor-pointer"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Evidence &amp; Citations</span>
                 </Tabs.Trigger>
               </Tabs.List>
 
-              <div className="hidden lg:flex items-center gap-3 text-xs text-slate-500 font-mono">
+              <div className="hidden lg:flex items-center gap-2 text-xs text-slate-500 font-mono shrink-0">
                 {activeTab === "scratchpad" && (
-                  <span className="text-[11px] text-slate-600 font-medium bg-slate-100 px-2.5 py-1 rounded-lg">
+                  <span className="text-[11px] text-slate-600 font-medium bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
                     {scratchpadStats.words} words · {scratchpadStats.chars} chars
                   </span>
                 )}
@@ -1457,6 +1552,7 @@ export default function ConsultationDetailPage({
               {/* TAB 2: Full Differential Diagnosis Decision Studio */}
               <Tabs.Content value="intelligence" className="space-y-6 outline-none">
                 <DifferentialDiagnosis 
+                  key={consultation.id}
                   consultationId={consultation.id} 
                   trigger={consultation.findings?.length || consultation.status}
                   initialQuery={consultation.input_text || inputText}
@@ -1754,6 +1850,189 @@ export default function ConsultationDetailPage({
                   </Button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* ── End Consultation Confirmation Modal ─────────────────────────────────── */}
+      <AnimatePresence>
+        {showEndModal && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-2xl p-6 space-y-4 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-rose-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 m-0">End Consultation</h3>
+                  <p className="text-xs text-slate-500 font-medium">Finalize and conclude active clinical encounter</p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1.5">
+                <div className="flex justify-between font-semibold">
+                  <span>Encounter ID:</span>
+                  <span className="font-mono text-slate-900">{consultation.id.slice(0, 8)}...</span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Current Status:</span>
+                  <span className="capitalize text-teal-700 font-bold">{currentStatus.replace('_', ' ')}</span>
+                </div>
+                <p className="text-slate-500 text-[11px] pt-1 border-t border-slate-200 mt-1">
+                  Ending this consultation will seal the SOAP+ note and mark the encounter as completed.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEndModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEndConsultation}
+                  disabled={actionLoading}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-rose-100" />
+                  <span>Yes, End Consultation</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Ask in Clinical Hub Direct Share Modal ─────────────────────────────── */}
+      <AnimatePresence>
+        {showShareModal && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl p-6 space-y-4 text-left max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 border border-teal-200 flex items-center justify-center">
+                    <Share2 className="w-5 h-5 text-teal-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 m-0">Ask in Clinical Hub</h3>
+                    <p className="text-xs text-slate-500 font-medium">Share case directly with verified physician network</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowShareModal(false)}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* HIPAA Safe Harbor Notice */}
+              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-2.5 text-xs text-emerald-800 font-medium">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Automated HIPAA Safe Harbor Scrub: Names, MRNs, and dates will be automatically redacted before sharing.</span>
+              </div>
+
+              {/* Consultation Context Summary */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Clinical Case Presentation</span>
+                <p className="text-xs text-slate-800 line-clamp-3 italic">
+                  "{consultation.input_text || (representation?.symptoms?.map(s => s.value).join(", ")) || 'Active consultation clinical findings & differential telemetry.'}"
+                </p>
+              </div>
+
+              {/* Question to Colleagues */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-800">
+                  Question / Clinical Dilemma for Peers:
+                </label>
+                <textarea
+                  value={shareQueryText}
+                  onChange={(e) => setShareQueryText(e.target.value)}
+                  placeholder="e.g. Colleagues, seeking guidance on potential atypical etiologies or recommended next-line confirmatory tests..."
+                  rows={3}
+                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none resize-none leading-relaxed text-slate-900 bg-white"
+                />
+              </div>
+
+              {/* Category & Urgency Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Category:</label>
+                  <select
+                    value={shareCategory}
+                    onChange={(e) => setShareCategory(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:border-teal-500 font-semibold cursor-pointer"
+                  >
+                    <option value="dilemma">Clinical Dilemma</option>
+                    <option value="interesting_case">Interesting Finding</option>
+                    <option value="outbreak_alert">Outbreak Alert</option>
+                    <option value="query">Diagnostic Query</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Consult Urgency:</label>
+                  <select
+                    value={shareUrgency}
+                    onChange={(e) => setShareUrgency(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:border-teal-500 font-semibold cursor-pointer"
+                  >
+                    <option value="routine">Routine</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High Priority</option>
+                    <option value="critical">Critical / Emergency</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Specialty Tags */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Specialty Hashtags:</label>
+                <input
+                  type="text"
+                  value={shareTagsText}
+                  onChange={(e) => setShareTagsText(e.target.value)}
+                  placeholder="#Cardiology #CriticalCare #InfectiousDisease"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:border-teal-500 font-medium"
+                />
+              </div>
+
+              {/* Footer CTA */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowShareModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareToHub}
+                  disabled={isSharingToHub}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                >
+                  {isSharingToHub ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Share2 className="w-3.5 h-3.5 text-teal-100" />
+                  )}
+                  <span>Post Case to Clinical Hub</span>
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

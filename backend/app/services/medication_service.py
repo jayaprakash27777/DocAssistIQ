@@ -18,6 +18,8 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
+_MEDICATION_CACHE: dict = {}
+
 
 class AwaitableMedicationResponse(MedicationResponse):
     """MedicationResponse that functions immediately as a response and can be awaited."""
@@ -1349,6 +1351,52 @@ def _get_offline_medications(disease_name: str) -> List[MedicationSuggestion]:
     except Exception as e:
         log.debug("medication_clinical_profile_lookup_failed", error=str(e))
 
+    # 2b. Master Disease Catalog Offline Warehouse (20,397 conditions)
+    try:
+        from app.services.master_disease_catalog import master_disease_catalog
+        entry = master_disease_catalog.get_disease(disease_name)
+        if entry and entry.get("recommended_medications"):
+            rec_meds = entry["recommended_medications"]
+            parsed_suggs: List[MedicationSuggestion] = []
+            import re
+            for m_str in rec_meds:
+                m_match = re.match(r"^([^:(]+)", m_str)
+                generic = m_match.group(1).strip() if m_match else m_str[:40]
+                route = "Oral / IV"
+                lower_m = m_str.lower()
+                if "inhaled" in lower_m or "inhalation" in lower_m or "puff" in lower_m:
+                    route = "Inhalation"
+                elif "subcutaneous" in lower_m or "sc " in lower_m:
+                    route = "Subcutaneous"
+                elif "topical" in lower_m:
+                    route = "Topical"
+                elif "iv" in lower_m or "infusion" in lower_m:
+                    route = "Intravenous"
+                elif "po" in lower_m or "oral" in lower_m:
+                    route = "Oral"
+
+                parsed_suggs.append(MedicationSuggestion(
+                    generic_name=generic,
+                    indication=f"Guideline-directed pharmacotherapy for {disease_name}",
+                    formulation="Oral / Parenteral as indicated",
+                    route=route,
+                    standard_reference_dosing=m_str,
+                    contraindications=["Hypersensitivity to active ingredient or drug-class formulation excipients"],
+                    interactions=["Review patient current medication profile for drug-drug interactions"],
+                    allergy_considerations="Screen for drug-class and cross-reactive allergies before prescribing",
+                    renal_considerations="Dose titration may be required based on baseline renal function",
+                    hepatic_considerations="Monitor liver function if receiving hepatically cleared agents",
+                    pregnancy_lactation_considerations="Verify pregnancy safety category and clinical risk-benefit",
+                    age_considerations="Adjust dose as per pediatric or geriatric clinical guidelines",
+                    monitoring_reference_information="Clinical resolution of symptoms, vital signs, and organ function",
+                    source_evidence=f"Master Disease Catalog (ICD-10: {entry.get('icd10', 'N/A')}) / Clinical Practice Guidelines",
+                    safety_decision=None,
+                ))
+            if parsed_suggs:
+                return parsed_suggs
+    except Exception as e:
+        log.debug("medication_master_catalog_lookup_failed", error=str(e))
+
     # 3. Substring & high-specificity keyword match in MEDICATION_PANELS
     _STOP_WORDS = {"acute", "chronic", "syndrome", "disease", "disorder", "severe", "fever", "crisis", "shock", "type", "with", "from", "left", "right"}
     for key, suggestions in MEDICATION_PANELS.items():
@@ -1453,84 +1501,35 @@ class MedicationProvider:
             )
 
     async def _get_medications_async(self, db: AsyncSession, disease_name: str) -> MedicationResponse:
-        offline_fallback = _get_offline_medications(disease_name)
-        
-        try:
-            import asyncio
-            rag_context = ""
-            medicine_context = ""
-            if db is not None:
-                try:
-                    rag_context = await asyncio.wait_for(retrieve_medical_context(db, f"{disease_name} treatments", top_k=3), timeout=8.0)
-                    medicine_context = await asyncio.wait_for(retrieve_medicine_context(db, f"{disease_name} indications", top_k=5), timeout=8.0)
-                except Exception:
-                    pass
-            
-            system_prompt = f"""You are an Expert Clinical Pharmacologist AI.
-Your task is to recommend 2 to 4 safe, standard-of-care medications for the disease: '{disease_name}'.
-You MUST ground your response in the retrieved FDA medicine data and general evidence. Do not hallucinate dosing. 
-If standard dosing varies, state typical ranges and explicitly mention 'Requires clinical correlation'.
+        cache_key = (disease_name or "").lower().strip()
+        if not cache_key:
+            return MedicationResponse(disease=disease_name or "", suggestions=[], ddi_warnings=[])
 
-## Retrieved Medical Evidence Context:
-{rag_context}
+        if cache_key in _MEDICATION_CACHE:
+            return _MEDICATION_CACHE[cache_key]
 
-## Retrieved FDA Medicine Context:
-{medicine_context}
+        offline_suggs = _get_offline_medications(disease_name)
 
-## Output Requirements
-Return ONLY valid JSON matching this exact schema:
-{{
-  "medications": [
-    {{
-      "generic_name": "string (e.g., Albuterol)",
-      "indication": "string",
-      "formulation": "string",
-      "route": "string",
-      "standard_reference_dosing": "string",
-      "contraindications": ["string"],
-      "interactions": ["string"],
-      "allergy_considerations": "string",
-      "renal_considerations": "string",
-      "hepatic_considerations": "string",
-      "pregnancy_lactation_considerations": "string",
-      "age_considerations": "string",
-      "monitoring_reference_information": "string",
-      "source_evidence": "string (put 'FDA Label' here if found in context, else 'Standard Knowledge')"
-    }}
-  ]
-}}"""
-            user_prompt = "Generate medication suggestions based on the context. Return ONLY the JSON."
-            llm_task = llm_service.generate_json(user_prompt, system=system_prompt)
-            data = await asyncio.wait_for(llm_task, timeout=90.0)  # Extended from 3.5s — LLM needs 20-90s
-            suggestions = []
-            for item in data.get("medications", []):
-                suggestions.append(MedicationSuggestion(**item, safety_decision=None))  # type: ignore
-            if not suggestions:
-                raise ValueError("No medications generated in JSON")
-                
-            # LIVE NIH DDI ENGINE
-            rxcuis = []
-            for s in suggestions:
-                rxcui = await get_rxcui(s.generic_name)
-                if rxcui:
-                    rxcuis.append(rxcui)
-            
-            ddi_warnings = []
-            if len(rxcuis) >= 2:
-                ddi_warnings = await check_interactions(rxcuis)
+        # Local interaction checks on suggested medications
+        ddi_warnings = []
+        gen_names = [s.generic_name.lower() for s in offline_suggs]
+        if any("aspirin" in g or "nsaid" in g for g in gen_names) and any("warfarin" in g or "heparin" in g or "anticoagulant" in g for g in gen_names):
+            ddi_warnings.append("Caution: Concomitant antiplatelet and anticoagulant therapy increases bleeding risk. Monitor coagulation parameters.")
+        if any("paracetamol" in g or "acetaminophen" in g for g in gen_names) and any("nsaid" in g or "ibuprofen" in g for g in gen_names):
+            ddi_warnings.append("Note: Multi-agent antipyretic/analgesic regimen; avoid overlapping hepatotoxic or nephrotoxic maximum doses.")
 
-            return MedicationResponse(
-                disease=disease_name, 
-                suggestions=suggestions, 
-                ddi_warnings=ddi_warnings
-            )
-        except Exception as e:
-            log.debug("llm_medication_fallback_used", error=str(e), disease=disease_name)
-            return MedicationResponse(
-                disease=disease_name,
-                suggestions=offline_fallback,
-                ddi_warnings=[],
-            )
+        response = MedicationResponse(
+            disease=disease_name,
+            suggestions=offline_suggs,
+            ddi_warnings=ddi_warnings,
+        )
+
+        if len(_MEDICATION_CACHE) > 500:
+            _MEDICATION_CACHE.clear()
+        _MEDICATION_CACHE[cache_key] = response
+
+        return response
+
 
 
 medication_provider = MedicationProvider()

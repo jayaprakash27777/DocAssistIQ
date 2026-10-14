@@ -33,8 +33,8 @@ async def fetch_ecdc_surveillance(country_keywords: List[str]) -> str:
         import httpx
         async with httpx.AsyncClient(timeout=3.0) as client:
             r = await client.get(
-                "https://www.ecdc.europa.eu/en/publications-data/rss",
-                headers={"Accept": "application/rss+xml, application/xml, text/xml"},
+                "https://www.ecdc.europa.eu/en/taxonomy/term/1295/feed",
+                headers={"Accept": "application/rss+xml, application/xml, text/xml", "User-Agent": "DocAssistIQ-Medical/1.0"},
                 follow_redirects=True,
             )
             if r.status_code != 200:

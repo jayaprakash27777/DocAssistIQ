@@ -502,6 +502,16 @@ Return ONLY valid JSON matching this exact schema:
             "bone pain": "SYMPTOM", "severe bone pain": "SYMPTOM",
             "leg pain": "SYMPTOM", "arm pain": "SYMPTOM",
             "muscle rigidity": "SYMPTOM", "tremor": "SYMPTOM",
+            "loss of coordination": "SYMPTOM", "progressive loss of coordination": "SYMPTOM",
+            "ataxia": "SYMPTOM", "gait ataxia": "SYMPTOM", "problems with balance": "SYMPTOM",
+            "loss of balance": "SYMPTOM", "balance problems": "SYMPTOM", "difficulty walking": "SYMPTOM",
+            "involuntary movements": "SYMPTOM", "chorea": "SYMPTOM", "dystonia": "SYMPTOM",
+            "speech may become difficult": "SYMPTOM", "difficulty speaking": "SYMPTOM",
+            "speech difficulty": "SYMPTOM", "dysarthria": "SYMPTOM", "slurred speech": "SYMPTOM",
+            "problems with swallowing": "SYMPTOM", "swallowing problems": "SYMPTOM",
+            "difficulty swallowing": "SYMPTOM", "dysphagia": "SYMPTOM",
+            "problems with vision": "SYMPTOM", "vision problems": "SYMPTOM", "visual disturbances": "SYMPTOM",
+            "nystagmus": "SYMPTOM", "abnormalities in the nervous system": "SYMPTOM",
 
             # ---- SKIN / DERMATOLOGY ----
             "rash": "SYMPTOM", "skin rash": "SYMPTOM", "skin eruption": "SYMPTOM",
@@ -710,7 +720,7 @@ Return ONLY valid JSON matching this exact schema:
 
         found_countries = set()
         for country_lower, country_display in travel_countries:
-            if country_lower in text_lower and country_display not in found_countries:
+            if re.search(r"\b" + re.escape(country_lower) + r"\b", text_lower) and country_display not in found_countries:
                 found_countries.add(country_display)
                 canon, mapping_src, mapping_conf = normalizer.normalize(country_display)
                 findings.append({

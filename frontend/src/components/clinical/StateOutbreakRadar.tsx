@@ -5,9 +5,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Globe, ShieldAlert, AlertTriangle, Search, Filter, RefreshCw,
   FlaskConical, Stethoscope, MapPin, Building2,
-  ArrowRight, ShieldCheck, CheckCircle2
+  ArrowRight, ShieldCheck, CheckCircle2, Radio, Zap, Wifi, BellRing, Sparkles
 } from "lucide-react";
-import { getStateOutbreaks, type StateOutbreakResponse, type OutbreakAlertItem } from "@/lib/api";
+import {
+  getStateOutbreaks,
+  rescanLiveFeeds,
+  getStoredToken,
+  type StateOutbreakResponse,
+  type OutbreakAlertItem
+} from "@/lib/api";
+import { getSharedRealtimeClient } from "@/lib/ws";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 
@@ -59,44 +66,191 @@ export default function StateOutbreakRadar({
   const router = useRouter();
   const [data, setData] = useState<StateOutbreakResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedState, setSelectedState] = useState("All States & Union Territories");
   const [selectedCountry, setSelectedCountry] = useState("All Countries & Regions");
   const [selectedAlertLevel, setSelectedAlertLevel] = useState<"ALL" | "CRITICAL" | "HIGH" | "MONITORING">("ALL");
   const [activeTab, setActiveTab] = useState<"all" | "india" | "global">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [mounted, setMounted] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
+  const [rescanning, setRescanning] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fetchOutbreaks = useCallback(async (isRefresh = false) => {
     if (isRefresh) setLoading(true);
+    setError(null);
 
-    const res = await getStateOutbreaks({
-      refresh: isRefresh,
-    });
+    try {
+      const res = await getStateOutbreaks({
+        refresh: isRefresh,
+      });
 
-    if (res.ok) {
-      setData(res.data);
-      setLastRefreshed(new Date());
-      if (isRefresh) {
-        toast.success("Real-time live feeds synchronized with CDC, ECDC, MoHFW & Disease.sh!", {
-          icon: "🌐",
-        });
+      if (res.ok && res.data) {
+        setData(res.data);
+        setError(null);
+        setLastRefreshed(new Date());
+        if (isRefresh) {
+          toast.success("Real-time live feeds synchronized with CDC, ECDC, MoHFW & Disease.sh!", {
+            icon: "🌐",
+          });
+        }
+      } else {
+        const msg = (res as { error?: { message?: string } })?.error?.message || "Could not fetch state outbreak surveillance data.";
+        setError(msg);
+        toast.error(msg);
       }
-    } else {
-      toast.error("Could not fetch state outbreak surveillance data.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error connecting to surveillance services.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
+  // Initial fetch on mount
   useEffect(() => {
     fetchOutbreaks(false);
   }, [fetchOutbreaks]);
 
+  // Real-time WebSocket connection to receive 0ms instant outbreak updates
+  useEffect(() => {
+    let unsub: (() => void) | null = null;
+    let unsubState: (() => void) | null = null;
+    let pollInterval: NodeJS.Timeout | null = null;
+
+    try {
+      const token =
+        getStoredToken() ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("access_token") || localStorage.getItem("token")
+          : null) ||
+        "";
+      const ws = getSharedRealtimeClient(token);
+      unsubState = ws.subscribeState((s) => {
+        setWsConnected(s === "LIVE");
+      });
+
+      unsub = ws.subscribeMessages((type: string, payload: any) => {
+        if (
+          type === "outbreak_alert" ||
+          type === "dynamic_disease_discovered" ||
+          type === "surveillance_feed_updated"
+        ) {
+          if (payload?.alert && payload.alert.id) {
+            const newAlert: OutbreakAlertItem = {
+              ...payload.alert,
+              is_dynamic_live: true,
+            };
+
+            setData((prev) => {
+              if (!prev) return prev;
+              const isIndia = newAlert.region_type === "india_state";
+              const existingInd = prev.india_state_alerts || [];
+              const existingGlob = prev.global_alerts || [];
+
+              if (
+                existingInd.some((a) => a.id === newAlert.id) ||
+                existingGlob.some((a) => a.id === newAlert.id)
+              ) {
+                return prev;
+              }
+
+              const updatedInd = isIndia ? [newAlert, ...existingInd] : existingInd;
+              const updatedGlob = !isIndia ? [newAlert, ...existingGlob] : existingGlob;
+
+              return {
+                ...prev,
+                total_active_alerts: updatedInd.length + updatedGlob.length,
+                india_state_alerts: updatedInd,
+                global_alerts: updatedGlob,
+              };
+            });
+
+            toast.custom(
+              (t) => (
+                <div
+                  className={`${
+                    t.visible ? "animate-enter" : "animate-leave"
+                  } max-w-md w-full bg-slate-900 text-white shadow-2xl rounded-2xl pointer-events-auto flex ring-2 ring-rose-500/80 p-4 items-start gap-3`}
+                >
+                  <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center flex-shrink-0 text-lg">
+                    🚨
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white px-2 py-0.5 rounded-full">
+                        Live Outbreak Trigger
+                      </span>
+                      <span className="text-[11px] text-slate-400">Just now</span>
+                    </div>
+                    <p className="text-sm font-black text-white mt-1">
+                      {newAlert.disease_name}
+                    </p>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      📍 {newAlert.state_or_country} · Alert: {newAlert.alert_level}
+                    </p>
+                    <p className="text-[11px] text-teal-400 mt-1 font-medium">
+                      ✓ Radar automatically updated with 0ms delay
+                    </p>
+                  </div>
+                </div>
+              ),
+              { duration: 8000 }
+            );
+          } else {
+            // Background re-sync to get official enriched feeds
+            fetchOutbreaks(false);
+          }
+          setLastRefreshed(new Date());
+        }
+      });
+    } catch (e) {
+      console.warn("WebSocket listener initialization error:", e);
+    }
+
+    // Auto-sync polling every 30 seconds so live upstream changes from CDC/ECDC/MoHFW update automatically
+    pollInterval = setInterval(() => {
+      fetchOutbreaks(false);
+    }, 30000);
+
+    return () => {
+      if (unsub) unsub();
+      if (unsubState) unsubState();
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [fetchOutbreaks]);
+
+  const handleRescanFeeds = async () => {
+    setRescanning(true);
+    try {
+      const res = await rescanLiveFeeds();
+      if (res.ok) {
+        toast.success("Autonomous scan executed: all live public health feeds synced!", {
+          icon: "📡",
+        });
+        fetchOutbreaks(false);
+      } else {
+        toast.error("Could not trigger live upstream rescan.");
+      }
+    } catch {
+      toast.error("Error connecting to live surveillance scanner.");
+    } finally {
+      setRescanning(false);
+    }
+  };
+
   // Extract distinct countries from live global alerts
   const globalCountries = useMemo(() => {
-    if (!data?.global_alerts) return ["All Countries & Regions"];
+    if (!data?.global_alerts || !Array.isArray(data.global_alerts)) return ["All Countries & Regions"];
     const countrySet = new Set<string>();
     for (const a of data.global_alerts) {
-      if (a.state_or_country && a.state_or_country !== "Global Notice") {
+      if (a?.state_or_country && a.state_or_country !== "Global Notice") {
         countrySet.add(a.state_or_country);
       }
     }
@@ -106,34 +260,36 @@ export default function StateOutbreakRadar({
   // Instantaneous zero-latency filtered alerts based on tab, region, severity, and search
   const displayedAlerts = useMemo(() => {
     if (!data) return [];
+    const indAlerts = Array.isArray(data.india_state_alerts) ? data.india_state_alerts : [];
+    const globAlerts = Array.isArray(data.global_alerts) ? data.global_alerts : [];
     let list: OutbreakAlertItem[] = [];
 
     if (activeTab === "india") {
-      list = data.india_state_alerts;
+      list = indAlerts;
       if (selectedState !== "All States & Union Territories") {
         list = list.filter((a) =>
-          a.state_or_country.toLowerCase().includes(selectedState.toLowerCase())
+          a.state_or_country?.toLowerCase().includes(selectedState.toLowerCase())
         );
       }
     } else if (activeTab === "global") {
-      list = data.global_alerts;
+      list = globAlerts;
       if (selectedCountry !== "All Countries & Regions") {
         list = list.filter((a) =>
-          a.state_or_country.toLowerCase().includes(selectedCountry.toLowerCase())
+          a.state_or_country?.toLowerCase().includes(selectedCountry.toLowerCase())
         );
       }
     } else {
       // "all" tab
-      let ind = data.india_state_alerts;
+      let ind = indAlerts;
       if (selectedState !== "All States & Union Territories") {
         ind = ind.filter((a) =>
-          a.state_or_country.toLowerCase().includes(selectedState.toLowerCase())
+          a.state_or_country?.toLowerCase().includes(selectedState.toLowerCase())
         );
       }
-      let glob = data.global_alerts;
+      let glob = globAlerts;
       if (selectedCountry !== "All Countries & Regions") {
         glob = glob.filter((a) =>
-          a.state_or_country.toLowerCase().includes(selectedCountry.toLowerCase())
+          a.state_or_country?.toLowerCase().includes(selectedCountry.toLowerCase())
         );
       }
       list = [...ind, ...glob];
@@ -147,32 +303,48 @@ export default function StateOutbreakRadar({
       const q = searchQuery.toLowerCase();
       list = list.filter(
         (a) =>
-          a.disease_name.toLowerCase().includes(q) ||
-          a.pathogen.toLowerCase().includes(q) ||
-          a.state_or_country.toLowerCase().includes(q) ||
-          (a.districts && a.districts.some((d) => d.toLowerCase().includes(q))) ||
-          (a.cardinal_symptoms && a.cardinal_symptoms.some((s) => s.toLowerCase().includes(q))) ||
-          (a.hallmark_triggers && a.hallmark_triggers.some((t) => t.toLowerCase().includes(q))) ||
-          (a.reporting_agency && a.reporting_agency.toLowerCase().includes(q))
+          a.disease_name?.toLowerCase().includes(q) ||
+          a.pathogen?.toLowerCase().includes(q) ||
+          a.state_or_country?.toLowerCase().includes(q) ||
+          (Array.isArray(a.districts) && a.districts.some((d) => d?.toLowerCase().includes(q))) ||
+          (Array.isArray(a.cardinal_symptoms) && a.cardinal_symptoms.some((s) => s?.toLowerCase().includes(q))) ||
+          (Array.isArray(a.hallmark_triggers) && a.hallmark_triggers.some((t) => t?.toLowerCase().includes(q))) ||
+          a.reporting_agency?.toLowerCase().includes(q)
       );
     }
 
     return list;
   }, [data, activeTab, selectedAlertLevel, selectedState, selectedCountry, searchQuery]);
 
-  const handleSimulateOutbreak = (outbreak: OutbreakAlertItem) => {
-    const simulationNote = `Patient presenting from ${outbreak.state_or_country} (${outbreak.districts?.slice(0, 2).join(", ") || "endemic area"}) with ${outbreak.cardinal_symptoms?.join(", ")}. Suspected exposure to ${outbreak.vector_reservoir}. Hallmark presentation: ${outbreak.hallmark_triggers?.slice(0, 3).join(", ")}.`;
+  const handleTestInDiagnosis = (outbreak: OutbreakAlertItem) => {
+    const districtsStr = Array.isArray(outbreak.districts) && outbreak.districts.length > 0
+      ? outbreak.districts.slice(0, 2).join(", ")
+      : "endemic area";
+    const symptomsStr = Array.isArray(outbreak.cardinal_symptoms)
+      ? outbreak.cardinal_symptoms.join(", ")
+      : "";
+    const triggersStr = Array.isArray(outbreak.hallmark_triggers)
+      ? outbreak.hallmark_triggers.slice(0, 3).join(", ")
+      : "";
+
+    const presentationNote = `Patient presenting from ${outbreak.state_or_country || "endemic focus"} (${districtsStr}) with ${symptomsStr}. Suspected exposure to ${outbreak.vector_reservoir || "known vector"}. Hallmark presentation: ${triggersStr}.`;
+
+    sessionStorage.setItem("outbreak_simulation_query", presentationNote);
+    sessionStorage.setItem("outbreak_target_disease", outbreak.disease_name);
 
     if (onSelectOutbreakForDiagnosis) {
-      onSelectOutbreakForDiagnosis(simulationNote, outbreak.disease_name);
-      toast.success(`Loaded ${outbreak.disease_name} symptoms into Differential Diagnosis!`, {
-        icon: "⚡",
-      });
+      onSelectOutbreakForDiagnosis(presentationNote, outbreak.disease_name);
     } else {
-      // Store in session storage and navigate to consultation creation
-      sessionStorage.setItem("outbreak_simulation_query", simulationNote);
-      sessionStorage.setItem("outbreak_target_disease", outbreak.disease_name);
       router.push(`/consultations/new?outbreak=${encodeURIComponent(outbreak.disease_name)}`);
+    }
+  };
+
+  const handleTabChange = (tab: "all" | "india" | "global") => {
+    setActiveTab(tab);
+    if (tab === "india") {
+      setSelectedCountry("All Countries & Regions");
+    } else if (tab === "global") {
+      setSelectedState("All States & Union Territories");
     }
   };
 
@@ -199,20 +371,54 @@ export default function StateOutbreakRadar({
               <p className="text-xs text-slate-600 font-medium mt-0.5">
                 Real-time outbreak tracking across all 28 Indian States, 8 Union Territories &amp; Global WHO/CDC feeds.
               </p>
+              {/* Live Connection & Auto-Update Status Bar */}
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                {wsConnected ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span>WebSocket Live · 0ms Auto-Push</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                    <span>Live Feeds Active · Auto-Syncing</span>
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200">
+                  <Radio className="w-3 h-3 text-teal-600 animate-pulse" />
+                  <span>US CDC · ECDC · WHO · MoHFW (Zero Mock Data)</span>
+                </span>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  Auto-sync active (30s background sweep)
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start md:self-auto">
+          <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+            <button
+              onClick={handleRescanFeeds}
+              disabled={rescanning || loading}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-xs transition-all cursor-pointer disabled:opacity-60"
+              title="Trigger an immediate live sweep across WHO, CDC, ECDC, MoHFW and Disease.sh upstream APIs"
+            >
+              <Radio className={`w-3.5 h-3.5 ${rescanning ? "animate-spin text-teal-200" : "animate-pulse text-teal-200"}`} />
+              <span>{rescanning ? "Sweeping Upstream Feeds..." : "Sweep Upstream Feeds"}</span>
+            </button>
+
             <button
               onClick={() => fetchOutbreaks(true)}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 shadow-2xs transition-colors disabled:opacity-60"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 shadow-2xs transition-colors disabled:opacity-60 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-teal-600 ${loading ? "animate-spin" : ""}`} />
               <span>Refresh Feeds</span>
             </button>
-            <span className="text-[11px] text-slate-500 font-medium">
-              Refreshed: {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            <span className="text-[11px] text-slate-500 font-medium" suppressHydrationWarning>
+              Refreshed: {mounted ? lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--:--"}
             </span>
           </div>
         </div>
@@ -272,8 +478,8 @@ export default function StateOutbreakRadar({
           {/* Tab Selector */}
           <div className="flex items-center p-1 bg-slate-100 rounded-xl gap-1">
             <button
-              onClick={() => setActiveTab("all")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              onClick={() => handleTabChange("all")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "all"
                   ? "bg-white text-slate-900 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
@@ -282,24 +488,24 @@ export default function StateOutbreakRadar({
               All Outbreaks ({data?.total_active_alerts ?? 0})
             </button>
             <button
-              onClick={() => setActiveTab("india")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              onClick={() => handleTabChange("india")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "india"
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              🇮🇳 India States ({data?.india_state_alerts.length ?? 0})
+              🇮🇳 India States ({data?.india_state_alerts?.length ?? 0})
             </button>
             <button
-              onClick={() => setActiveTab("global")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              onClick={() => handleTabChange("global")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "global"
                   ? "bg-purple-600 text-white shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              🌍 Global Feeds ({data?.global_alerts.length ?? 0})
+              🌍 Global Feeds ({data?.global_alerts?.length ?? 0})
             </button>
           </div>
 
@@ -310,7 +516,7 @@ export default function StateOutbreakRadar({
               <button
                 key={lvl}
                 onClick={() => setSelectedAlertLevel(lvl)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-all cursor-pointer ${
                   selectedAlertLevel === lvl
                     ? lvl === "CRITICAL"
                       ? "bg-rose-600 text-white shadow-xs"
@@ -347,7 +553,7 @@ export default function StateOutbreakRadar({
                   ))}
                 </select>
               </>
-            ) : (
+            ) : activeTab === "india" ? (
               <>
                 <MapPin className="w-4 h-4 text-indigo-500 absolute left-3 top-2.5 pointer-events-none" />
                 <select
@@ -360,6 +566,43 @@ export default function StateOutbreakRadar({
                       {st}
                     </option>
                   ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <MapPin className="w-4 h-4 text-teal-600 absolute left-3 top-2.5 pointer-events-none" />
+                <select
+                  value={selectedState !== "All States & Union Territories" ? `in:${selectedState}` : (selectedCountry !== "All Countries & Regions" ? `gl:${selectedCountry}` : "all")}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "all") {
+                      setSelectedState("All States & Union Territories");
+                      setSelectedCountry("All Countries & Regions");
+                    } else if (val.startsWith("in:")) {
+                      setSelectedState(val.replace("in:", ""));
+                      setSelectedCountry("All Countries & Regions");
+                    } else if (val.startsWith("gl:")) {
+                      setSelectedCountry(val.replace("gl:", ""));
+                      setSelectedState("All States & Union Territories");
+                    }
+                  }}
+                  className="w-full text-xs font-semibold pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 shadow-2xs appearance-none cursor-pointer"
+                >
+                  <option value="all">All States, UTs &amp; Countries</option>
+                  <optgroup label="🇮🇳 Indian States &amp; UTs">
+                    {ALL_INDIAN_STATES_UTS.slice(1).map((st) => (
+                      <option key={`in-${st}`} value={`in:${st}`}>
+                        {st}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🌍 Global Countries &amp; Regions">
+                    {globalCountries.slice(1).map((c) => (
+                      <option key={`gl-${c}`} value={`gl:${c}`}>
+                        {c}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </>
             )}
@@ -385,34 +628,41 @@ export default function StateOutbreakRadar({
           </span>
           {(activeTab === "global"
             ? ["Brazil", "Rwanda", "Uganda", "Colombia", "Democratic Republic of the Congo", "United States"]
-            : ["Kerala", "Maharashtra", "Delhi / NCR", "Gujarat", "Tamil Nadu", "West Bengal", "Uttar Pradesh"]
-          ).map((region) => (
-            <button
-              key={region}
-              onClick={() => {
-                if (activeTab === "global") {
-                  setSelectedCountry(region);
-                } else {
-                  setSelectedState(region);
-                }
-              }}
-              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all border ${
-                (activeTab === "global" ? selectedCountry === region : selectedState === region)
-                  ? "bg-indigo-50 text-indigo-700 border-indigo-300 shadow-2xs"
-                  : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
-              }`}
-            >
-              {region}
-            </button>
-          ))}
-          {((activeTab === "global" && selectedCountry !== "All Countries & Regions") ||
-            (activeTab !== "global" && selectedState !== "All States & Union Territories")) && (
+            : activeTab === "india"
+            ? ["Kerala", "Maharashtra", "Delhi / NCR", "Gujarat", "Tamil Nadu", "West Bengal", "Uttar Pradesh"]
+            : ["Kerala", "Maharashtra", "Gujarat", "Rwanda", "Brazil", "Democratic Republic of the Congo", "United States"]
+          ).map((region) => {
+            const isGlobChip = ["Brazil", "Rwanda", "Uganda", "Colombia", "Democratic Republic of the Congo", "United States"].includes(region);
+            const isSelected = isGlobChip ? selectedCountry === region : selectedState === region;
+            return (
+              <button
+                key={region}
+                onClick={() => {
+                  if (isGlobChip) {
+                    setSelectedCountry(region);
+                    if (activeTab === "all") setSelectedState("All States & Union Territories");
+                  } else {
+                    setSelectedState(region);
+                    if (activeTab === "all") setSelectedCountry("All Countries & Regions");
+                  }
+                }}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
+                  isSelected
+                    ? "bg-indigo-50 text-indigo-700 border-indigo-300 shadow-2xs"
+                    : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
+                }`}
+              >
+                {region}
+              </button>
+            );
+          })}
+          {(selectedCountry !== "All Countries & Regions" || selectedState !== "All States & Union Territories") && (
             <button
               onClick={() => {
                 setSelectedState("All States & Union Territories");
                 setSelectedCountry("All Countries & Regions");
               }}
-              className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline ml-1"
+              className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline ml-1 cursor-pointer"
             >
               Clear
             </button>
@@ -425,6 +675,20 @@ export default function StateOutbreakRadar({
         <div className="p-12 text-center bg-white rounded-3xl border border-slate-200">
           <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-xs font-bold text-slate-600">Connecting to IDSP, NCDC, WHO &amp; CDC live feeds…</p>
+        </div>
+      ) : error && !data ? (
+        <div className="p-8 text-center bg-rose-50/70 rounded-3xl border border-rose-200 text-slate-700 space-y-3">
+          <AlertTriangle className="w-10 h-10 text-rose-600 mx-auto" />
+          <h4 className="text-sm font-black text-rose-950">Surveillance Connectivity Notice</h4>
+          <p className="text-xs text-rose-800 max-w-md mx-auto">{error}</p>
+          <button
+            onClick={() => fetchOutbreaks(true)}
+            disabled={loading}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-xs transition-colors inline-flex items-center gap-2 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span>Retry Connection</span>
+          </button>
         </div>
       ) : displayedAlerts.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 text-slate-500">
@@ -441,37 +705,53 @@ export default function StateOutbreakRadar({
               setSearchQuery("");
               setActiveTab("all");
             }}
-            className="mt-3 text-xs font-bold text-indigo-600 underline"
+            className="mt-3 text-xs font-bold text-indigo-600 underline cursor-pointer"
           >
             Reset All Filters
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {displayedAlerts.map((outbreak) => (
+          {displayedAlerts.map((outbreak, idx) => (
             <motion.div
-              key={outbreak.id}
+              key={`${outbreak.id || "outbreak"}-${idx}`}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-5 rounded-3xl bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+              className={`p-5 rounded-3xl bg-white border transition-all flex flex-col justify-between ${
+                outbreak.is_dynamic_live
+                  ? "border-rose-400 ring-2 ring-rose-500/25 shadow-lg shadow-rose-500/5 bg-gradient-to-br from-white via-rose-50/20 to-white"
+                  : "border-slate-200/90 shadow-sm hover:shadow-md"
+              }`}
             >
               <div>
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                        outbreak.alert_level === "CRITICAL"
-                          ? "bg-rose-100 text-rose-700 border border-rose-300"
-                          : outbreak.alert_level === "HIGH"
-                          ? "bg-amber-100 text-amber-800 border border-amber-300"
-                          : "bg-sky-100 text-sky-700 border border-sky-300"
-                      }`}>
-                        {outbreak.alert_level} ALERT
-                      </span>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      {outbreak.is_dynamic_live ? (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-rose-600 text-white shadow-xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                          LIVE DETECTED
+                        </span>
+                      ) : (
+                        <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                          outbreak.alert_level === "CRITICAL"
+                            ? "bg-rose-100 text-rose-700 border border-rose-300"
+                            : outbreak.alert_level === "HIGH"
+                            ? "bg-amber-100 text-amber-800 border border-amber-300"
+                            : "bg-sky-100 text-sky-700 border border-sky-300"
+                        }`}>
+                          {outbreak.alert_level} ALERT
+                        </span>
+                      )}
                       <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                         {outbreak.region_type === "india_state" ? "🇮🇳 State Surveillance" : "🌍 Global Notice"}
                       </span>
+                      {outbreak.data_source && (
+                        <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+                          {outbreak.data_source}
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="text-base font-black text-slate-900 leading-tight">
@@ -488,7 +768,7 @@ export default function StateOutbreakRadar({
                       {outbreak.state_or_country}
                     </span>
                     {outbreak.reported_cases && (
-                      <span className="text-[10px] font-semibold text-slate-500 block mt-1 truncate" title={outbreak.reported_cases}>
+                      <span className="text-[10px] font-semibold text-slate-500 block mt-1 break-words line-clamp-2" title={outbreak.reported_cases}>
                         {outbreak.reported_cases}
                       </span>
                     )}
@@ -496,7 +776,7 @@ export default function StateOutbreakRadar({
                 </div>
 
                 {/* Hotspot Districts */}
-                {outbreak.districts && outbreak.districts.length > 0 && (
+                {Array.isArray(outbreak.districts) && outbreak.districts.length > 0 && (
                   <div className="mb-3 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
                     <span className="font-extrabold text-slate-600 uppercase text-[10px] tracking-wider block mb-1">
                       Hotspot Districts / Focus Areas:
@@ -512,43 +792,49 @@ export default function StateOutbreakRadar({
                 )}
 
                 {/* Cardinal Symptoms */}
-                <div className="mb-3">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">
-                    Cardinal Warning Symptoms:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {outbreak.cardinal_symptoms.map((sym, si) => (
-                      <span
-                        key={si}
-                        className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200/80 text-xs font-medium"
-                      >
-                        {sym}
-                      </span>
-                    ))}
+                {Array.isArray(outbreak.cardinal_symptoms) && outbreak.cardinal_symptoms.length > 0 && (
+                  <div className="mb-3">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">
+                      Cardinal Warning Symptoms:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {outbreak.cardinal_symptoms.map((sym, si) => (
+                        <span
+                          key={si}
+                          className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200/80 text-xs font-medium"
+                        >
+                          {sym}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Strict Directives */}
                 <div className="space-y-2 mb-3 text-xs">
-                  <div className="p-2.5 rounded-xl bg-rose-50/80 border border-rose-200 text-rose-900">
-                    <strong className="text-rose-700 font-extrabold">🚨 Isolation Directive:</strong>{" "}
-                    <span>{outbreak.isolation_protocol}</span>
-                  </div>
+                  {outbreak.isolation_protocol && (
+                    <div className="p-2.5 rounded-xl bg-rose-50/80 border border-rose-200 text-rose-900">
+                      <strong className="text-rose-700 font-extrabold">🚨 Isolation Directive:</strong>{" "}
+                      <span>{outbreak.isolation_protocol}</span>
+                    </div>
+                  )}
 
-                  <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-200 text-purple-900">
-                    <strong className="text-purple-700 font-extrabold flex items-center gap-1 mb-0.5">
-                      <FlaskConical className="w-3.5 h-3.5 text-purple-600" />
-                      Confirmatory Lab Protocol:
-                    </strong>
-                    <span>{outbreak.confirmatory_test}</span>
-                  </div>
+                  {outbreak.confirmatory_test && (
+                    <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-200 text-purple-900">
+                      <strong className="text-purple-700 font-extrabold flex items-center gap-1 mb-0.5">
+                        <FlaskConical className="w-3.5 h-3.5 text-purple-600" />
+                        Confirmatory Lab Protocol:
+                      </strong>
+                      <span>{outbreak.confirmatory_test}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Clinical Pearl */}
                 {outbreak.clinical_pearl && (
                   <div className="text-xs text-slate-600 italic bg-slate-50 p-2.5 rounded-xl border border-slate-200/60 mb-3">
                     <strong className="text-slate-800 not-italic font-bold">Clinical Pearl:</strong>{" "}
-                    {outbreak.clinical_pearl}
+                    {outbreak.clinical_pearl.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim()}
                   </div>
                 )}
               </div>
@@ -560,8 +846,8 @@ export default function StateOutbreakRadar({
                 </span>
 
                 <button
-                  onClick={() => handleSimulateOutbreak(outbreak)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs transition-colors flex items-center gap-1.5"
+                  onClick={() => handleTestInDiagnosis(outbreak)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <Stethoscope className="w-3.5 h-3.5" />
                   <span>Test in Differential Diagnosis</span>

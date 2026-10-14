@@ -83,6 +83,30 @@ TRANSITION_WORDS = [
 ]
 
 # ---------------------------------------------------------------------------
+# Precompiled Regex Constants for High-Performance Extraction (<2ms)
+# ---------------------------------------------------------------------------
+
+_TRAVEL_PREP_PATTERN = re.compile(
+    r"(?:travel(?:led|ed)?\s+to|trip\s+to|returned\s+from|arrived\s+from|visited|visiting|stayed\s+in|resident\s+of|lives\s+in|native\s+of|journey\s+to)\s+([A-Z][a-zA-Z\s]{2,25}?)(?:[.,;\n]|\s+(?:with|who|and|where|after|reporting|experiencing|for|on))"
+)
+
+_INCUBATION_PATTERNS = [
+    re.compile(r"(?:about|approximately|approx\.?|around)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)\s*(days?|weeks?)\s*(?:after|following|since)\s*(?:returning|return|arrival|travel|exposure|trip|stay)", re.I),
+    re.compile(r"(?:developed|onset of|started|began)\s*(?:an?\s+)?(?:abrupt|sudden|gradual|low-grade|high)?\s*(?:fever|illness|symptoms|pain)\s*(?:about|approximately|around)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)\s*(days?|weeks?)\s*(?:after|following|since)\s*(?:returning|return|arrival)", re.I),
+    re.compile(r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)\s*(days?|weeks?)\s*after\s*(?:returning|arrival)", re.I),
+    re.compile(r"within\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*days\s*of\s*(?:returning|return)", re.I),
+    re.compile(r"(?:returned|arrived|back)\s*(?:about|approximately|around)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)\s*(days?|weeks?)\s*ago", re.I),
+]
+
+_EXPOSURE_PATTERNS = [
+    (re.compile(r"\b(?:mosquito|mosquitoes|insect repellent|mosquito bites)\b", re.I), "mosquito exposure"),
+    (re.compile(r"\b(?:unpasteurized|raw milk|unfiltered water|uncertain food and water|street food)\b", re.I), "food and water exposure"),
+    (re.compile(r"\b(?:forest|forested|jungle|caving|bats|mine)\b", re.I), "forest / wildlife exposure"),
+    (re.compile(r"\b(?:rodent|rats|mice|excreta|barn)\b", re.I), "rodent exposure"),
+    (re.compile(r"\b(?:sexual|partner|close contact|household)\b", re.I), "secondary / contact exposure"),
+]
+
+# ---------------------------------------------------------------------------
 # Clinical Signs & Symptoms Dictionary for Sub-5ms Extraction
 # ---------------------------------------------------------------------------
 
@@ -623,6 +647,98 @@ CLINICAL_SIGNS_MAP: Dict[str, str] = {
     "periosteal tenderness": "periostosis",
     "excessive sweating of the hands and feet": "hyperhidrosis",
     "excessive sweating": "hyperhidrosis",
+
+    # Pediatric Growth, Genetic, Progeroid, and Metabolic Disorders
+    "poor growth": "poor growth",
+    "growth failure": "poor growth",
+    "failure to thrive": "failure to thrive",
+    "growth retardation": "poor growth",
+    "stunted growth": "poor growth",
+    "short stature": "short stature",
+    "difficulty gaining height": "poor growth",
+    "difficulty gaining weight and height": "poor growth",
+    "difficulty gaining weight": "low body weight",
+    "low body weight": "low body weight",
+    "underweight": "low body weight",
+    "very little body fat": "loss of body fat",
+    "little body fat": "loss of body fat",
+    "absence of body fat": "loss of body fat",
+    "absence of subcutaneous fat": "loss of body fat",
+    "loss of subcutaneous fat": "loss of body fat",
+    "subcutaneous fat loss": "loss of body fat",
+    "lipodystrophy": "loss of body fat",
+    "generalized lipodystrophy": "loss of body fat",
+    "thin skin": "thin skin",
+    "atrophic skin": "thin skin",
+    "parchment skin": "thin skin",
+    "dry wrinkled skin": "thin skin",
+    "sclerodermatous skin": "thin skin",
+    "hair loss": "hair loss",
+    "alopecia": "hair loss",
+    "loss of hair": "hair loss",
+    "small face": "small face",
+    "small facial bones": "small face",
+    "micrognathia": "small face",
+    "craniofacial disproportion": "small face",
+    "bird-like facies": "small face",
+    "beaked nose": "beaked nose",
+    "pinched nose": "beaked nose",
+    "stiffness in the joints": "joint stiffness",
+    "joint stiffness": "joint stiffness",
+    "joint contractures": "joint stiffness",
+    "stiff joints": "joint stiffness",
+    "reduced joint mobility": "joint stiffness",
+    "appears much older than their actual age": "progeroid appearance",
+    "appears much older than actual age": "progeroid appearance",
+    "appears older than actual age": "progeroid appearance",
+    "prematurely aged": "progeroid appearance",
+    "premature aging": "progeroid appearance",
+    "progeroid appearance": "progeroid appearance",
+    "aged appearance": "progeroid appearance",
+    "progeria": "progeroid appearance",
+    "normal intelligence": "normal intelligence",
+    "preserved intelligence": "normal intelligence",
+    "normal cognitive": "normal intelligence",
+    "prominent scalp veins": "prominent scalp veins",
+    "delayed bone age": "delayed bone age",
+    "cherubic facies": "cherubic facies",
+
+    # Pediatric & Neurogenetic Ataxia / Involuntary Movements
+    "progressive loss of coordination": "loss of coordination",
+    "loss of coordination": "loss of coordination",
+    "coordination loss": "loss of coordination",
+    "ataxia": "loss of coordination",
+    "gait ataxia": "loss of coordination",
+    "problems with balance": "balance problems",
+    "loss of balance": "balance problems",
+    "balance problems": "balance problems",
+    "unsteady balance": "balance problems",
+    "difficulty walking": "difficulty walking",
+    "impaired walking": "difficulty walking",
+    "muscle weakness": "muscle weakness",
+    "speech may become difficult": "dysarthria",
+    "speech becomes difficult": "dysarthria",
+    "difficulty speaking": "dysarthria",
+    "speech difficulty": "dysarthria",
+    "slurred speech": "dysarthria",
+    "dysarthria": "dysarthria",
+    "involuntary movements": "involuntary movements",
+    "chorea": "involuntary movements",
+    "choreoathetosis": "involuntary movements",
+    "dystonia": "involuntary movements",
+    "problems with vision": "visual disturbances",
+    "vision problems": "visual disturbances",
+    "visual problems": "visual disturbances",
+    "visual disturbances": "visual disturbances",
+    "nystagmus": "visual disturbances",
+    "problems with swallowing": "dysphagia",
+    "swallowing problems": "dysphagia",
+    "difficulty swallowing": "dysphagia",
+    "dysphagia": "dysphagia",
+    "abnormalities in the nervous system": "neurological deficit",
+    "nervous system abnormalities": "neurological deficit",
+    "neurodegeneration": "neurological deficit",
+    "progressive neurodegeneration": "neurological deficit",
     "hyperhidrosis": "hyperhidrosis",
     "deep aching of the long bones": "bone pain",
     "deep aching of long bones": "bone pain",
@@ -903,20 +1019,11 @@ CLINICAL_SIGNS_MAP: Dict[str, str] = {
     "left lower quadrant abdominal pain": "left lower quadrant pain",
     "left lower quadrant pain": "left lower quadrant pain",
     "left lower quadrant tenderness": "left lower quadrant pain",
-    "left lower quadrant": "left lower quadrant pain",
     "llq abdominal pain": "left lower quadrant pain",
     "llq pain": "left lower quadrant pain",
     "llq tenderness": "left lower quadrant pain",
-    "llq": "left lower quadrant pain",
     "left iliac fossa pain": "left lower quadrant pain",
-    "left iliac fossa": "left lower quadrant pain",
     "sigmoid tenderness": "left lower quadrant pain",
-    "colonic wall thickening": "left lower quadrant pain",
-    "pericolonic fat stranding": "left lower quadrant pain",
-    "fat stranding": "left lower quadrant pain",
-    "diverticulitis": "left lower quadrant pain",
-    "diverticular": "left lower quadrant pain",
-    "acute diverticulitis": "left lower quadrant pain",
     "severe epigastric pain": "severe epigastric pain",
     "epigastric tenderness": "epigastric pain",
     "elevated lipase": "elevated lipase",
@@ -1010,6 +1117,128 @@ CLINICAL_SIGNS_MAP: Dict[str, str] = {
     "anion gap metabolic acidosis": "high anion gap metabolic acidosis",
     "hyperglycemia": "hyperglycemia",
     "elevated blood glucose": "hyperglycemia",
+
+    # Nephrology, Urology & Genitourinary
+    "burning sensation during urination": "burning urination",
+    "burning sensation on urination": "burning urination",
+    "burning sensation with urination": "burning urination",
+    "burning sensation when urinating": "burning urination",
+    "burning sensation urination": "burning urination",
+    "burning sensation": "burning urination",
+    "burning during urination": "burning urination",
+    "burning on urination": "burning urination",
+    "burning with urination": "burning urination",
+    "burning when urinating": "burning urination",
+    "burning urination": "burning urination",
+    "pain during urination": "dysuria",
+    "painful urination": "dysuria",
+    "pain on urination": "dysuria",
+    "discomfort during urination": "dysuria",
+    "discomfort with urination": "dysuria",
+    "dysuria": "dysuria",
+    "urgent need to urinate": "urinary urgency",
+    "urgency to urinate": "urinary urgency",
+    "urgent desire to urinate": "urinary urgency",
+    "urgent urination": "urinary urgency",
+    "sudden urge to urinate": "urinary urgency",
+    "strong urge to urinate": "urinary urgency",
+    "urinary urgency": "urinary urgency",
+    "urgency": "urinary urgency",
+    "frequent urination": "urinary frequency",
+    "needs to urinate frequently": "urinary frequency",
+    "need to urinate frequently": "urinary frequency",
+    "urinate frequently": "urinary frequency",
+    "urinating frequently": "urinary frequency",
+    "urinates frequently": "urinary frequency",
+    "frequently urinating": "urinary frequency",
+    "increased urinary frequency": "urinary frequency",
+    "urinary frequency": "urinary frequency",
+    "frequency of urination": "urinary frequency",
+    "frequency": "urinary frequency",
+    "suprapubic tenderness": "suprapubic tenderness",
+    "suprapubic pain": "suprapubic pain",
+    "mild suprapubic tenderness": "suprapubic tenderness",
+    "tenderness in suprapubic area": "suprapubic tenderness",
+    "pain in suprapubic area": "suprapubic pain",
+    "lower abdominal pain": "lower abdominal pain",
+    "pain in the lower abdomen": "lower abdominal pain",
+    "pain in lower abdomen": "lower abdominal pain",
+    "mild pain in the lower abdomen": "lower abdominal pain",
+    "lower abdomen pain": "lower abdominal pain",
+    "lower belly pain": "lower abdominal pain",
+    "hypogastric pain": "lower abdominal pain",
+    "small amount of urine": "incomplete bladder emptying",
+    "small amount of urine passed": "incomplete bladder emptying",
+    "small amounts of urine": "incomplete bladder emptying",
+    "passes small amount of urine": "incomplete bladder emptying",
+    "scanty urine": "incomplete bladder emptying",
+    "incomplete bladder emptying": "incomplete bladder emptying",
+    "incomplete emptying": "incomplete bladder emptying",
+    "strangury": "incomplete bladder emptying",
+    "tenesmus": "incomplete bladder emptying",
+    "cloudy urine": "cloudy urine",
+    "foul-smelling urine": "foul-smelling urine",
+    "malodorous urine": "foul-smelling urine",
+    "smelly urine": "foul-smelling urine",
+    "pyuria": "pyuria",
+    "hematuria": "hematuria",
+    "blood in urine": "hematuria",
+    "gross hematuria": "hematuria",
+    "microscopic hematuria": "hematuria",
+    "red urine": "hematuria",
+    "flank pain": "flank pain",
+    "costovertebral angle tenderness": "costovertebral angle tenderness",
+    "cva tenderness": "costovertebral angle tenderness",
+    "renal angle tenderness": "costovertebral angle tenderness",
+    "nocturia": "nocturia",
+    "oliguria": "reduced urine output",
+    "anuria": "anuria",
+    "urinary retention": "urinary retention",
+    "kidney stones": "kidney stones",
+    "kidney stone": "kidney stones",
+    "renal calculi": "kidney stones",
+    "nephrolithiasis": "kidney stones",
+    "renal colic": "renal colic",
+    "kidney disease": "kidney disease",
+    "known kidney disease": "kidney disease",
+    "chronic kidney disease": "kidney disease",
+    "renal disease": "kidney disease",
+    "renal insufficiency": "kidney disease",
+    "renal failure": "kidney disease",
+
+    # Endocrinology, Chronic Disease & Past Medical History Entities
+    "diabetes": "diabetes",
+    "diabetes mellitus": "diabetes",
+    "type 2 diabetes": "type 2 diabetes mellitus",
+    "type 2 diabetes mellitus": "type 2 diabetes mellitus",
+    "type 1 diabetes": "type 1 diabetes mellitus",
+    "type 1 diabetes mellitus": "type 1 diabetes mellitus",
+    "t2dm": "type 2 diabetes mellitus",
+    "t1dm": "type 1 diabetes mellitus",
+    "diabetic": "diabetes",
+    "diabetic ketoacidosis": "diabetic ketoacidosis",
+    "dka": "diabetic ketoacidosis",
+    "hypertension": "hypertension",
+    "high blood pressure": "hypertension",
+    "htn": "hypertension",
+    "asthma": "asthma",
+    "bronchial asthma": "asthma",
+    "copd": "copd",
+    "coronary artery disease": "coronary artery disease",
+    "heart disease": "heart disease",
+    "heart failure": "heart failure",
+    "congestive heart failure": "heart failure",
+    "stroke": "stroke",
+    "cva": "stroke",
+    "polydipsia": "excessive thirst",
+    "excessive thirst": "excessive thirst",
+    "increased thirst": "excessive thirst",
+    "polyuria": "polyuria",
+    "excessive urination": "polyuria",
+    "large volume urine": "polyuria",
+    "polyphagia": "excessive hunger",
+    "excessive hunger": "excessive hunger",
+    "hypoglycemia": "hypoglycemia",
 }
 
 
@@ -1055,6 +1284,7 @@ class ClinicalNoteParser:
                 "calculated_indices": {},
                 "critical_panic_alerts": [],
                 "background_history": [],
+                "demographics": {"age": None, "sex": None, "is_pediatric": False, "is_geriatric": False, "is_pregnant": False},
                 "summary": "",
             }
 
@@ -1067,11 +1297,27 @@ class ClinicalNoteParser:
         for pat, replacement in CLINICAL_SHORTHANDS:
             expanded = pat.sub(replacement, expanded)
 
+        # Step 1b: Extract Demographics
+        demographics = self._extract_demographics(expanded)
+
         # Step 2: Extract & interpret Vital Signs
         vitals, abnormal_vitals = self._extract_and_interpret_vitals(expanded)
 
         # Step 3: Sentence & Clause level parsing for Positive vs. Negated Findings
         positive_findings, negated_findings, diagnostic_findings = self._extract_findings_with_negation(expanded)
+
+        # Step 3b: Semantic Colloquial Mention Matcher (Open-Vocabulary Narrative Expansion)
+        try:
+            from app.services.semantic_colloquial_matcher import semantic_colloquial_matcher
+            colloquial_mentions = semantic_colloquial_matcher.extract_colloquial_mentions(
+                expanded, existing_findings_count=len(positive_findings)
+            )
+            for cm in colloquial_mentions:
+                cm_low = cm.lower().strip()
+                if cm_low not in [p.lower() for p in positive_findings] and cm_low not in [n.lower() for n in negated_findings]:
+                    positive_findings.append(cm)
+        except Exception as e:
+            log.debug("semantic_colloquial_matching_failed", error=str(e))
 
         # Step 4: Extract Travel History & Incubation Period
         travel_history = self._extract_travel_history(expanded)
@@ -1147,7 +1393,78 @@ class ClinicalNoteParser:
             "calculated_indices": lab_data.get("calculated_indices", {}),
             "critical_panic_alerts": lab_data.get("critical_panic_alerts", []),
             "background_history": background_history,
+            "demographics": demographics,
+            "age": demographics.get("age"),
+            "sex": demographics.get("sex"),
+            "is_pediatric": demographics.get("is_pediatric", False),
+            "is_geriatric": demographics.get("is_geriatric", False),
+            "is_pregnant": demographics.get("is_pregnant", False),
+            "negated_history": [f for f in negated_findings if f in ("diabetes", "type 2 diabetes mellitus", "type 1 diabetes mellitus", "kidney disease", "chronic kidney disease", "hypertension", "asthma", "heart disease", "copd", "stroke")],
             "summary": f"Extracted {len(positive_findings)} active acute findings, {len(background_history)} background history items, {len(negated_findings)} negated findings, {len(travel_history)} travel links.",
+        }
+
+    def _extract_demographics(self, text: str) -> Dict[str, Any]:
+        """Extracts patient age, sex, pediatric status, and pregnancy from clinical narrative."""
+        t_low = text.lower()
+        age: Optional[int] = None
+        patient_sex: Optional[str] = None
+        is_pediatric = False
+        is_geriatric = False
+        is_pregnant = False
+
+        # Age extraction
+        age_patterns = [
+            r"\b(\d{1,3})\s*(?:-|–|\s+)?(?:years?|yrs?|y/o|yo)\s*(?:-|–|\s+)?(?:old)?\b",
+            r"\b(?:age|aged)\s*[:=]?\s*(\d{1,3})\b",
+            r"\b(\d{1,3})\s*(?:-|–|\s+)?(?:year|yr|y/o|yo)?\s*(?:-|–|\s+)?(?:old)?\s*(?:child|boy|girl|infant|toddler|man|woman|male|female)\b",
+        ]
+        for pat in age_patterns:
+            m = re.search(pat, t_low)
+            if m:
+                try:
+                    val = int(m.group(1))
+                    if 0 <= val <= 120:
+                        age = val
+                        break
+                except (ValueError, TypeError):
+                    pass
+
+        # Pediatric & Geriatric status
+        if age is not None:
+            if age < 18:
+                is_pediatric = True
+            elif age >= 65:
+                is_geriatric = True
+        else:
+            if re.search(r"\b(?:child|infant|toddler|neonate|newborn|pediatric|baby|boy|girl)\b", t_low):
+                is_pediatric = True
+            if re.search(r"\b(?:elderly|geriatric|octogenarian|nonagenarian|centenarian)\b", t_low):
+                is_geriatric = True
+
+        # Sex extraction
+        if re.search(r"\b(?:male|man|gentleman|boy|\bm\b(?=\s*,|\s*\d|\s*yo))\b", t_low):
+            patient_sex = "M"
+        elif re.search(r"\b(?:female|woman|lady|girl|\bf\b(?=\s*,|\s*\d|\s*yo))\b", t_low):
+            patient_sex = "F"
+
+        # Pregnancy
+        if re.search(r"\b(?:pregnant|pregnancy|gestation|trimester|gravida|primigravida|postpartum)\b", t_low):
+            is_pregnant = True
+
+        pname: Optional[str] = None
+        try:
+            from app.services.note_generator import extract_patient_name
+            pname = extract_patient_name(text)
+        except Exception:
+            pass
+
+        return {
+            "patient_name": pname,
+            "age": age,
+            "sex": patient_sex,
+            "is_pediatric": is_pediatric,
+            "is_geriatric": is_geriatric,
+            "is_pregnant": is_pregnant,
         }
 
     def _extract_travel_history(self, text: str) -> List[str]:
@@ -1350,6 +1667,8 @@ class ClinicalNoteParser:
             ("pakistan", "Pakistan"),
             ("nepal", "Nepal"),
             ("sri lanka", "Sri Lanka"),
+            ("northern australia", "Australia"),
+            ("australia", "Australia"),
 
             # ── Epidemiological Exposure Contexts ───────────────────────────
             ("active transmission", "active transmission"),
@@ -1378,15 +1697,14 @@ class ClinicalNoteParser:
         ]
 
         for trigger, canonical in travel_targets:
-            # Word boundary search
-            if re.search(r"\b" + re.escape(trigger) + r"\b", text_lower):
-                if canonical not in found_destinations:
-                    found_destinations.append(canonical)
+            # Fast substring filter skips 99% of targets instantly without regex overhead
+            if trigger in text_lower:
+                if re.search(r"\b" + re.escape(trigger) + r"\b", text_lower):
+                    if canonical not in found_destinations:
+                        found_destinations.append(canonical)
 
         # Regex heuristic: extract any destination mentioned with travel prepositions
-        travel_pattern = re.compile(
-            r"(?:travel(?:led|ed)?\s+to|trip\s+to|returned\s+from|arrived\s+from|visited|visiting|stayed\s+in|resident\s+of|lives\s+in|native\s+of|journey\s+to)\s+([A-Z][a-zA-Z\s]{2,25}?)(?:[.,;\n]|\s+(?:with|who|and|where|after|reporting|experiencing|for|on))"
-        )
+        travel_pattern = _TRAVEL_PREP_PATTERN
         for m in travel_pattern.finditer(text):
             candidate = m.group(1).strip()
             # Exclude clinical sign words
@@ -1409,20 +1727,7 @@ class ClinicalNoteParser:
             "fifteen": 15, "twenty": 20, "twenty-one": 21
         }
 
-        patterns = [
-            # "approximately one week after returning", "five days after returning"
-            re.compile(r"(?:about|approximately|approx\.?|around)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)\s*(days?|weeks?)\s*(?:after|following|since)\s*(?:returning|return|arrival|travel|exposure|trip|stay)", re.I),
-            # "developed ... 5 days after returning"
-            re.compile(r"(?:developed|onset of|started|began)\s*(?:an?\s+)?(?:abrupt|sudden|gradual|low-grade|high)?\s*(?:fever|illness|symptoms|pain)\s*(?:about|approximately|around)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)\s*(days?|weeks?)\s*(?:after|following|since)\s*(?:returning|return|arrival)", re.I),
-            # "nine days after returning"
-            re.compile(r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)\s*(days?|weeks?)\s*after\s*(?:returning|arrival)", re.I),
-            # "within 5 days of returning"
-            re.compile(r"within\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*days\s*of\s*(?:returning|return)", re.I),
-            # "returned 8 days ago from", "arrived 5 days ago"
-            re.compile(r"(?:returned|arrived|back)\s*(?:about|approximately|around)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)\s*(days?|weeks?)\s*ago", re.I),
-        ]
-
-        for pat in patterns:
+        for pat in _INCUBATION_PATTERNS:
             m = pat.search(text)
             if m:
                 val_str = m.group(1).lower()
@@ -1439,16 +1744,8 @@ class ClinicalNoteParser:
         text_lower = text.lower()
         exposures: List[str] = []
 
-        mapping = [
-            (r"\b(?:mosquito|mosquitoes|insect repellent|mosquito bites)\b", "mosquito exposure"),
-            (r"\b(?:unpasteurized|raw milk|unfiltered water|uncertain food and water|street food)\b", "food and water exposure"),
-            (r"\b(?:forest|forested|jungle|caving|bats|mine)\b", "forest / wildlife exposure"),
-            (r"\b(?:rodent|rats|mice|excreta|barn)\b", "rodent exposure"),
-            (r"\b(?:sexual|partner|close contact|household)\b", "secondary / contact exposure"),
-        ]
-
-        for pat, label in mapping:
-            if re.search(pat, text_lower):
+        for pat, label in _EXPOSURE_PATTERNS:
+            if pat.search(text_lower):
                 exposures.append(label)
 
         return exposures
@@ -1511,10 +1808,57 @@ class ClinicalNoteParser:
 
         return vitals, list(dict.fromkeys(abnormal_findings))
 
+    @staticmethod
+    def _extract_signs_from_segment(segment: str) -> Set[str]:
+        """
+        Sub-millisecond token n-gram extraction of clinical signs with strict word boundaries
+        and contextual false-positive exclusion guards.
+        """
+        found: Set[str] = set()
+        if not segment or not segment.strip():
+            return found
+
+        seg_lower = segment.lower()
+
+        # Contextual false-positive guard checks
+        has_atraumatic = "atraumatic" in seg_lower
+        is_dunphy_cough = bool(re.search(r"\b(?:exacerbated|worse|aggravated|pain|elicited)\s*(?:by|with|on)\s*(?:cough|coughing)\b", seg_lower))
+        is_rovsing_llq = bool(re.search(r"\b(?:palpation|pressure)\s*(?:of|in|at)\s*(?:the\s+)?(?:llq|left lower quadrant)\b", seg_lower))
+        is_no_murmurs = bool(re.search(r"\b(?:no|without|absent)\s+(?:murmurs?|gallops?|rubs?)\b|\bnormal\s+s1\s+and\s+s2\b", seg_lower))
+
+        tokens = re.findall(r"\b[a-z0-9\-\']+\b", seg_lower)
+        num_tokens = len(tokens)
+        max_n = min(5, num_tokens)
+
+        for n in range(1, max_n + 1):
+            for i in range(num_tokens - n + 1):
+                gram = " ".join(tokens[i:i + n])
+                if gram in CLINICAL_SIGNS_MAP:
+                    canon = CLINICAL_SIGNS_MAP[gram]
+
+                    # Guard 1: atraumatic -> no trauma
+                    if canon == "trauma" and has_atraumatic:
+                        continue
+                    # Guard 2: Dunphy exacerbation by coughing -> peritoneal sign, not respiratory cough
+                    if canon == "cough" and is_dunphy_cough:
+                        continue
+                    # Guard 3: Rovsing palpation of LLQ -> physical maneuver, not LLQ pain
+                    if canon == "left lower quadrant pain" and is_rovsing_llq:
+                        continue
+                    # Guard 4: normal heart sounds
+                    if canon in ["heart murmur", "new regurgitant murmur", "S3 gallop", "S4 gallop", "friction rub"] and is_no_murmurs:
+                        continue
+                    # Guard 5: stress in 'distress' or 'stranding'
+                    if canon == "stress" and any(w in seg_lower for w in ["distress", "stranding"]):
+                        continue
+
+                    found.add(canon)
+        return found
+
     def _extract_findings_with_negation(self, text: str) -> Tuple[List[str], List[str], List[str]]:
         """
         Splits notes into sentences, divides into positive and negated clauses,
-        and extracts clinical signs with strict scope boundaries.
+        and extracts clinical signs with strict scope boundaries and sub-millisecond n-gram lookups.
         """
         positive_set: Set[str] = set()
         negated_set: Set[str] = set()
@@ -1570,25 +1914,17 @@ class ClinicalNoteParser:
 
                     # Positive matches before negation
                     if pos_part:
-                        for sign_phrase, canonical in CLINICAL_SIGNS_MAP.items():
-                            if sign_phrase in pos_part:
-                                positive_set.add(canonical)
+                        positive_set.update(self._extract_signs_from_segment(pos_part))
 
                     # Negated matches after negation trigger
-                    for sign_phrase, canonical in CLINICAL_SIGNS_MAP.items():
-                        if sign_phrase in neg_part:
-                            negated_set.add(canonical)
+                    negated_set.update(self._extract_signs_from_segment(neg_part))
 
                     # Positive matches after prepositional negation boundary
                     if resumed_pos:
-                        for sign_phrase, canonical in CLINICAL_SIGNS_MAP.items():
-                            if sign_phrase in resumed_pos:
-                                positive_set.add(canonical)
+                        positive_set.update(self._extract_signs_from_segment(resumed_pos))
                 else:
                     # Purely positive clause
-                    for sign_phrase, canonical in CLINICAL_SIGNS_MAP.items():
-                        if sign_phrase in cl_clean:
-                            positive_set.add(canonical)
+                    positive_set.update(self._extract_signs_from_segment(cl_clean))
 
         # Detect Diagnostic Laboratory & Imaging Findings
         diag_patterns = [
@@ -1618,23 +1954,14 @@ class ClinicalNoteParser:
                 diagnostic_list.append(label)
 
         # Resolve Temporal Negation Overrides:
-        # If a finding was initially absent (e.g. "initially no jaundice/bleeding"), but subsequently developed
-        # later in the narrative or was confirmed on physical examination, the positive finding PREVAILS.
+        # If a finding was initially absent, but subsequently developed
+        # later in the narrative, the positive finding PREVAILS ONLY IF NOT explicitly denied in ROS / negative list.
         to_unnegate = set()
         for item in positive_set:
             if item in negated_set:
-                # Find positions of positive and negative mentions
-                last_pos_pos = max(
-                    (text_lower.rfind(phrase) for phrase, canon in CLINICAL_SIGNS_MAP.items() if canon == item and phrase in text_lower),
-                    default=-1
-                )
-                first_neg_pos = min(
-                    (text_lower.find(phrase) for phrase, canon in CLINICAL_SIGNS_MAP.items() if canon == item and phrase in text_lower),
-                    default=0
-                )
-                # Check for historical/initial negation phrases
-                is_initially_neg = bool(re.search(r"\b(?:initially|at first|early on|initially had|initially has|prior to)\b[^\.\n;]*\b(?:no|not|without|denies)\b", text_lower))
-                if last_pos_pos > first_neg_pos or is_initially_neg:
+                is_explicitly_denied = bool(re.search(r"\b(?:denies|denied|negative for|neg for|no|not|free of)\b[^\.\n;]{0,50}?\b" + re.escape(item.lower()) + r"\b", text_lower))
+                is_progression = bool(re.search(r"\b(?:initially\s+no|at\s+first\s+no)[^\.\n;]*\b(?:subsequently|later|developed|became|now)\b[^\.\n;]*\b" + re.escape(item.lower()) + r"\b", text_lower))
+                if is_progression and not is_explicitly_denied:
                     to_unnegate.add(item)
 
         for item in to_unnegate:

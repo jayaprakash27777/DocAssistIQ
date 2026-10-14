@@ -1,0 +1,2368 @@
+[
+  {
+    "case_id": 1,
+    "specialty": "Hematology",
+    "target": "Iron Deficiency Anemia",
+    "top1": "Anemia",
+    "diffs": [
+      "Anemia",
+      "Iron Deficiency Anemia",
+      "Malaria (Plasmodium falciparum)",
+      "Heart Failure (Acute Decompensated)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "pallor",
+      "fatigue",
+      "reduced exercise tolerance",
+      "pica",
+      "tachycardia",
+      "anemia"
+    ],
+    "latency_ms": 12914.68
+  },
+  {
+    "case_id": 2,
+    "specialty": "Endocrinology",
+    "target": "Type 2 Diabetes Mellitus",
+    "top1": "Type 2 Diabetes Mellitus",
+    "diffs": [
+      "Type 2 Diabetes Mellitus",
+      "Diabetes Mellitus",
+      "Hyperglycemia",
+      "Cushing's Syndrome"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "urinary frequency",
+      "type 2 diabetes mellitus",
+      "weight loss",
+      "ketonuria",
+      "blurred vision",
+      "hypomagnesemia (<1.5 mg/dL)",
+      "marked hyperglycemia (>=250 mg/dL)",
+      "hyperglycemia",
+      "hypomagnesemia"
+    ],
+    "latency_ms": 2886.99
+  },
+  {
+    "case_id": 3,
+    "specialty": "Cardiology",
+    "target": "Acute Decompensated Heart Failure",
+    "top1": "Acute Heart Failure (Cardiogenic Pulmonary Edema)",
+    "diffs": [
+      "Acute Heart Failure (Cardiogenic Pulmonary Edema)",
+      "Pneumonia",
+      "Community-Acquired Pneumonia (Lobar Pneumonia)",
+      "COPD Exacerbation"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "worsening breathlessness",
+      "edema",
+      "pitting edema",
+      "tachycardia",
+      "crackles",
+      "hypertension"
+    ],
+    "latency_ms": 2183.71
+  },
+  {
+    "case_id": 4,
+    "specialty": "Nephrology",
+    "target": "Nephrotic Syndrome (Membranous / FSGS)",
+    "top1": "Nephrotic Syndrome",
+    "diffs": [
+      "Nephrotic Syndrome",
+      "Acute Intermittent Porphyria (AIP)",
+      "Cushing's Syndrome",
+      "Stroke"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "edema",
+      "foamy urine",
+      "hypertension",
+      "hypoalbuminemia",
+      "severe hypoalbuminemia (<2.5 g/dL)"
+    ],
+    "latency_ms": 2246.46
+  },
+  {
+    "case_id": 5,
+    "specialty": "Rheumatology",
+    "target": "Systemic Lupus Erythematosus (Lupus Nephritis)",
+    "top1": "Systemic Lupus Erythematosus (SLE)",
+    "diffs": [
+      "Systemic Lupus Erythematosus (SLE)",
+      "Rheumatoid Arthritis",
+      "Chikungunya",
+      "Beh\u00e7et disease"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "morning stiffness",
+      "facial rash",
+      "mouth ulcers",
+      "joint pain",
+      "frothy urine",
+      "rash",
+      "ankle swelling",
+      "malar rash",
+      "oral ulcers",
+      "thrombocytopenia",
+      "anemia"
+    ],
+    "latency_ms": 1077.09
+  },
+  {
+    "case_id": 6,
+    "specialty": "Gastroenterology",
+    "target": "Acute Cholecystitis / Biliary Colic",
+    "top1": "Appendicitis",
+    "diffs": [
+      "Appendicitis",
+      "infectious gastroenteritis",
+      "noninfectious gastroenteritis",
+      "esophagitis"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "nausea",
+      "vomiting",
+      "biliary colic"
+    ],
+    "latency_ms": 4501.98
+  },
+  {
+    "case_id": 7,
+    "specialty": "Infectious Disease",
+    "target": "Enteric / Typhoid Fever",
+    "top1": "Paroxysmal nocturnal hemoglobinuria",
+    "diffs": [
+      "Paroxysmal nocturnal hemoglobinuria",
+      "Gaucher disease type 1",
+      "Malaria (Plasmodium falciparum)",
+      "Meningococcal Disease / Meningococcemia (with Meningitis)"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "headache",
+      "fatigue",
+      "petechiae",
+      "confusion",
+      "fever",
+      "thrombocytopenia",
+      "acute kidney injury",
+      "severe thrombocytopenia (<50,000/uL)",
+      "anemia"
+    ],
+    "latency_ms": 2329.42
+  },
+  {
+    "case_id": 8,
+    "specialty": "Endocrinology",
+    "target": "Primary Adrenal Insufficiency (Addison's Disease)",
+    "top1": "Addison's Disease",
+    "diffs": [
+      "Addison's Disease",
+      "Upper GI Bleeding",
+      "Hantavirus Pulmonary Syndrome",
+      "Adrenal Insufficiency (Addisonian Crisis)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "dizziness",
+      "weakness",
+      "muscle weakness",
+      "weight loss",
+      "nausea",
+      "abdominal pain",
+      "hyponatremia",
+      "hypoglycemia",
+      "hyperkalemia"
+    ],
+    "latency_ms": 2502.44
+  },
+  {
+    "case_id": 9,
+    "specialty": "Pulmonology",
+    "target": "Community-Acquired Pneumonia / Bronchiolitis",
+    "top1": "acute bronchiolitis",
+    "diffs": [
+      "acute bronchiolitis",
+      "acute bronchitis",
+      "infectious gastroenteritis",
+      "strep throat"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "fever"
+    ],
+    "latency_ms": 4071.0
+  },
+  {
+    "case_id": 10,
+    "specialty": "Neurology",
+    "target": "Acute Ischemic Stroke (MCA Territory)",
+    "top1": "Acute Ischemic Stroke (CVA)",
+    "diffs": [
+      "Acute Ischemic Stroke (CVA)",
+      "Stroke",
+      "Ischemic Stroke",
+      "Acute Heart Failure (Cardiogenic Pulmonary Edema)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "facial drooping",
+      "dysarthria",
+      "weakness",
+      "severe hypertension",
+      "hypertension"
+    ],
+    "latency_ms": 2224.72
+  },
+  {
+    "case_id": 11,
+    "specialty": "Infectious Disease",
+    "target": "Dengue Fever with Warning Signs",
+    "top1": "Dengue Fever",
+    "diffs": [
+      "Dengue Fever",
+      "Yellow Fever",
+      "Marburg Virus Disease",
+      "Ebola Virus Disease (Zaire)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "muscle aches",
+      "lethargy",
+      "nausea",
+      "headache",
+      "abdominal pain",
+      "fever",
+      "persistent vomiting",
+      "retro-orbital pain",
+      "vomiting",
+      "thrombocytopenia"
+    ],
+    "latency_ms": 2313.29
+  },
+  {
+    "case_id": 12,
+    "specialty": "Infectious Disease",
+    "target": "Leptospirosis (Weil's Disease)",
+    "top1": "Leptospirosis (Weil's Disease)",
+    "diffs": [
+      "Leptospirosis (Weil's Disease)",
+      "Severe Malaria / Cerebral Malaria",
+      "Malaria (Plasmodium falciparum)",
+      "Marburg Virus Disease"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "reduced urine output",
+      "conjunctival suffusion",
+      "fever",
+      "jaundice",
+      "vomiting",
+      "thrombocytopenia",
+      "acute kidney injury"
+    ],
+    "latency_ms": 2918.66
+  },
+  {
+    "case_id": 13,
+    "specialty": "Infectious Disease",
+    "target": "Severe Falciparum Malaria",
+    "top1": "Yellow Fever",
+    "diffs": [
+      "Yellow Fever",
+      "Malaria (Plasmodium falciparum)",
+      "Babesiosis",
+      "Severe Malaria / Cerebral Malaria"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "fever",
+      "jaundice",
+      "headache",
+      "vomiting",
+      "chills",
+      "thrombocytopenia",
+      "acute kidney injury",
+      "hypoglycemia",
+      "anemia"
+    ],
+    "latency_ms": 2343.89
+  },
+  {
+    "case_id": 14,
+    "specialty": "Infectious Disease",
+    "target": "Acute HIV Seroconversion / Dengue",
+    "top1": "Dengue Fever",
+    "diffs": [
+      "Dengue Fever",
+      "strep throat",
+      "Dengue Hemorrhagic Fever",
+      "Influenza"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "maculopapular rash",
+      "muscle aches",
+      "dry cough",
+      "rash",
+      "headache",
+      "scab",
+      "fever",
+      "cough",
+      "severe headache",
+      "thrombocytopenia",
+      "hyponatremia"
+    ],
+    "latency_ms": 2354.24
+  },
+  {
+    "case_id": 15,
+    "specialty": "Infectious Disease",
+    "target": "Visceral Leishmaniasis (Kala-Azar)",
+    "top1": "Severe Malaria / Cerebral Malaria",
+    "diffs": [
+      "Severe Malaria / Cerebral Malaria",
+      "Malaria (Plasmodium falciparum)",
+      "Kala-Azar (Visceral Leishmaniasis)",
+      "Gaucher disease type 1"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "loss of appetite",
+      "abdominal distension",
+      "fever",
+      "weight loss",
+      "intermittent fever",
+      "pallor",
+      "thrombocytopenia",
+      "anemia"
+    ],
+    "latency_ms": 2189.76
+  },
+  {
+    "case_id": 16,
+    "specialty": "Infectious Disease",
+    "target": "Babesiosis",
+    "top1": "Hepatitis A",
+    "diffs": [
+      "Hepatitis A",
+      "Babesiosis",
+      "Yellow Fever",
+      "Malaria (Plasmodium falciparum)"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "dark urine",
+      "fatigue",
+      "fever",
+      "jaundice",
+      "blood smear requested",
+      "chills",
+      "thrombocytopenia"
+    ],
+    "latency_ms": 2120.06
+  },
+  {
+    "case_id": 17,
+    "specialty": "Infectious Disease",
+    "target": "Yellow Fever",
+    "top1": "Yellow Fever",
+    "diffs": [
+      "Yellow Fever",
+      "Dengue Hemorrhagic Fever",
+      "Marburg Virus Disease",
+      "Bundibugyo Virus Disease (BVD)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "epigastric pain",
+      "unvaccinated",
+      "headache",
+      "chills",
+      "confusion",
+      "reduced urine output",
+      "fever",
+      "bleeding",
+      "jaundice",
+      "vomiting",
+      "severe headache"
+    ],
+    "latency_ms": 2821.77
+  },
+  {
+    "case_id": 18,
+    "specialty": "Neurology / ID",
+    "target": "Japanese Encephalitis / Viral Encephalitis",
+    "top1": "Encephalitis",
+    "diffs": [
+      "Encephalitis",
+      "Chikungunya",
+      "Lassa Fever",
+      "Malaria (Plasmodium falciparum)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "edema",
+      "fever",
+      "personality change",
+      "nausea",
+      "headache",
+      "lesions"
+    ],
+    "latency_ms": 3324.64
+  },
+  {
+    "case_id": 19,
+    "specialty": "Pulmonology",
+    "target": "Pulmonary Tuberculosis / Silicotuberculosis",
+    "top1": "Acute Bronchitis",
+    "diffs": [
+      "Acute Bronchitis",
+      "Pulmonary Embolism",
+      "asthma",
+      "chronic obstructive pulmonary disease (copd)"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "cough",
+      "sputum"
+    ],
+    "latency_ms": 3206.49
+  },
+  {
+    "case_id": 20,
+    "specialty": "Infectious Disease",
+    "target": "Hantavirus Pulmonary Syndrome",
+    "top1": "Hantavirus Pulmonary Syndrome",
+    "diffs": [
+      "Hantavirus Pulmonary Syndrome",
+      "Malaria (Plasmodium falciparum)",
+      "Dengue Hemorrhagic Fever",
+      "Ebola Virus Disease (Zaire)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "edema",
+      "pulmonary edema",
+      "shortness of breath",
+      "muscle aches",
+      "hypotension",
+      "tachycardia",
+      "headache",
+      "fever",
+      "rapidly progressive dyspnea",
+      "thrombocytopenia"
+    ],
+    "latency_ms": 2127.69
+  },
+  {
+    "case_id": 21,
+    "specialty": "Infectious Disease",
+    "target": "Active Pulmonary Tuberculosis",
+    "top1": "Tuberculosis (Active)",
+    "diffs": [
+      "Tuberculosis (Active)",
+      "Pulmonary Tuberculosis",
+      "Community-Acquired Pneumonia (Lobar Pneumonia)",
+      "Acute Bronchitis"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "diabetes",
+      "night sweats",
+      "fever",
+      "persistent fever",
+      "purulent sputum",
+      "cough",
+      "weight loss",
+      "lesions"
+    ],
+    "latency_ms": 2259.9
+  },
+  {
+    "case_id": 22,
+    "specialty": "Gastroenterology",
+    "target": "Whipple's Disease / Seronegative Spondyloarthritis",
+    "top1": "Malaria (Plasmodium falciparum)",
+    "diffs": [
+      "Malaria (Plasmodium falciparum)",
+      "Severe Malaria / Cerebral Malaria",
+      "Paroxysmal nocturnal hemoglobinuria",
+      "Upper GI Bleeding"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "weight loss",
+      "pallor",
+      "diarrhea",
+      "abdominal pain",
+      "hypoalbuminemia",
+      "severe hypoalbuminemia (<2.5 g/dL)",
+      "anemia"
+    ],
+    "latency_ms": 2262.42
+  },
+  {
+    "case_id": 23,
+    "specialty": "Infectious Disease",
+    "target": "Disseminated Tuberculosis / Atypical Mycobacteria",
+    "top1": "Tuberculosis (Active)",
+    "diffs": [
+      "Tuberculosis (Active)",
+      "Pulmonary Tuberculosis",
+      "acute bronchiolitis",
+      "Hantavirus Pulmonary Syndrome"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "night sweats",
+      "fever",
+      "shortness of breath",
+      "cough",
+      "dry cough",
+      "exertional dyspnea"
+    ],
+    "latency_ms": 2175.89
+  },
+  {
+    "case_id": 24,
+    "specialty": "Infectious Disease",
+    "target": "Strongyloidiasis Hyperinfection Syndrome",
+    "top1": "acute bronchiolitis",
+    "diffs": [
+      "acute bronchiolitis",
+      "Anaphylaxis",
+      "Bundibugyo Virus Disease (BVD)",
+      "Ebola Virus Disease (Zaire)"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "abdominal distension",
+      "fever",
+      "wheezing",
+      "diarrhea",
+      "hypotension",
+      "cough"
+    ],
+    "latency_ms": 2044.38
+  },
+  {
+    "case_id": 25,
+    "specialty": "Infectious Disease",
+    "target": "Mpox (Monkeypox)",
+    "top1": "Schistosomiasis (Katayama Fever)",
+    "diffs": [
+      "Schistosomiasis (Katayama Fever)",
+      "Mpox (Monkeypox)",
+      "Sickle Cell Crisis (Vaso-occlusive)",
+      "Rift Valley Fever"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "fatigue",
+      "hepatosplenomegaly",
+      "fever",
+      "back pain"
+    ],
+    "latency_ms": 2374.83
+  },
+  {
+    "case_id": 26,
+    "specialty": "Genetics / Metabolic",
+    "target": "Acute Intermittent Porphyria (AIP)",
+    "top1": "Bowel Obstruction",
+    "diffs": [
+      "Bowel Obstruction",
+      "diverticulitis",
+      "Acute Intermittent Porphyria (AIP)",
+      "Typhoid Fever"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "constipation",
+      "reduced reflexes",
+      "weakness",
+      "nausea",
+      "vomiting",
+      "abdominal pain",
+      "hyponatremia"
+    ],
+    "latency_ms": 2205.29
+  },
+  {
+    "case_id": 27,
+    "specialty": "Metabolic / Hepatology",
+    "target": "Wilson's Disease (Hepatolenticular Degeneration)",
+    "top1": "Wilson's Disease (Hepatolenticular Degeneration)",
+    "diffs": [
+      "Wilson's Disease (Hepatolenticular Degeneration)",
+      "Malaria (Plasmodium falciparum)",
+      "Severe Malaria / Cerebral Malaria",
+      "Subacute Necrotizing Encephalomyelopathy (Suspected Leigh Syndrome / Mitochondrial Neurodegeneration)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "jaundice",
+      "tremor",
+      "dysarthria",
+      "anemia",
+      "hyperbilirubinemia"
+    ],
+    "latency_ms": 2143.96
+  },
+  {
+    "case_id": 28,
+    "specialty": "Genetics / Metabolic",
+    "target": "Fabry Disease",
+    "top1": "Fabry disease",
+    "diffs": [
+      "Fabry disease",
+      "Anderson-Fabry disease",
+      "complex regional pain syndrome",
+      "peripheral nerve disorder"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "acroparesthesia",
+      "heat intolerance",
+      "hypohidrosis"
+    ],
+    "latency_ms": 778.53
+  },
+  {
+    "case_id": 29,
+    "specialty": "Neurology",
+    "target": "Multiple Sclerosis / Acute Demyelinating Encephalomyelitis",
+    "top1": "Ischemic Stroke",
+    "diffs": [
+      "Ischemic Stroke",
+      "Acute Intermittent Porphyria (AIP)",
+      "Addison's Disease (Primary Adrenal Insufficiency)",
+      "Herpes Zoster (Shingles)"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "confusion",
+      "tingling",
+      "hyponatremia"
+    ],
+    "latency_ms": 2216.71
+  },
+  {
+    "case_id": 30,
+    "specialty": "Rheumatology",
+    "target": "Systemic Lupus Erythematosus (SLE) / Polyserositis",
+    "top1": "Systemic Lupus Erythematosus (SLE)",
+    "diffs": [
+      "Systemic Lupus Erythematosus (SLE)",
+      "Vasculitis (ANCA-associated)",
+      "Dengue Hemorrhagic Fever",
+      "Fabry disease"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "fever",
+      "severe abdominal pain",
+      "chest pain",
+      "pleuritic chest pain",
+      "proteinuria",
+      "abdominal pain"
+    ],
+    "latency_ms": 2214.53
+  },
+  {
+    "case_id": 31,
+    "specialty": "Genetics / Neurology",
+    "target": "CPT II Deficiency / Metabolic Myopathy",
+    "top1": "Carnitine Palmitoyltransferase II (CPT II) Deficiency",
+    "diffs": [
+      "Carnitine Palmitoyltransferase II (CPT II) Deficiency",
+      "Duchenne Muscular Dystrophy (DMD)",
+      "pneumonia",
+      "hypoglycemia"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "proximal muscle weakness",
+      "frequent falls",
+      "Gowers sign",
+      "rhabdomyolysis",
+      "massive CK elevation (>10,000 U/L)"
+    ],
+    "latency_ms": 2154.87
+  },
+  {
+    "case_id": 32,
+    "specialty": "Infectious Disease",
+    "target": "Meningococcal Meningitis / Meningococcemia",
+    "top1": "Meningococcal Meningitis",
+    "diffs": [
+      "Meningococcal Meningitis",
+      "Meningococcal Disease / Meningococcemia (with Meningitis)",
+      "Diabetic Ketoacidosis (DKA)",
+      "Hantavirus Pulmonary Syndrome"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "rapid breathing",
+      "lethargy",
+      "vomiting",
+      "confusion"
+    ],
+    "latency_ms": 2305.64
+  },
+  {
+    "case_id": 33,
+    "specialty": "Rheumatology / Nephrology",
+    "target": "Sj\u00f6gren's Syndrome with Distal RTA (Type 1)",
+    "top1": "OBSOLETE: Gillessen-Kaesbach-Nishimura syndrome",
+    "diffs": [
+      "OBSOLETE: Gillessen-Kaesbach-Nishimura syndrome",
+      "Sjogren's Syndrome",
+      "MUC1-related autosomal dominant tubulointerstitial kidney disease",
+      "HNF1B-related autosomal dominant tubulointerstitial kidney disease"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "kidney stones",
+      "kidney disease",
+      "gritty eyes",
+      "dental caries",
+      "metabolic acidosis",
+      "hypokalemia",
+      "severe hypokalemia (<2.8 mEq/L)"
+    ],
+    "latency_ms": 2360.63
+  },
+  {
+    "case_id": 34,
+    "specialty": "Neurology / ID",
+    "target": "Herpes Simplex Virus Encephalitis (HSE)",
+    "top1": "Meningococcal Meningitis",
+    "diffs": [
+      "Meningococcal Meningitis",
+      "Meningococcal Disease / Meningococcemia (with Meningitis)",
+      "Status Epilepticus",
+      "hypoglycemia"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "tachycardia",
+      "seizures"
+    ],
+    "latency_ms": 2932.01
+  },
+  {
+    "case_id": 35,
+    "specialty": "Neurology / Rheumatology",
+    "target": "Susac Syndrome / Retinocochleocerebral Vasculopathy",
+    "top1": "Susac syndrome",
+    "diffs": [
+      "Susac syndrome",
+      "Alport syndrome",
+      "Alport syndrome with leukocyte inclusions and macrothrombocytopenia",
+      "Alport syndrome with macrothrombocytopenia"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "tinnitus",
+      "hearing loss",
+      "sensorineural hearing loss",
+      "lesions",
+      "confusion",
+      "scotoma"
+    ],
+    "latency_ms": 2871.32
+  },
+  {
+    "case_id": 36,
+    "specialty": "Neurology",
+    "target": "Neuromyelitis Optica Spectrum Disorder (NMOSD)",
+    "top1": "Neuromyelitis optica spectrum disorder",
+    "diffs": [
+      "Neuromyelitis optica spectrum disorder",
+      "Neuromyelitis optica spectrum disorder with anti-AQP4 antibodies",
+      "Neuromyelitis optica spectrum disorder with anti-MOG antibodies",
+      "Neuromyelitis optica spectrum disorder without anti-MOG and without anti-AQP4 antibodies"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "weakness",
+      "nausea",
+      "numbness",
+      "lesions",
+      "unilateral weakness",
+      "urinary retention",
+      "optic neuritis",
+      "sensory level myelopathy"
+    ],
+    "latency_ms": 791.76
+  },
+  {
+    "case_id": 37,
+    "specialty": "Hematology / Neurology",
+    "target": "POEMS Syndrome",
+    "top1": "Nephrotic Syndrome",
+    "diffs": [
+      "Nephrotic Syndrome",
+      "liver disease",
+      "dental caries",
+      "ischemic heart disease"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "edema",
+      "pitting edema"
+    ],
+    "latency_ms": 2201.65
+  },
+  {
+    "case_id": 38,
+    "specialty": "Rheumatology / Nephrology",
+    "target": "IgG4-Related Disease / Tubulointerstitial Nephritis",
+    "top1": "Primary sclerosing cholangitis",
+    "diffs": [
+      "Primary sclerosing cholangitis",
+      "Primary biliary cholangitis/primary sclerosing cholangitis and autoimmune hepatitis overlap syndrome",
+      "Hepatitis A",
+      "Chronic Kidney Disease (CKD)"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": true,
+    "findings": [
+      "clay-colored stools",
+      "jaundice",
+      "weight loss",
+      "pallor",
+      "pruritus"
+    ],
+    "latency_ms": 2190.56
+  },
+  {
+    "case_id": 39,
+    "specialty": "Infectious Disease",
+    "target": "Severe Tetanus",
+    "top1": "acute bronchiolitis",
+    "diffs": [
+      "acute bronchiolitis",
+      "acute bronchitis",
+      "infectious gastroenteritis",
+      "strep throat"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "fever"
+    ],
+    "latency_ms": 2616.79
+  },
+  {
+    "case_id": 40,
+    "specialty": "Hematology",
+    "target": "Paroxysmal Nocturnal Hemoglobinuria (PNH)",
+    "top1": "Paroxysmal nocturnal hemoglobinuria",
+    "diffs": [
+      "Paroxysmal nocturnal hemoglobinuria",
+      "Malaria (Plasmodium falciparum)",
+      "Sickle Cell Crisis (Vaso-occlusive)",
+      "Hantavirus Pulmonary Syndrome"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "fatigue",
+      "shortness of breath",
+      "abdominal pain",
+      "hemoglobinuria",
+      "anemia"
+    ],
+    "latency_ms": 2273.02
+  },
+  {
+    "case_id": 41,
+    "specialty": "Cardiology",
+    "target": "Acute ST-Elevation Myocardial Infarction (STEMI)",
+    "top1": "Acute Myocardial Infarction (STEMI/NSTEMI)",
+    "diffs": [
+      "Acute Myocardial Infarction (STEMI/NSTEMI)",
+      "Pulmonary Embolism",
+      "Asthma Exacerbation",
+      "Pleural Effusion"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "sudden pleuritic chest pain",
+      "chest pain",
+      "pleuritic chest pain",
+      "lesions",
+      "aphasia"
+    ],
+    "latency_ms": 2056.75
+  },
+  {
+    "case_id": 42,
+    "specialty": "Infectious Disease",
+    "target": "Secondary Syphilis / Disseminated Gonococcemia",
+    "top1": "Ebola Virus Disease (Zaire)",
+    "diffs": [
+      "Ebola Virus Disease (Zaire)",
+      "Mpox (Monkeypox)",
+      "strep throat",
+      "Acute HIV Infection (Primary)"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "fatigue",
+      "fever",
+      "sore throat",
+      "splenomegaly",
+      "rash"
+    ],
+    "latency_ms": 1761.65
+  },
+  {
+    "case_id": 43,
+    "specialty": "Cardiology / ID",
+    "target": "Subacute Bacterial Endocarditis (SBE)",
+    "top1": "Infective Endocarditis",
+    "diffs": [
+      "Infective Endocarditis",
+      "Whipple disease",
+      "Genetic predisposition to Whipple disease due to IRF4 haploinsufficiency",
+      "Genetic predisposition to Whipple disease due to Interferon regulatory factor 4 haploinsufficiency"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "edema",
+      "generalized edema",
+      "night sweats",
+      "splenomegaly",
+      "weight loss",
+      "lymphadenopathy",
+      "hypoalbuminemia",
+      "severe hypoalbuminemia (<2.5 g/dL)"
+    ],
+    "latency_ms": 2188.15
+  },
+  {
+    "case_id": 44,
+    "specialty": "Pulmonology",
+    "target": "Community-Acquired Pneumonia (Legionella / Strep)",
+    "top1": "Pneumonia (Community-Acquired)",
+    "diffs": [
+      "Pneumonia (Community-Acquired)",
+      "Acute Bronchitis",
+      "COVID-19",
+      "Community-Acquired Pneumonia (Lobar Pneumonia)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "restrictive lung disease",
+      "shortness of breath",
+      "dry cough",
+      "exertional dyspnea",
+      "sputum",
+      "fever",
+      "cough",
+      "weight loss",
+      "intermittent fever"
+    ],
+    "latency_ms": 2108.21
+  },
+  {
+    "case_id": 45,
+    "specialty": "Infectious Disease",
+    "target": "Miliary Tuberculosis",
+    "top1": "Tuberculosis (Active)",
+    "diffs": [
+      "Tuberculosis (Active)",
+      "Pulmonary Tuberculosis",
+      "Sarcoidosis",
+      "Hantavirus Pulmonary Syndrome"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "night sweats",
+      "fatigue",
+      "bilateral hilar lymphadenopathy",
+      "cough",
+      "dry cough",
+      "lymphadenopathy"
+    ],
+    "latency_ms": 2278.41
+  },
+  {
+    "case_id": 46,
+    "specialty": "Rheumatology / Pulmonology",
+    "target": "Eosinophilic Granulomatosis with Polyangiitis (EGPA)",
+    "top1": "Eosinophilic Granulomatosis with Polyangiitis (Churg-Strauss / EGPA)",
+    "diffs": [
+      "Eosinophilic Granulomatosis with Polyangiitis (Churg-Strauss / EGPA)",
+      "Asthma",
+      "Meningococcal Meningitis",
+      "Meningococcal Disease / Meningococcemia (with Meningitis)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "wheeze",
+      "purpuric rash",
+      "weakness",
+      "numbness",
+      "asthma",
+      "palpable purpura"
+    ],
+    "latency_ms": 2197.53
+  },
+  {
+    "case_id": 47,
+    "specialty": "ENT / ID",
+    "target": "Acute Mastoiditis / Otitis Media",
+    "top1": "Acute Otitis Media",
+    "diffs": [
+      "Acute Otitis Media",
+      "acute sinusitis",
+      "Acute Bronchitis",
+      "asthma"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "dark urine",
+      "fatigue",
+      "ear pain",
+      "congestion",
+      "hearing loss",
+      "sputum",
+      "cough"
+    ],
+    "latency_ms": 2266.4
+  },
+  {
+    "case_id": 48,
+    "specialty": "Hematology",
+    "target": "Autoimmune Hemolytic Anemia (AIHA)",
+    "top1": "Anemia",
+    "diffs": [
+      "Anemia",
+      "Paroxysmal nocturnal hemoglobinuria",
+      "Malaria (Plasmodium falciparum)",
+      "Rheumatoid Arthritis"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "cough",
+      "fatigue",
+      "acute kidney injury",
+      "anemia"
+    ],
+    "latency_ms": 2078.93
+  },
+  {
+    "case_id": 49,
+    "specialty": "Endocrinology / Nephrology",
+    "target": "Hypokalemic Periodic Paralysis / Gitelman Syndrome",
+    "top1": "Brucellosis",
+    "diffs": [
+      "Brucellosis",
+      "Cholera",
+      "Watery diarrhea-hypokalemia-achlorhydria syndrome",
+      "pneumonia"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "weakness",
+      "hypokalemia",
+      "severe hypokalemia (<2.8 mEq/L)"
+    ],
+    "latency_ms": 2201.29
+  },
+  {
+    "case_id": 50,
+    "specialty": "Infectious Disease",
+    "target": "Hantavirus Cardiopulmonary Syndrome",
+    "top1": "Hantavirus Pulmonary Syndrome",
+    "diffs": [
+      "Hantavirus Pulmonary Syndrome",
+      "Sarcoidosis",
+      "COVID-19",
+      "Acute Bronchitis"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "cough",
+      "dry cough",
+      "fatigue",
+      "shortness of breath"
+    ],
+    "latency_ms": 2092.1
+  },
+  {
+    "case_id": 51,
+    "specialty": "Neurology",
+    "target": "Huntington's Disease / Friedreich's Ataxia",
+    "top1": "Wilson's Disease (Hepatolenticular Degeneration)",
+    "diffs": [
+      "Wilson's Disease (Hepatolenticular Degeneration)",
+      "Friedreich ataxia",
+      "Ataxia with vitamin E deficiency",
+      "Autosomal dominant cerebellar ataxia"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "dysarthria"
+    ],
+    "latency_ms": 2116.88
+  },
+  {
+    "case_id": 52,
+    "specialty": "Genetics / Neurology",
+    "target": "Adult Refsum Disease / Peroxisomal Disorder",
+    "top1": "Susac syndrome",
+    "diffs": [
+      "Susac syndrome",
+      "Alport syndrome",
+      "Alport syndrome with leukocyte inclusions and macrothrombocytopenia",
+      "Alport syndrome with macrothrombocytopenia"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "diplopia",
+      "tinnitus",
+      "vertigo",
+      "hearing loss",
+      "sensorineural hearing loss",
+      "lesions"
+    ],
+    "latency_ms": 2142.19
+  },
+  {
+    "case_id": 53,
+    "specialty": "Neurology / Neurosurgery",
+    "target": "Subarachnoid Hemorrhage (SAH) / Ruptured Aneurysm",
+    "top1": "Hemorrhagic Stroke",
+    "diffs": [
+      "Hemorrhagic Stroke",
+      "Idiopathic intracranial hypertension",
+      "strep throat",
+      "infectious gastroenteritis"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "elevated D-dimer",
+      "tinnitus",
+      "papilledema",
+      "headache",
+      "vomiting",
+      "transient visual obscurations"
+    ],
+    "latency_ms": 2139.42
+  },
+  {
+    "case_id": 54,
+    "specialty": "Rheumatology",
+    "target": "Anti-Synthetase Syndrome / Dermatomyositis",
+    "top1": "Pneumonia",
+    "diffs": [
+      "Pneumonia",
+      "Idiopathic Inflammatory Myopathy (Suspected Anti-Synthetase Syndrome / Dermatomyositis Spectrum)",
+      "Anti-Synthetase Syndrome (Amyopathic Dermatomyositis)",
+      "Acute Bronchitis"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "cough",
+      "fatigue",
+      "dysphagia"
+    ],
+    "latency_ms": 2234.0
+  },
+  {
+    "case_id": 55,
+    "specialty": "Endocrinology",
+    "target": "Severe Diabetic Ketoacidosis (DKA)",
+    "top1": "Hantavirus Pulmonary Syndrome",
+    "diffs": [
+      "Hantavirus Pulmonary Syndrome",
+      "Andes Orthohantavirus (HPS)",
+      "Diabetic Ketoacidosis (DKA)",
+      "Hypothyroidism"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "weakness",
+      "dry mouth",
+      "cough",
+      "dry cough",
+      "constipation"
+    ],
+    "latency_ms": 2097.76
+  },
+  {
+    "case_id": 56,
+    "specialty": "Neurology / Cardiology",
+    "target": "Familial Amyloid Polyneuropathy (TTR Amyloidosis)",
+    "top1": "Vasculitis (ANCA-associated)",
+    "diffs": [
+      "Vasculitis (ANCA-associated)",
+      "Fabry disease",
+      "Anderson-Fabry disease",
+      "liver disease"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "edema",
+      "weakness",
+      "diarrhea",
+      "neuropathy",
+      "bruising",
+      "unilateral weakness",
+      "easy bruising",
+      "burning pain",
+      "constipation",
+      "proteinuria",
+      "acroparesthesia"
+    ],
+    "latency_ms": 2162.45
+  },
+  {
+    "case_id": 57,
+    "specialty": "Vascular / Cardiology",
+    "target": "Acute Aortic Dissection (Stanford Type A)",
+    "top1": "Pulmonary Embolism",
+    "diffs": [
+      "Pulmonary Embolism",
+      "Acute Myocardial Infarction (STEMI/NSTEMI)",
+      "hypertensive heart disease",
+      "Systemic Lupus Erythematosus (SLE)"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "calf swelling",
+      "oral ulcers",
+      "unilateral leg swelling",
+      "photophobia",
+      "chest pain",
+      "pleuritic chest pain",
+      "blurred vision"
+    ],
+    "latency_ms": 2279.4
+  },
+  {
+    "case_id": 58,
+    "specialty": "Pulmonology / Genetics",
+    "target": "Pulmonary Arteriovenous Malformation (HHT / Osler-Weber-Rendu)",
+    "top1": "Andaman Hemorrhagic Fever / Severe Leptospirosis",
+    "diffs": [
+      "Andaman Hemorrhagic Fever / Severe Leptospirosis",
+      "Pulmonary Embolism",
+      "Mpox (Monkeypox)",
+      "Systemic Lupus Erythematosus (SLE)"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "oral ulcers",
+      "skin lesions",
+      "cough",
+      "lesions",
+      "coughing blood"
+    ],
+    "latency_ms": 2110.19
+  },
+  {
+    "case_id": 59,
+    "specialty": "Rheumatology",
+    "target": "Systemic Sclerosis (Limited Scleroderma / CREST)",
+    "top1": "CREST syndrome",
+    "diffs": [
+      "CREST syndrome",
+      "Calcinosis-Raynaud phenomenon-esophageal involvement-sclerodactyly-telangiectasia syndrome",
+      "Immunodeficiency-microcephaly-chromosomal instability syndrome",
+      "Ataxia-Telangiectasia (Louis-Bar Syndrome)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "Raynaud's phenomenon",
+      "sclerodactyly",
+      "telangiectasia",
+      "dysphagia"
+    ],
+    "latency_ms": 1231.57
+  },
+  {
+    "case_id": 60,
+    "specialty": "Gastroenterology",
+    "target": "Achalasia Cardia",
+    "top1": "Idiopathic achalasia",
+    "diffs": [
+      "Idiopathic achalasia",
+      "Achalasia-microcephaly syndrome",
+      "Achalasia-addisonianism-alacrima syndrome",
+      "Adrenal insufficiency-achalasia-alacrima syndrome"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "weight loss",
+      "dysphagia",
+      "regurgitation"
+    ],
+    "latency_ms": 1145.43
+  },
+  {
+    "case_id": 61,
+    "specialty": "General Surgery / GI",
+    "target": "Acute Appendicitis with Localized Peritonitis",
+    "top1": "drug reaction",
+    "diffs": [
+      "drug reaction",
+      "acute kidney injury",
+      "PLG-related hereditary angioedema with normal C1Inh",
+      "OBSOLETE: ANGPT1-related hereditary angioedema with normal C1Inh"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "vomiting",
+      "edema",
+      "facial swelling",
+      "ascites",
+      "cramping",
+      "abdominal pain"
+    ],
+    "latency_ms": 2477.89
+  },
+  {
+    "case_id": 62,
+    "specialty": "Gastroenterology",
+    "target": "Crohn's Disease (Terminal Ileitis)",
+    "top1": "Inflammatory Bowel Disease (Crohn's/UC)",
+    "diffs": [
+      "Inflammatory Bowel Disease (Crohn's/UC)",
+      "appendicitis",
+      "Ebola Virus Disease (Zaire)",
+      "Acute HIV Infection (Primary)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "rash",
+      "fatigue",
+      "diarrhea",
+      "bloating",
+      "mouth ulcers",
+      "chronic diarrhea"
+    ],
+    "latency_ms": 2205.82
+  },
+  {
+    "case_id": 63,
+    "specialty": "Hepatology",
+    "target": "Decompensated Cirrhosis / Portal Hypertension",
+    "top1": "Gaucher disease type 1",
+    "diffs": [
+      "Gaucher disease type 1",
+      "Ehlers-Danlos Syndrome (Hypermobile / Vascular)",
+      "Liver Cirrhosis (Decompensated)",
+      "Thrombotic Thrombocytopenic Purpura (TTP)"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "easy bruising",
+      "fatigue",
+      "splenomegaly",
+      "pancytopenia",
+      "pallor",
+      "bruising"
+    ],
+    "latency_ms": 2189.79
+  },
+  {
+    "case_id": 64,
+    "specialty": "Vascular Surgery / GI",
+    "target": "Mesenteric Ischemia / Embolic Bowel Infarction",
+    "top1": "infectious gastroenteritis",
+    "diffs": [
+      "infectious gastroenteritis",
+      "diverticulitis",
+      "noninfectious gastroenteritis",
+      "Acute Diverticulitis"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "diabetes",
+      "irregularly irregular pulse",
+      "fever",
+      "hematuria",
+      "nausea",
+      "low-grade fever",
+      "bruising",
+      "hypertension"
+    ],
+    "latency_ms": 2307.55
+  },
+  {
+    "case_id": 65,
+    "specialty": "Gastroenterology / Allergy",
+    "target": "Eosinophilic Esophagitis (EoE)",
+    "top1": "Acute Bronchitis",
+    "diffs": [
+      "Acute Bronchitis",
+      "Common Cold",
+      "esophagitis",
+      "pneumonia"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "hematuria",
+      "sore throat"
+    ],
+    "latency_ms": 2305.87
+  },
+  {
+    "case_id": 66,
+    "specialty": "Pediatrics / Nephrology",
+    "target": "Hemolytic Uremic Syndrome (STEC-HUS)",
+    "top1": "Malaria (Plasmodium falciparum)",
+    "diffs": [
+      "Malaria (Plasmodium falciparum)",
+      "Severe Malaria / Cerebral Malaria",
+      "Marburg Virus Disease",
+      "Leptospirosis (Weil's Disease)"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "reduced urine output",
+      "diarrhea",
+      "bloody diarrhea",
+      "jaundice",
+      "pallor",
+      "abdominal pain",
+      "thrombocytopenia",
+      "acute kidney injury",
+      "anemia"
+    ],
+    "latency_ms": 2092.49
+  },
+  {
+    "case_id": 67,
+    "specialty": "Cardiology / ID",
+    "target": "Infective Endocarditis (Prosthetic Valve)",
+    "top1": "Gaucher disease type 1",
+    "diffs": [
+      "Gaucher disease type 1",
+      "Severe Malaria / Cerebral Malaria",
+      "COVID-19",
+      "Acute Bronchitis"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "chronic cough",
+      "thrombocytopenia",
+      "fever",
+      "joint pain",
+      "splenomegaly",
+      "anemia",
+      "cough",
+      "weight loss",
+      "low-grade fever"
+    ],
+    "latency_ms": 2436.31
+  },
+  {
+    "case_id": 68,
+    "specialty": "Infectious Disease",
+    "target": "Yellow Fever (Toxic Phase) / Leptospirosis",
+    "top1": "Yellow Fever",
+    "diffs": [
+      "Yellow Fever",
+      "Leptospirosis",
+      "Bundibugyo Virus Disease (BVD)",
+      "Dengue Fever"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "lesions",
+      "fever",
+      "sinusitis",
+      "headache",
+      "vomiting",
+      "severe headache",
+      "difficulty concentrating"
+    ],
+    "latency_ms": 2119.35
+  },
+  {
+    "case_id": 69,
+    "specialty": "Infectious Disease",
+    "target": "Lyme Disease (Early Disseminated / Erythema Migrans)",
+    "top1": "Leptospirosis",
+    "diffs": [
+      "Leptospirosis",
+      "Chikungunya",
+      "Zika Virus",
+      "strep throat"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": true,
+    "findings": [
+      "rash",
+      "fever"
+    ],
+    "latency_ms": 2259.92
+  },
+  {
+    "case_id": 70,
+    "specialty": "Cardiology / Vascular",
+    "target": "Acute Aortic Dissection / STEMI",
+    "top1": "Acute Myocardial Infarction (STEMI/NSTEMI)",
+    "diffs": [
+      "Acute Myocardial Infarction (STEMI/NSTEMI)",
+      "Heart Attack",
+      "Aortic Dissection",
+      "Stroke"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "sweating",
+      "tearing chest pain",
+      "weakness",
+      "chest pain",
+      "severe hypertension",
+      "hypertension"
+    ],
+    "latency_ms": 2149.07
+  },
+  {
+    "case_id": 71,
+    "specialty": "Endocrinology",
+    "target": "Pheochromocytoma",
+    "top1": "Generalized Anxiety Disorder",
+    "diffs": [
+      "Generalized Anxiety Disorder",
+      "angina",
+      "Insulin Autoimmune Syndrome (Hirata Disease)",
+      "anxiety"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "sweating",
+      "tremor",
+      "palpitations",
+      "paroxysmal headache",
+      "paroxysmal severe hypertension"
+    ],
+    "latency_ms": 719.82
+  },
+  {
+    "case_id": 72,
+    "specialty": "Infectious Disease",
+    "target": "Ebola Virus Disease (Filovirus Hemorrhagic Fever)",
+    "top1": "Ebola Virus Disease (Zaire)",
+    "diffs": [
+      "Ebola Virus Disease (Zaire)",
+      "Marburg Virus Disease",
+      "Typhoid Fever",
+      "pneumonia"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "weakness",
+      "fever",
+      "profound weakness",
+      "vomiting",
+      "confusion",
+      "abdominal pain",
+      "hyperkalemia",
+      "hyponatremia",
+      "severe hypoglycemia (<54 mg/dL)",
+      "hypoglycemia",
+      "critical hyperkalemia (K >= 6.0 mEq/L)"
+    ],
+    "latency_ms": 2233.55
+  },
+  {
+    "case_id": 73,
+    "specialty": "Obstetrics / Maternal-Fetal",
+    "target": "Severe Preeclampsia / HELLP Syndrome",
+    "top1": "Sudan Ebolavirus Disease",
+    "diffs": [
+      "Sudan Ebolavirus Disease",
+      "Lassa Fever",
+      "problem during pregnancy",
+      "Dengue Hemorrhagic Fever"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "peripheral visual field loss",
+      "double vision",
+      "bleeding",
+      "headache",
+      "vomiting",
+      "hyponatremia"
+    ],
+    "latency_ms": 2399.53
+  },
+  {
+    "case_id": 74,
+    "specialty": "Endocrinology",
+    "target": "Cushing's Disease / Hypercortisolemia",
+    "top1": "Acute Intermittent Porphyria (AIP)",
+    "diffs": [
+      "Acute Intermittent Porphyria (AIP)",
+      "Gaucher disease type 1",
+      "Liver Cirrhosis (Decompensated)",
+      "Cushing's Syndrome"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "easy bruising",
+      "bruising",
+      "hypertension"
+    ],
+    "latency_ms": 2162.51
+  },
+  {
+    "case_id": 75,
+    "specialty": "Endocrinology",
+    "target": "Insulinoma / Hyperinsulinemic Hypoglycemia",
+    "top1": "Insulin Autoimmune Syndrome (Hirata Disease)",
+    "diffs": [
+      "Insulin Autoimmune Syndrome (Hirata Disease)",
+      "Hyperthyroidism",
+      "Addison's Disease (Primary Adrenal Insufficiency)",
+      "obstructive sleep apnea (osa)"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": true,
+    "findings": [
+      "sweating",
+      "tremor",
+      "confusion",
+      "blurred vision",
+      "severe hypoglycemia (<54 mg/dL)",
+      "hypoglycemia"
+    ],
+    "latency_ms": 2215.03
+  },
+  {
+    "case_id": 76,
+    "specialty": "Oncology / Endocrinology",
+    "target": "Carcinoid Syndrome / Neuroendocrine Tumor",
+    "top1": "Carcinoid syndrome",
+    "diffs": [
+      "Carcinoid syndrome",
+      "Malignant carcinoid syndrome",
+      "Hyperthyroidism",
+      "Anaphylaxis"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "wheezing",
+      "cramping",
+      "diarrhea",
+      "palpitations"
+    ],
+    "latency_ms": 2114.67
+  },
+  {
+    "case_id": 77,
+    "specialty": "Pediatrics / Cardiology",
+    "target": "Kawasaki Disease (Mucocutaneous Lymph Node Syndrome)",
+    "top1": "Kawasaki Disease",
+    "diffs": [
+      "Kawasaki Disease",
+      "Leptospirosis",
+      "Chikungunya",
+      "strep throat"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "cheilitis",
+      "rash",
+      "fever",
+      "polymorphous rash"
+    ],
+    "latency_ms": 2046.35
+  },
+  {
+    "case_id": 78,
+    "specialty": "Infectious Disease / Critical Care",
+    "target": "Meningococcal Sepsis / Purpura Fulminans",
+    "top1": "Dengue Fever",
+    "diffs": [
+      "Dengue Fever",
+      "Meningococcal Disease / Meningococcemia (with Meningitis)",
+      "Meningococcal Meningitis",
+      "Dengue Hemorrhagic Fever"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "neck stiffness",
+      "rash",
+      "headache",
+      "petechial rash",
+      "fever",
+      "non-blanching rash",
+      "petechiae",
+      "vomiting",
+      "severe headache"
+    ],
+    "latency_ms": 2696.28
+  },
+  {
+    "case_id": 79,
+    "specialty": "Endocrinology",
+    "target": "Diabetic Ketoacidosis (Euglycemic / SGLT2-associated)",
+    "top1": "Diabetic Ketoacidosis (DKA)",
+    "diffs": [
+      "Diabetic Ketoacidosis (DKA)",
+      "Type 1 Diabetes Mellitus",
+      "Hyperglycemia",
+      "Cushing's Syndrome"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "abdominal pain",
+      "Kussmaul breathing",
+      "acetone breath",
+      "polyuria",
+      "polydipsia",
+      "marked hyperglycemia (>=250 mg/dL)",
+      "hyperglycemia",
+      "metabolic acidosis"
+    ],
+    "latency_ms": 1081.83
+  },
+  {
+    "case_id": 80,
+    "specialty": "Gastroenterology / Hepatology",
+    "target": "Primary Sclerosing Cholangitis (PSC) with UC",
+    "top1": "Primary sclerosing cholangitis",
+    "diffs": [
+      "Primary sclerosing cholangitis",
+      "Primary biliary cholangitis/primary sclerosing cholangitis and autoimmune hepatitis overlap syndrome",
+      "idiopathic painful menstruation",
+      "Inflammatory Bowel Disease (Crohn's/UC)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "arthritis",
+      "itching"
+    ],
+    "latency_ms": 2750.58
+  },
+  {
+    "case_id": 81,
+    "specialty": "Pulmonology / Critical Care",
+    "target": "Acute Pulmonary Embolism",
+    "top1": "Pulmonary Embolism",
+    "diffs": [
+      "Pulmonary Embolism",
+      "Hyperthyroidism",
+      "Heart Attack",
+      "oral thrush (yeast infection)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "sweating",
+      "palpitations",
+      "constipation",
+      "lesions",
+      "abdominal pain"
+    ],
+    "latency_ms": 2189.93
+  },
+  {
+    "case_id": 82,
+    "specialty": "Pulmonology / Rheumatology",
+    "target": "Pulmonary & Mediastinal Sarcoidosis (Stage II)",
+    "top1": "Sarcoidosis",
+    "diffs": [
+      "Sarcoidosis",
+      "Hantavirus Pulmonary Syndrome",
+      "Andes Orthohantavirus (HPS)",
+      "Mpox (Monkeypox)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "fatigue",
+      "cough",
+      "dry cough",
+      "anterior uveitis",
+      "lymphadenopathy",
+      "blurred vision",
+      "hypercalcemia"
+    ],
+    "latency_ms": 2098.69
+  },
+  {
+    "case_id": 83,
+    "specialty": "Rheumatology / Ophthalmology",
+    "target": "Beh\u00e7et's Disease",
+    "top1": "oral thrush (yeast infection)",
+    "diffs": [
+      "oral thrush (yeast infection)",
+      "Herpes Zoster (Shingles)",
+      "Yellow Fever",
+      "oral mucosal lesion"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "severe headache",
+      "numbness",
+      "mouth ulcers",
+      "headache",
+      "lesions",
+      "visual disturbance"
+    ],
+    "latency_ms": 2279.21
+  },
+  {
+    "case_id": 84,
+    "specialty": "Endocrinology / Oncology",
+    "target": "Hyperparathyroidism / Hypercalcemia of Malignancy",
+    "top1": "Type 2 Diabetes Mellitus",
+    "diffs": [
+      "Type 2 Diabetes Mellitus",
+      "Lung Cancer",
+      "Pachydermoperiostosis (Primary Hypertrophic Osteoarthropathy)",
+      "Hyperosmolar Hyperglycemic State (HHS)"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "bone pain",
+      "fatigue",
+      "excessive thirst",
+      "abdominal pain"
+    ],
+    "latency_ms": 2126.74
+  },
+  {
+    "case_id": 85,
+    "specialty": "Endocrinology",
+    "target": "Primary Adrenal Insufficiency (Addisonian Crisis)",
+    "top1": "Addison's Disease (Primary Adrenal Insufficiency)",
+    "diffs": [
+      "Addison's Disease (Primary Adrenal Insufficiency)",
+      "Dengue Hemorrhagic Fever",
+      "Meningococcal Meningitis",
+      "Meningococcal Disease / Meningococcemia (with Meningitis)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "palmar crease pigmentation",
+      "vomiting",
+      "lethargy"
+    ],
+    "latency_ms": 2079.72
+  },
+  {
+    "case_id": 86,
+    "specialty": "Infectious Disease / Rheumatology",
+    "target": "Disseminated Gonococcal Infection (DGI)",
+    "top1": "Leptospirosis",
+    "diffs": [
+      "Leptospirosis",
+      "Chikungunya",
+      "Zika Virus",
+      "strep throat"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "rash",
+      "arthritis",
+      "fever"
+    ],
+    "latency_ms": 2004.42
+  },
+  {
+    "case_id": 87,
+    "specialty": "Hematology",
+    "target": "Thrombotic Thrombocytopenic Purpura (TTP)",
+    "top1": "Primary sclerosing cholangitis",
+    "diffs": [
+      "Primary sclerosing cholangitis",
+      "Leptospirosis",
+      "Thrombotic Thrombocytopenic Purpura (TTP)",
+      "Dry Mouth"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "jaundice",
+      "lesions",
+      "dry mouth"
+    ],
+    "latency_ms": 2062.03
+  },
+  {
+    "case_id": 88,
+    "specialty": "Gastroenterology",
+    "target": "Ulcerative Colitis (Acute Severe Flare)",
+    "top1": "Inflammatory Bowel Disease (Crohn's/UC)",
+    "diffs": [
+      "Inflammatory Bowel Disease (Crohn's/UC)",
+      "Shigellosis (Dysentery)",
+      "Malaria (Plasmodium falciparum)",
+      "Leptospirosis"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": true,
+    "findings": [
+      "fever",
+      "diarrhea",
+      "bloody diarrhea",
+      "weight loss",
+      "intermittent fever",
+      "anemia",
+      "abdominal pain"
+    ],
+    "latency_ms": 1912.29
+  },
+  {
+    "case_id": 89,
+    "specialty": "Hematology",
+    "target": "Aplastic Anemia / Bone Marrow Failure",
+    "top1": "Anemia",
+    "diffs": [
+      "Anemia",
+      "Paroxysmal nocturnal hemoglobinuria",
+      "Gaucher disease type 1",
+      "Rheumatoid Arthritis"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "anemia"
+    ],
+    "latency_ms": 2017.03
+  },
+  {
+    "case_id": 90,
+    "specialty": "Nephrology / Genetics",
+    "target": "Alport Syndrome",
+    "top1": "Alport syndrome",
+    "diffs": [
+      "Alport syndrome",
+      "Alport syndrome with leukocyte inclusions and macrothrombocytopenia",
+      "Alport syndrome with macrothrombocytopenia",
+      "X-linked Alport syndrome-diffuse leiomyomatosis"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "kidney stones",
+      "sensorineural hearing loss",
+      "hearing loss",
+      "hematuria"
+    ],
+    "latency_ms": 2062.51
+  },
+  {
+    "case_id": 91,
+    "specialty": "Nephrology / Genetics",
+    "target": "Exertional Rhabdomyolysis / CPT II Deficiency",
+    "top1": "Carnitine Palmitoyltransferase II (CPT II) Deficiency",
+    "diffs": [
+      "Carnitine Palmitoyltransferase II (CPT II) Deficiency",
+      "Brucellosis",
+      "Paroxysmal nocturnal hemoglobinuria",
+      "pneumonia"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "weakness",
+      "muscle aches",
+      "hemoglobinuria",
+      "rhabdomyolysis",
+      "massive CK elevation (>10,000 U/L)",
+      "hyperkalemia"
+    ],
+    "latency_ms": 2157.28
+  },
+  {
+    "case_id": 92,
+    "specialty": "Allergy / Immunology",
+    "target": "Hereditary Angioedema (C1-INH Deficiency)",
+    "top1": "PLG-related hereditary angioedema with normal C1Inh",
+    "diffs": [
+      "PLG-related hereditary angioedema with normal C1Inh",
+      "OBSOLETE: ANGPT1-related hereditary angioedema with normal C1Inh",
+      "Hereditary angioedema",
+      "Hereditary angioedema with C1Inh deficiency"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "edema",
+      "facial swelling",
+      "abdominal pain"
+    ],
+    "latency_ms": 1855.79
+  },
+  {
+    "case_id": 93,
+    "specialty": "Hematology / Nephrology",
+    "target": "Primary Amyloidosis (AL Amyloidosis)",
+    "top1": "Heart Failure (Acute Decompensated)",
+    "diffs": [
+      "Heart Failure (Acute Decompensated)",
+      "Liver Cirrhosis (Decompensated)",
+      "Hypothyroidism",
+      "Typhoid Fever"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "weakness",
+      "constipation",
+      "numbness",
+      "abdominal distension"
+    ],
+    "latency_ms": 2047.01
+  },
+  {
+    "case_id": 94,
+    "specialty": "Urology / ID",
+    "target": "Acute Obstructive Pyelonephritis (Urosepsis)",
+    "top1": "Pyelonephritis (Upper UTI)",
+    "diffs": [
+      "Pyelonephritis (Upper UTI)",
+      "Nephrolithiasis (Kidney Stones)",
+      "infectious gastroenteritis",
+      "noninfectious gastroenteritis"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "pyuria",
+      "fever",
+      "flank pain",
+      "nausea",
+      "vomiting",
+      "acute kidney injury"
+    ],
+    "latency_ms": 2258.87
+  },
+  {
+    "case_id": 95,
+    "specialty": "Neurology",
+    "target": "Transient Ischemic Attack (Carotid Stenosis)",
+    "top1": "Stroke",
+    "diffs": [
+      "Stroke",
+      "Essential Hypertension",
+      "hypoglycemia",
+      "concussion"
+    ],
+    "is_top1": false,
+    "is_top3": false,
+    "is_top5": false,
+    "findings": [
+      "dizziness",
+      "hypertension"
+    ],
+    "latency_ms": 2022.86
+  },
+  {
+    "case_id": 96,
+    "specialty": "Hematology / Pulmonology",
+    "target": "Sickle Cell Acute Chest Syndrome",
+    "top1": "Dengue Hemorrhagic Fever",
+    "diffs": [
+      "Dengue Hemorrhagic Fever",
+      "Lassa Fever",
+      "Sickle Cell Crisis (Vaso-occlusive)",
+      "Acute Appendicitis"
+    ],
+    "is_top1": false,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "fever",
+      "severe abdominal pain",
+      "chest pain",
+      "ankle swelling",
+      "abdominal pain"
+    ],
+    "latency_ms": 2253.47
+  },
+  {
+    "case_id": 97,
+    "specialty": "Neurology / Genetics",
+    "target": "Mitochondrial Encephalomyopathy / MELAS",
+    "top1": "Mitochondrial Energy Metabolism Disorder (Suspected Respiratory Chain Complex Deficiency / Inborn Error of Metabolism)",
+    "diffs": [
+      "Mitochondrial Energy Metabolism Disorder (Suspected Respiratory Chain Complex Deficiency / Inborn Error of Metabolism)",
+      "Mitochondrial Complex Deficiency (Lactic Acidosis)",
+      "Andes Orthohantavirus (HPS)",
+      "Mitochondrial Encephalopathy (Differential includes MELAS, MERRF, Mitochondrial Ataxia)"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "rapid breathing",
+      "lactic acidosis",
+      "vomiting",
+      "lethargy"
+    ],
+    "latency_ms": 2174.13
+  },
+  {
+    "case_id": 98,
+    "specialty": "Genetics / Hematology",
+    "target": "Gaucher Disease (Type 1)",
+    "top1": "Gaucher disease type 1",
+    "diffs": [
+      "Gaucher disease type 1",
+      "Liver Cirrhosis (Decompensated)",
+      "Paroxysmal nocturnal hemoglobinuria",
+      "Severe Malaria / Cerebral Malaria"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "bone pain",
+      "abdominal distension",
+      "easy bruising",
+      "enlarged spleen",
+      "bruising",
+      "thrombocytopenia",
+      "anemia"
+    ],
+    "latency_ms": 2416.12
+  },
+  {
+    "case_id": 99,
+    "specialty": "Neurology / Ophthalmology",
+    "target": "Idiopathic Intracranial Hypertension (Pseudotumor Cerebri)",
+    "top1": "Idiopathic intracranial hypertension",
+    "diffs": [
+      "Idiopathic intracranial hypertension",
+      "Hemorrhagic Stroke",
+      "POEMS syndrome",
+      "Bacterial Meningitis"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "papilledema",
+      "transient visual obscurations",
+      "pulsatile tinnitus"
+    ],
+    "latency_ms": 619.16
+  },
+  {
+    "case_id": 100,
+    "specialty": "Neurology / Genetics",
+    "target": "MELAS (Mitochondrial Myopathy, Encephalopathy, Lactic Acidosis, Stroke-like Episodes)",
+    "top1": "Mitochondrial Encephalopathy (Differential includes MELAS, MERRF, Mitochondrial Ataxia)",
+    "diffs": [
+      "Mitochondrial Encephalopathy (Differential includes MELAS, MERRF, Mitochondrial Ataxia)",
+      "Encephalitis",
+      "Hemorrhagic Stroke",
+      "MELAS"
+    ],
+    "is_top1": true,
+    "is_top3": true,
+    "is_top5": true,
+    "findings": [
+      "lesions",
+      "weakness",
+      "seizures",
+      "muscle weakness",
+      "hearing loss",
+      "headache",
+      "sensorineural hearing loss",
+      "confusion",
+      "diabetes",
+      "vomiting",
+      "severe headache"
+    ],
+    "latency_ms": 2148.37
+  }
+]

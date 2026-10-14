@@ -1834,6 +1834,12 @@ def _standardize_profile(profile: Dict[str, Any] | None, query_name: str) -> Dic
             res["icd11_code"] = code11
             res["icd11"] = code11
 
+    # Ensure severity and triage
+    if "severity" not in res:
+        res["severity"] = "critical" if res.get("triage") == "EMERGENT" else ("high" if res.get("triage") == "URGENT" else "moderate")
+    if "triage" not in res:
+        res["triage"] = "EMERGENT" if res.get("severity") in ("critical", "emergency") else ("URGENT" if res.get("severity") == "high" else "ROUTINE")
+
     # Ensure red_flags
     if "red_flags" not in res:
         if "disease_intelligence" in res and isinstance(res["disease_intelligence"], dict) and "red_flags" in res["disease_intelligence"]:
@@ -1856,7 +1862,24 @@ def get_disease_clinical_profile(disease_name: str) -> Dict[str, Any] | None:
     raw_clean = disease_name.strip()
     lower_name = raw_clean.lower()
 
-    # 0. Check OPEN_DOMAIN_ENTITIES registry
+    # 1. Direct match in Expert Clinical Metadata Registry
+    if raw_clean in DISEASE_METADATA_EXT:
+        return _standardize_profile(DISEASE_METADATA_EXT[raw_clean], raw_clean)
+    if raw_clean in DISEASE_METADATA_ALIASES:
+        canonical = DISEASE_METADATA_ALIASES[raw_clean]
+        if canonical in DISEASE_METADATA_EXT:
+            return _standardize_profile(DISEASE_METADATA_EXT[canonical], raw_clean)
+
+    # 2. Case-insensitive exact match in Expert Clinical Metadata Registry
+    for k, v in DISEASE_METADATA_EXT.items():
+        if k.lower() == lower_name:
+            return _standardize_profile(v, raw_clean)
+
+    for k, target in DISEASE_METADATA_ALIASES.items():
+        if k.lower() == lower_name and target in DISEASE_METADATA_EXT:
+            return _standardize_profile(DISEASE_METADATA_EXT[target], raw_clean)
+
+    # 3. Check OPEN_DOMAIN_ENTITIES registry
     try:
         from app.services.open_domain_medical_engine import OPEN_DOMAIN_ENTITIES
         if raw_clean in OPEN_DOMAIN_ENTITIES:
@@ -1867,22 +1890,34 @@ def get_disease_clinical_profile(disease_name: str) -> Dict[str, Any] | None:
     except Exception:
         pass
 
-    # 1. Direct match
-    if raw_clean in DISEASE_METADATA_EXT:
-        return _standardize_profile(DISEASE_METADATA_EXT[raw_clean], raw_clean)
-    if raw_clean in DISEASE_METADATA_ALIASES:
-        canonical = DISEASE_METADATA_ALIASES[raw_clean]
-        if canonical in DISEASE_METADATA_EXT:
-            return _standardize_profile(DISEASE_METADATA_EXT[canonical], raw_clean)
-
-    # 2. Case-insensitive exact match
-    for k, v in DISEASE_METADATA_EXT.items():
-        if k.lower() == lower_name:
-            return _standardize_profile(v, raw_clean)
-
-    for k, target in DISEASE_METADATA_ALIASES.items():
-        if k.lower() == lower_name and target in DISEASE_METADATA_EXT:
-            return DISEASE_METADATA_EXT[target]
+    # 4. Check Master Disease Catalog (20,397+ clinical conditions)
+    try:
+        from app.services.master_disease_catalog import master_disease_catalog
+        m_entry = master_disease_catalog.get_disease_by_name(raw_clean)
+        if m_entry:
+            return _standardize_profile({
+                "disease_name": m_entry["name"],
+                "icd10": m_entry.get("icd10", "R69"),
+                "icd10_code": m_entry.get("icd10", "R69"),
+                "icd11": m_entry.get("icd11", ""),
+                "icd11_code": m_entry.get("icd11", ""),
+                "orphacode": m_entry.get("orphacode", ""),
+                "category": m_entry.get("category", "General Medicine"),
+                "severity": m_entry.get("severity", "moderate"),
+                "triage": m_entry.get("triage", "URGENT"),
+                "summary": m_entry.get("pearl", ""),
+                "immediate_tests": m_entry.get("immediate_tests", []),
+                "investigations": m_entry.get("recommended_investigations", []),
+                "recommended_investigations": m_entry.get("recommended_investigations", []),
+                "medications": m_entry.get("recommended_medications", []),
+                "recommended_medications": m_entry.get("recommended_medications", []),
+                "first_line_treatment": m_entry.get("first_line_treatment", ""),
+                "pearl": m_entry.get("pearl", ""),
+                "cardinal_symptoms": m_entry.get("cardinal_symptoms", []),
+                "red_flags": [f"Hemodynamic instability, acute metabolic decompensation, or rapid progression in {m_entry['name']}"],
+            }, raw_clean)
+    except Exception:
+        pass
 
     # 3. Cleaned name without parentheses or suffixes
     import re

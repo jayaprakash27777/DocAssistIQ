@@ -14,7 +14,7 @@ import { useAuth } from "@/lib/auth-context";
 import { NotificationBell } from "./NotificationBell";
 import { ProfileDropdown } from "./ProfileDropdown";
 import { WsStatus } from "./WsStatus";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { ActiveModelBadge } from "./ActiveModelBadge";
 import { Search } from "lucide-react";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -99,14 +99,7 @@ export function Header({ onMenuToggle }: Props) {
             Ctrl+K
           </kbd>
         </button>
-        <div 
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold shadow-xs"
-          title="Clinical Reasoning Engine: II-Medical-8B Active"
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="font-mono text-[11px] tracking-wide">II-Medical:8B</span>
-        </div>
-        <ThemeToggle />
+        <ActiveModelBadge />
         <WsStatus />
         <NotificationBell unreadCount={0} />
         {user && <ProfileDropdown user={user} />}

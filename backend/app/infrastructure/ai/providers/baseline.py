@@ -47,17 +47,20 @@ class BaselineGenerationProvider(GenerationProvider):
             import httpx
             import os
             base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-            async with httpx.AsyncClient(timeout=timeout or 5.0) as client:
-                resp = await client.post(
-                    f"{base_url}/api/generate",
-                    json={
-                        "model": os.getenv("DEFAULT_LLM_MODEL", "llama3.2:latest"),
-                        "prompt": request.prompt,
-                        "system": request.system_prompt or "",
-                        "stream": False,
-                        "options": {"temperature": request.temperature}
-                    }
-                )
+            payload = {
+                "model": os.getenv("DEFAULT_LLM_MODEL", "llama3.2:latest"),
+                "prompt": request.prompt,
+                "system": request.system_prompt or "",
+                "stream": False,
+                "options": {"temperature": request.temperature, "num_ctx": 4096},
+            }
+            if request.json_schema:
+                payload["format"] = "json"
+            if request.max_tokens:
+                payload["options"]["num_predict"] = request.max_tokens
+
+            async with httpx.AsyncClient(timeout=timeout or 60.0) as client:
+                resp = await client.post(f"{base_url}/api/generate", json=payload)
                 if resp.status_code == 200:
                     data = resp.json()
                     res_txt = data.get("response", "").strip()

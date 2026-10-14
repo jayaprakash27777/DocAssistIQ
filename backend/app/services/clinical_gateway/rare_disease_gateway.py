@@ -8,6 +8,7 @@ Integrates 100% Free & Open (No Keys Needed) APIs:
 
 import asyncio
 import time
+import re
 from typing import Dict, List, Optional, Any, Tuple
 from urllib.parse import quote
 import httpx
@@ -24,7 +25,15 @@ _CACHE_TTL_SECONDS = 7200  # 2 hours
 # ---------------------------------------------------------------------------
 async def query_orphanet_disease(rare_disease_name: str) -> List[Dict[str, Any]]:
     """Queries Orphadata / Monarch for rare disease classification and ORPHA codes."""
-    cache_key = f"orpha_{rare_disease_name.lower()}"
+    if not rare_disease_name or not str(rare_disease_name).strip():
+        return []
+
+    clean_name = str(rare_disease_name).strip()
+    if len(clean_name) > 40:
+        words = [w for w in re.split(r"[\s,;.]+", clean_name) if len(w) > 3]
+        clean_name = " ".join(words[:3]) if words else clean_name[:40]
+
+    cache_key = f"orpha_{clean_name.lower()}"
     now = time.time()
     if cache_key in _RARE_CACHE:
         ts, data = _RARE_CACHE[cache_key]
@@ -33,9 +42,9 @@ async def query_orphanet_disease(rare_disease_name: str) -> List[Dict[str, Any]]
 
     results = []
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=3.5) as client:
             # Query Monarch OLS for Orphadata concepts
-            url = f"https://api.monarchinitiative.org/v3/api/search?q={quote(rare_disease_name)}&category=biolink:Disease&limit=3"
+            url = f"https://api.monarchinitiative.org/v3/api/search?q={quote(clean_name)}&category=biolink:Disease&limit=3"
             r = await client.get(url, headers={"Accept": "application/json"})
             if r.status_code == 200:
                 items = r.json().get("items", [])
@@ -50,7 +59,7 @@ async def query_orphanet_disease(rare_disease_name: str) -> List[Dict[str, Any]]
                         })
         _RARE_CACHE[cache_key] = (now, results)
     except Exception as e:
-        log.warning("orphanet_query_failed", disease=rare_disease_name, error=str(e))
+        log.debug("orphanet_query_failed", disease=clean_name, error=str(e))
 
     return results
 

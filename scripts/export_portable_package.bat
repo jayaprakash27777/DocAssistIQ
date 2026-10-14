@@ -22,17 +22,18 @@ if %ERRORLEVEL% EQU 0 (
 )
 echo.
 
-:: 2. AI Models Check
-echo [STEP 2/4] Verifying AI Models inside models/ollama/models...
-if exist models\ollama\models (
-    echo [OK] AI models directory is linked and available at models\ollama\models.
-    echo [TIP] If copying to a USB drive or different PC, ensure the target folder receives
-    echo       the physical files (e.g., standard Windows File Explorer Copy will copy
-    echo       the target files of the junction automatically).
+:: 2. AI Models and Offline Dependencies Check
+echo [STEP 2/4] Verifying AI Models and Offline Wheels...
+if exist models\ollama\models\blobs (
+    echo [OK] Ollama models directory is verified at models\ollama\models.
 ) else (
-    echo [WARNING] models\ollama\models not found! Creating junction from %USERPROFILE%\.ollama\models...
-    if not exist models\ollama mkdir models\ollama
-    mklink /J models\ollama\models %USERPROFILE%\.ollama\models
+    echo [NOTICE] models\ollama\models\blobs not found.
+)
+if exist backend\wheels (
+    echo [OK] Bundled Python wheels verified at backend\wheels.
+)
+if exist backend\model_cache (
+    echo [OK] Whisper speech-to-text models verified at backend\model_cache.
 )
 echo.
 
@@ -71,7 +72,7 @@ echo What is included in this folder:
 echo  1. All Codefiles (Frontend Next.js, Backend FastAPI, ML services)
 echo  2. Complete Database Seed (infra/postgres/01_docassistiq_seed.sql)
 echo  3. All Ollama Models (models/ollama/models)
-echo  4. 1-Click Launchers (START_ALL_DOCKER.bat & START_ALL_LOCAL.bat)
+echo  4. 1-Click Launchers (start_safely.bat & stop_safely.bat)
 echo  5. Setup Guide (PORTABLE_DISTRIBUTION_GUIDE.md)
 echo.
 echo You can now zip or copy this DocAssistIQ folder to share with anyone!

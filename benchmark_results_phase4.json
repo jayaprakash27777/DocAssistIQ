@@ -1,0 +1,90 @@
+{
+  "timestamp": "2026-10-14 21:59:40",
+  "total_cases": 6,
+  "avg_latency_ms": 214.11,
+  "top1_accuracy_percent": 100.0,
+  "top3_accuracy_percent": 100.0,
+  "crag_verified_percent": 100.0,
+  "nli_interception_accuracy_percent": 100.0,
+  "ollama_ping_ms": 439.21,
+  "detailed_results": [
+    {
+      "case_id": "CASE-01",
+      "name": "Acute Appendicitis",
+      "elapsed_ms": 708.4,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Acute Appendicitis",
+      "top_score": 1.69,
+      "triage": "ROUTINE",
+      "emergency_alert": false,
+      "crag_verified": true,
+      "nli_approved": true
+    },
+    {
+      "case_id": "CASE-02",
+      "name": "Acute Myocardial Infarction",
+      "elapsed_ms": 136.43,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Acute Myocardial Infarction (STEMI/NSTEMI)",
+      "top_score": 1.37,
+      "triage": "ROUTINE",
+      "emergency_alert": true,
+      "crag_verified": true,
+      "nli_approved": true
+    },
+    {
+      "case_id": "CASE-03",
+      "name": "Pulmonary Embolism",
+      "elapsed_ms": 118.59,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Pulmonary Embolism",
+      "top_score": 0.85,
+      "triage": "ROUTINE",
+      "emergency_alert": false,
+      "crag_verified": true,
+      "nli_approved": true
+    },
+    {
+      "case_id": "CASE-04",
+      "name": "Dengue Hemorrhagic / Classic Fever",
+      "elapsed_ms": 171.24,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Dengue Fever",
+      "top_score": 2.087,
+      "triage": "ROUTINE",
+      "emergency_alert": true,
+      "crag_verified": true,
+      "nli_approved": false
+    },
+    {
+      "case_id": "CASE-05",
+      "name": "Bacterial Meningitis",
+      "elapsed_ms": 82.81,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Bacterial Meningitis",
+      "top_score": 1.69,
+      "triage": "ROUTINE",
+      "emergency_alert": false,
+      "crag_verified": true,
+      "nli_approved": true
+    },
+    {
+      "case_id": "CASE-06",
+      "name": "Community-Acquired Pneumonia",
+      "elapsed_ms": 67.18,
+      "is_top1": true,
+      "is_top3": true,
+      "top_candidate": "Community-Acquired Pneumonia (Lobar Pneumonia)",
+      "top_score": 1.87,
+      "triage": "ROUTINE",
+      "emergency_alert": false,
+      "crag_verified": true,
+      "nli_approved": true
+    }
+  ]
+}

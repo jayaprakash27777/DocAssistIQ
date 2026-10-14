@@ -350,7 +350,30 @@ async function authedFetch<T>(
   }
 
   try {
-    const res = await fetch(url, { ...options, signal: controller.signal, headers });
+    let res: Response | null = null;
+    let lastFetchErr: unknown = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        res = await fetch(url, { ...options, signal: controller.signal, headers });
+        if (res.status >= 502 && res.status <= 504 && attempt < 2) {
+          // Transient gateway/server error during reload
+          await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+          continue;
+        }
+        break;
+      } catch (fetchErr: unknown) {
+        lastFetchErr = fetchErr;
+        if (fetchErr instanceof Error && fetchErr.name !== "AbortError" && attempt < 2) {
+          // Auto-reconnect retry: if network momentarily dropped or server restarted
+          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+          continue;
+        }
+        throw fetchErr;
+      }
+    }
+    if (!res) {
+      throw lastFetchErr || new Error("Failed to connect to backend server");
+    }
     clearTimeout(timer);
 
     const responseRequestId = res.headers.get("x-request-id") ?? requestId;
@@ -535,6 +558,28 @@ export async function getSimilarCases(
 ): Promise<ApiResult<{ cases: SimilarCaseResponse[] }>> {
   return authedFetch<{ cases: SimilarCaseResponse[] }>(
     `${BASE_URL}/api/v1/consultations/${consultationId}/similar-cases?limit=${limit}`,
+  );
+}
+
+export interface ShareCaseToHubPayload {
+  content: string;
+  category?: string;
+  urgency?: string;
+  tags?: string[];
+  anonymous?: boolean;
+}
+
+export async function shareConsultationToHub(
+  consultationId: string,
+  payload: ShareCaseToHubPayload,
+): Promise<ApiResult<any>> {
+  return authedFetch<any>(
+    `${BASE_URL}/api/v1/consultations/${consultationId}/share-to-hub`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
   );
 }
 
@@ -1916,6 +1961,14 @@ export interface DifferentialDiagnosisItem {
   is_outbreak_match?: boolean;
   outbreak_badge?: string;
   outbreak_details?: any;
+  icd11_code?: string | null;
+  snomed_ct?: string | null;
+  mondo_id?: string | null;
+  hpo_phenotypes?: string[];
+  clinical_trials?: any[];
+  europe_pmc_citations?: any[];
+  boxed_warning_alert?: string | null;
+  clinical_gateway_verified?: boolean;
 }
 
 export interface DifferentialDiagnosisResponse {
@@ -1928,6 +1981,10 @@ export interface DifferentialDiagnosisResponse {
   outbreak_detected?: boolean;
   outbreak_matches?: any[];
   outbreak_summary?: string | null;
+  clinical_gateway_52_sources?: string;
+  active_knowledge_sources?: string[];
+  hpo_phenotype_matches?: any[];
+  rare_disease_matches?: any[];
 }
 
 export async function getDifferentialDiagnosis(
@@ -1940,6 +1997,258 @@ export async function getDifferentialDiagnosis(
     { timeoutMs: 90000 }, // 90s — deterministic engine + safety eval
   );
 }
+
+// ── Ultra-Low Latency Speculative Streaming Engine (Phase 5) ────────
+
+export interface StreamingChunkEvent {
+  event_type: "start" | "candidate" | "test" | "narrative_token" | "end" | "error";
+  consultation_id?: string;
+  sequence_id: number;
+  token?: string;
+  elapsed_ms: number;
+  reasoning_trace?: any;
+  payload?: any;
+}
+
+export interface StreamDifferentialPayload {
+  symptoms: string | string[];
+  negated_symptoms?: string[];
+  travel_history?: string[];
+  duration_days?: number;
+  consultation_id?: string;
+  patient_sex?: string;
+  patient_age?: number;
+  is_pregnant?: boolean;
+  top_k?: number;
+}
+
+export async function streamDifferentialDiagnosis(
+  payload: StreamDifferentialPayload,
+  onChunk: (chunk: StreamingChunkEvent) => void,
+  options?: { signal?: AbortSignal }
+): Promise<void> {
+  const url = `${BASE_URL}/api/v1/consultations/stream-differential`;
+  const headers: Record<string, string> = {
+    Accept: "text/event-stream",
+    "Content-Type": "application/json",
+    ...authHeaders(),
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    signal: options?.signal,
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error(`Failed to connect to differential stream: HTTP ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n\n");
+    buffer = lines.pop() ?? "";
+
+    for (const block of lines) {
+      const trimmed = block.trim();
+      if (!trimmed) continue;
+      for (const line of trimmed.split("\n")) {
+        if (line.startsWith("data: ")) {
+          try {
+            const parsed = JSON.parse(line.slice(6));
+            onChunk(parsed);
+          } catch {
+            // Non-JSON ignored
+          }
+        }
+      }
+    }
+  }
+
+  if (buffer.trim()) {
+    for (const line of buffer.trim().split("\n")) {
+      if (line.startsWith("data: ")) {
+        try {
+          const parsed = JSON.parse(line.slice(6));
+          onChunk(parsed);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+}
+
+// ── Phase 6: Universal Clinical Q&A & Pharmacovigilance Types ───────
+
+export interface ClinicalEvidenceReference {
+  source: string;
+  level_of_evidence: string;
+  citation_text: string;
+  url_or_pmid?: string | null;
+}
+
+export interface PharmacotherapyRegimenItem {
+  drug_name: string;
+  dose_and_route: string;
+  frequency: string;
+  indication: string;
+  monitoring_parameters: string[];
+  renal_adjustment_note?: string | null;
+}
+
+export interface ClinicalScoreGuidance {
+  score_name: string;
+  clinical_utility: string;
+  thresholds_and_actions: Record<string, string>;
+}
+
+export interface UniversalClinicalQARequest {
+  question: string;
+  patient_context?: Record<string, any> | null;
+  specialty?: string | null;
+  consultation_id?: string | null;
+}
+
+export interface UniversalClinicalQAResponse {
+  question: string;
+  specialty: string;
+  direct_answer: string;
+  diagnostic_workup: string[];
+  pharmacotherapy_protocol: PharmacotherapyRegimenItem[];
+  contraindications_and_red_flags: string[];
+  clinical_calculators_or_scores: ClinicalScoreGuidance[];
+  evidence_citations: ClinicalEvidenceReference[];
+  execution_time_ms: number;
+  safety_disclaimer: string;
+}
+
+export interface PharmacovigilanceAuditRequest {
+  medications: string[];
+  patient_age?: number | null;
+  patient_sex?: string | null;
+  is_pregnant?: boolean;
+  egfr?: number | null;
+  creatinine?: number | null;
+  child_pugh_class?: string | null;
+  potassium?: number | null;
+  baseline_qtc_ms?: number | null;
+  allergies?: string[] | null;
+}
+
+export interface PharmacovigilanceAuditResponse {
+  overall_safety_status: "SAFE" | "CAUTION" | "CRITICAL_HAZARD";
+  total_drugs_analyzed: number;
+  critical_contraindications: Array<Record<string, any>>;
+  drug_drug_interactions: Array<Record<string, any>>;
+  cyp450_profile: Record<string, any>;
+  qtc_prolongation_risk: {
+    risk_level: "LOW" | "MODERATE" | "HIGH" | "CRITICAL_TORSADES_ALERT";
+    prolonging_agents: string[];
+    cumulative_score: number;
+    recommendations: string[];
+  };
+  triple_whammy_detected: boolean;
+  serotonin_syndrome_risk: Record<string, any>;
+  bleeding_coagulopathy_risk: Record<string, any>;
+  nephrotoxicity_stacking: Record<string, any>;
+  organ_clearance_adjustments: Array<Record<string, any>>;
+  beers_criteria_alerts: Array<Record<string, any>>;
+  anticholinergic_burden: Record<string, any>;
+  execution_time_ms: number;
+  safety_disclaimer: string;
+}
+
+export async function askUniversalClinicalQA(
+  payload: UniversalClinicalQARequest
+): Promise<ApiResult<UniversalClinicalQAResponse>> {
+  return authedFetch<UniversalClinicalQAResponse>(
+    `${BASE_URL}/api/v1/clinical-knowledge/universal-qa`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      timeoutMs: 30000,
+    }
+  );
+}
+
+export async function auditPharmacovigilance(
+  payload: PharmacovigilanceAuditRequest
+): Promise<ApiResult<PharmacovigilanceAuditResponse>> {
+  return authedFetch<PharmacovigilanceAuditResponse>(
+    `${BASE_URL}/api/v1/clinical-knowledge/pharmacovigilance-audit`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      timeoutMs: 30000,
+    }
+  );
+}
+
+// ── Phase 7: Hospital-Grade SOAP Note Types ─────────────────────────
+
+export interface HospitalGradeSOAPRequest {
+  clinical_text: string;
+  consultation_id?: string | null;
+  vitals?: Record<string, any> | null;
+  patient_age?: number | null;
+  patient_sex?: string | null;
+  active_diagnoses?: string[] | null;
+  current_medications?: string[] | null;
+  allergies?: string[] | null;
+  lab_results?: Record<string, any> | null;
+  imaging_results?: string[] | null;
+}
+
+export interface HospitalGradeSOAPResponse {
+  subjective: Record<string, any>;
+  objective: Record<string, any>;
+  assessment: {
+    primary_diagnosis: string;
+    icd10_code: string;
+    icd11_code: string;
+    bayesian_posterior_probability: number;
+    confidence_interval: number[];
+    differential_diagnoses: Array<Record<string, any>>;
+    em_mdm_complexity: "Straightforward" | "Low" | "Moderate" | "High";
+    em_billing_code: string;
+    mdm_rationale: string;
+  };
+  plan: {
+    diagnostic_workup: string[];
+    pharmacotherapy: Array<Record<string, any>>;
+    interventions_and_referrals: string[];
+    patient_education: string[];
+    red_flag_return_precautions: string[];
+    disposition_and_followup: string;
+  };
+  markdown_full_note: string;
+  execution_time_ms: number;
+  compliance_standard: string;
+}
+
+export async function generateHospitalSOAP(
+  payload: HospitalGradeSOAPRequest
+): Promise<ApiResult<HospitalGradeSOAPResponse>> {
+  return authedFetch<HospitalGradeSOAPResponse>(
+    `${BASE_URL}/api/v1/clinical-knowledge/generate-soap`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      timeoutMs: 35000,
+    }
+  );
+}
+
+
 
 // ── Sub-30ms Real-Time Clinical Prediction Types ────────────────────
 
@@ -1968,6 +2277,10 @@ export interface RealtimePredictionCandidate {
   disease_intelligence?: any;
   pearl: string;
   is_open_domain: boolean;
+  mondo_id?: string | null;
+  snomed_ct?: string | null;
+  hpo_phenotypes?: string[];
+  clinical_gateway_verified?: boolean;
 }
 
 export interface RealtimeEmergencyAlert {
@@ -2072,6 +2385,10 @@ export interface RealtimePredictionResponse {
   bedside_clarifying_questions?: BedsideClarifyingQuestion[] | null;
   comparison_matrix?: DiagnosticComparisonItem[] | null;
   clinical_mdm_summary?: string | null;
+  clinical_gateway_active?: boolean;
+  clinical_gateway_sources?: string[];
+  hpo_phenotypes?: any[];
+  rare_disease_matches?: any[];
 }
 
 export interface RealtimePredictionPayload {
@@ -2128,12 +2445,15 @@ export interface OutbreakAlertItem {
   reported_cases?: string;
   fatality_rate?: string;
   clinical_pearl: string;
+  is_dynamic_live?: boolean;
+  data_source?: string;
 }
 
 export interface StateOutbreakResponse {
   status: string;
   timestamp: string;
   total_active_alerts: number;
+  dynamic_outbreaks_active?: number;
   india_states_covered: number;
   india_state_alerts: OutbreakAlertItem[];
   global_alerts: OutbreakAlertItem[];
@@ -2155,6 +2475,42 @@ export async function getStateOutbreaks(params?: {
   return authedFetch<StateOutbreakResponse>(
     `${BASE_URL}/api/v1/intelligence/state-outbreaks${qs}`,
     { timeoutMs: 15000 }
+  );
+}
+
+export async function triggerOutbreakAlert(data: {
+  disease_name: string;
+  state_or_country: string;
+  region_type?: "india_state" | "global";
+  alert_level?: "CRITICAL" | "HIGH" | "MONITORING";
+  cardinal_symptoms?: string[];
+  districts?: string[];
+  pathogen?: string;
+  vector_reservoir?: string;
+  reporting_agency?: string;
+  clinical_pearl?: string;
+  reported_cases?: string;
+}): Promise<ApiResult<{ status: string; alert: OutbreakAlertItem; broadcast: boolean }>> {
+  return authedFetch<{ status: string; alert: OutbreakAlertItem; broadcast: boolean }>(
+    `${BASE_URL}/api/v1/intelligence/trigger-outbreak-alert`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      timeoutMs: 10000,
+    }
+  );
+}
+
+export async function rescanLiveFeeds(): Promise<ApiResult<{ status: string; message: string; total_alerts: number }>> {
+  return authedFetch<{ status: string; message: string; total_alerts: number }>(
+    `${BASE_URL}/api/v1/intelligence/rescan-now`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      timeoutMs: 15000,
+    }
   );
 }
 
@@ -2766,6 +3122,130 @@ export async function probeAdminAI(): Promise<ApiResult<ProbeAIResponse>> {
 }
 
 // ------------------------------------------------------------------
+// Deep Infrastructure Telemetry & Operational System Control
+// ------------------------------------------------------------------
+
+export interface DatabaseTelemetry {
+  status: string;
+  latency_ms: number;
+  postgres_version: string;
+  active_connections: number;
+  table_counts: Record<string, number>;
+}
+
+export interface RedisTelemetry {
+  status: string;
+  latency_ms: number;
+  redis_version: string;
+  connected_clients: number;
+  used_memory_human: string;
+  total_keys: number;
+}
+
+export interface StorageTelemetry {
+  status: string;
+  latency_ms: number;
+  bucket_name: string;
+  endpoint: string;
+  total_objects: number;
+  total_size_bytes: number;
+}
+
+export interface InfrastructureTelemetryResponse {
+  database: DatabaseTelemetry;
+  redis: RedisTelemetry;
+  storage: StorageTelemetry;
+  ai_engine: Record<string, any>;
+  maintenance_mode: boolean;
+  maintenance_reason: string | null;
+  system_uptime_seconds: number;
+  platform_info: {
+    app_name: string;
+    version: string;
+    environment: string;
+    python_version: string;
+  };
+  timestamp: string;
+}
+
+export interface CacheFlushResponse {
+  ok: boolean;
+  keys_purged: number;
+  namespace: string;
+  timestamp: string;
+}
+
+export interface MaintenanceModeResponse {
+  ok: boolean;
+  maintenance_mode: boolean;
+  reason: string | null;
+  timestamp: string;
+}
+
+export interface DbAnalyzeResponse {
+  ok: boolean;
+  duration_ms: number;
+  timestamp: string;
+}
+
+/** GET /api/v1/admin/infrastructure-telemetry — Deep real-time system metrics */
+export async function getAdminInfrastructureTelemetry(): Promise<ApiResult<InfrastructureTelemetryResponse>> {
+  return authedFetch<InfrastructureTelemetryResponse>(
+    `${BASE_URL}/api/v1/admin/infrastructure-telemetry`,
+    { timeoutMs: 10000 }
+  );
+}
+
+/** POST /api/v1/admin/cache/flush — Flush Redis cache */
+export async function flushAdminCache(namespace: string = "all"): Promise<ApiResult<CacheFlushResponse>> {
+  return authedFetch<CacheFlushResponse>(
+    `${BASE_URL}/api/v1/admin/cache/flush`,
+    {
+      method: "POST",
+      body: JSON.stringify({ namespace }),
+      timeoutMs: 10000,
+    }
+  );
+}
+
+/** POST /api/v1/admin/system/maintenance — Toggle system emergency maintenance mode */
+export async function toggleAdminMaintenance(
+  enabled: boolean,
+  reason?: string
+): Promise<ApiResult<MaintenanceModeResponse>> {
+  return authedFetch<MaintenanceModeResponse>(
+    `${BASE_URL}/api/v1/admin/system/maintenance`,
+    {
+      method: "POST",
+      body: JSON.stringify({ enabled, reason }),
+      timeoutMs: 10000,
+    }
+  );
+}
+
+/** POST /api/v1/admin/database/analyze — Run PostgreSQL ANALYZE */
+export async function runAdminDbAnalyze(): Promise<ApiResult<DbAnalyzeResponse>> {
+  return authedFetch<DbAnalyzeResponse>(
+    `${BASE_URL}/api/v1/admin/database/analyze`,
+    {
+      method: "POST",
+      timeoutMs: 25000,
+    }
+  );
+}
+
+/** POST /api/v1/admin/retention/purge — Trigger HIPAA retention purge */
+export async function triggerAdminRetentionPurge(): Promise<ApiResult<{ stats: Record<string, number> }>> {
+  return authedFetch<{ stats: Record<string, number> }>(
+    `${BASE_URL}/api/v1/admin/retention/purge`,
+    {
+      method: "POST",
+      timeoutMs: 30000,
+    }
+  );
+}
+
+// ------------------------------------------------------------------
 // Certified Clinical Documents Registry
 // ------------------------------------------------------------------
 
@@ -2831,6 +3311,309 @@ export async function getRegistryStats(): Promise<
   }>(`${BASE_URL}/api/v1/documents/registry/stats`);
 }
 
+// ------------------------------------------------------------------
+// Master Clinical Disease Catalog (15,000+ / 20,397+ Entities)
+// ------------------------------------------------------------------
 
+export interface DiseaseCatalogItem {
+  id: string;
+  name: string;
+  icd10?: string;
+  icd10_codes?: string[];
+  icd11?: string;
+  icd11_codes?: string[];
+  orphacode?: string;
+  category: string;
+  disorder_type?: string;
+  disorder_group?: string;
+  severity: "low" | "moderate" | "high" | "critical";
+  triage: "ROUTINE" | "URGENT" | "EMERGENT";
+  synonyms: string[];
+  hallmark_symptoms: string[];
+  cardinal_symptoms: string[];
+  immediate_tests: string[];
+  recommended_investigations: string[];
+  recommended_medications: string[];
+  first_line_treatment: string;
+  pearl: string;
+  source: string;
+}
 
+export interface DiseaseCatalogSearchResponse {
+  query: string;
+  total: number;
+  limit: number;
+  offset: number;
+  results: DiseaseCatalogItem[];
+}
+
+export interface DiseaseCatalogStatsResponse {
+  total_diseases: number;
+  total_synonyms: number;
+  total_icd10_codes: number;
+  total_icd11_codes: number;
+  category_breakdown: Record<string, number>;
+  severity_breakdown: Record<string, number>;
+  source_breakdown: Record<string, number>;
+}
+
+export interface DiseaseCatalogCategoryItem {
+  category: string;
+  count: number;
+}
+
+export async function searchDiseaseCatalog(params: {
+  q?: string;
+  category?: string;
+  severity?: string;
+  triage?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ApiResult<DiseaseCatalogSearchResponse>> {
+  const qp = new URLSearchParams();
+  if (params.q) qp.set("q", params.q);
+  if (params.category) qp.set("category", params.category);
+  if (params.severity) qp.set("severity", params.severity);
+  if (params.triage) qp.set("triage", params.triage);
+  if (params.limit !== undefined) qp.set("limit", String(params.limit));
+  if (params.offset !== undefined) qp.set("offset", String(params.offset));
+
+  return authedFetch<DiseaseCatalogSearchResponse>(
+    `${BASE_URL}/api/v1/disease-catalog/search?${qp.toString()}`,
+    { timeoutMs: 15000 }
+  );
+}
+
+export async function getDiseaseCatalogMonograph(
+  nameOrSlug: string
+): Promise<ApiResult<DiseaseCatalogItem>> {
+  return authedFetch<DiseaseCatalogItem>(
+    `${BASE_URL}/api/v1/disease-catalog/disease/${encodeURIComponent(nameOrSlug)}`,
+    { timeoutMs: 10000 }
+  );
+}
+
+export async function getDiseaseCatalogStats(): Promise<ApiResult<DiseaseCatalogStatsResponse>> {
+  return authedFetch<DiseaseCatalogStatsResponse>(
+    `${BASE_URL}/api/v1/disease-catalog/stats`,
+    { timeoutMs: 10000 }
+  );
+}
+
+export async function getDiseaseCatalogCategories(): Promise<ApiResult<DiseaseCatalogCategoryItem[]>> {
+  return authedFetch<DiseaseCatalogCategoryItem[]>(
+    `${BASE_URL}/api/v1/disease-catalog/categories`,
+    { timeoutMs: 10000 }
+  );
+}
+
+export async function matchDiseaseCatalogSymptoms(
+  symptoms: string[],
+  topK: number = 10
+): Promise<ApiResult<DiseaseCatalogItem[]>> {
+  return authedFetch<DiseaseCatalogItem[]>(
+    `${BASE_URL}/api/v1/disease-catalog/symptom-match`,
+    {
+      method: "POST",
+      body: JSON.stringify({ symptoms, top_k: topK }),
+      timeoutMs: 15000,
+    }
+  );
+}
+
+// ------------------------------------------------------------------
+// Phase 8: Temporal Trajectory & Clinical Timeline Delta Engine
+// ------------------------------------------------------------------
+
+export interface VitalSignObservation {
+  timestamp: string;
+  heart_rate?: number;
+  systolic_bp?: number;
+  diastolic_bp?: number;
+  respiratory_rate?: number;
+  temperature_c?: number;
+  spo2_percent?: number;
+  on_supplemental_o2?: boolean;
+  avpu_consciousness?: string;
+}
+
+export interface LabObservation {
+  timestamp: string;
+  creatinine_mg_dl?: number;
+  troponin_ng_ml?: number;
+  lactate_mmol_l?: number;
+  platelets_k_ul?: number;
+  wbc_k_ul?: number;
+  crp_mg_l?: number;
+  hemoglobin_g_dl?: number;
+  potassium_mmol_l?: number;
+  bicarbonate_mmol_l?: number;
+  blood_glucose_mg_dl?: number;
+}
+
+export interface SymptomObservation {
+  timestamp: string;
+  symptom: string;
+  severity_1_to_10?: number;
+  status?: string;
+  anatomical_location?: string;
+  notes?: string;
+}
+
+export interface ClinicalIntervention {
+  timestamp: string;
+  intervention_type: string;
+  description: string;
+  dose_or_rate?: string;
+}
+
+export interface EarlyWarningScoreDetail {
+  score_name: string;
+  total_score: number;
+  risk_level: string;
+  clinical_action: string;
+  subscores: Record<string, number>;
+  has_extreme_subscore: boolean;
+}
+
+export interface ShockIndexDetail {
+  value: number;
+  classification: string;
+  interpretation: string;
+  is_elevated: boolean;
+}
+
+export interface LabDeltaMetric {
+  parameter: string;
+  baseline_value: number;
+  current_value: number;
+  absolute_delta: number;
+  relative_percent_change: number;
+  time_interval_hours: number;
+  velocity_per_hour: number;
+  clinical_significance: string;
+  is_critical: boolean;
+}
+
+export interface TrajectoryForecast {
+  trajectory_direction: string;
+  clinical_phase: string;
+  decompensation_hazard_score: number;
+  icu_transfer_recommended: boolean;
+  rapid_response_team_alert: boolean;
+  predicted_milestones_24h: string[];
+  recommended_urgent_interventions: string[];
+  rationale: string;
+}
+
+export interface ChronologicalMilestoneEvent {
+  timestamp: string;
+  event_type: string;
+  title: string;
+  description: string;
+  severity: string;
+  details: Record<string, any>;
+}
+
+export interface TemporalTrajectoryRequest {
+  patient_id?: string;
+  age?: number;
+  sex?: string;
+  primary_diagnosis_suspicion?: string;
+  vitals_timeline?: VitalSignObservation[];
+  labs_timeline?: LabObservation[];
+  symptoms_timeline?: SymptomObservation[];
+  interventions_timeline?: ClinicalIntervention[];
+}
+
+export interface TemporalTrajectoryResponse {
+  patient_id: string;
+  evaluation_timestamp: string;
+  total_observations_analyzed: number;
+  news2_current: EarlyWarningScoreDetail;
+  news2_delta?: number;
+  shock_index: ShockIndexDetail;
+  qsofa_score: number;
+  qsofa_high_risk: boolean;
+  lab_deltas: LabDeltaMetric[];
+  symptom_progression_summary: string;
+  trajectory_forecast: TrajectoryForecast;
+  chronological_event_stream: ChronologicalMilestoneEvent[];
+  executive_clinical_summary: string;
+}
+
+export async function evaluateTemporalTrajectory(
+  payload: TemporalTrajectoryRequest
+): Promise<ApiResult<TemporalTrajectoryResponse>> {
+  return authedFetch<TemporalTrajectoryResponse>(
+    `${BASE_URL}/api/v1/clinical-knowledge/temporal-trajectory`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      timeoutMs: 15000,
+    }
+  );
+}
+
+// ------------------------------------------------------------------
+// Phase 9: Red Team Counterfactual Testing & Safety Guardrails
+// ------------------------------------------------------------------
+
+export interface ContraindicationTrapDetail {
+  trap_id: string;
+  severity: string;
+  interception_status: string;
+  pathophysiology: string;
+  offending_agents: string[];
+  trigger_condition: string;
+  corrective_alternative: string;
+}
+
+export interface CounterfactualMimicAudit {
+  primary_condition: string;
+  fatal_mimic_condition: string;
+  minimal_differentiating_findings: string[];
+  misdiagnosis_risk: string;
+  mandatory_rule_out_action: string;
+  mimic_excluded: boolean;
+}
+
+export interface SafetyGuardrailCheckRequest {
+  patient_id?: string;
+  clinical_scenario: string;
+  suspected_or_primary_condition: string;
+  proposed_interventions?: string[];
+  proposed_medications?: string[];
+  differential_diagnoses?: string[];
+  vital_signs?: Record<string, any>;
+  physical_findings?: string[];
+  known_conditions?: string[];
+}
+
+export interface SafetyGuardrailAuditResponse {
+  is_safe: boolean;
+  overall_safety_tier: 'CERTIFIED_SAFE' | 'WARNING_ISSUED' | 'FATAL_HAZARD_BLOCKED';
+  fatal_hazard_intercepted: boolean;
+  contraindication_traps_triggered: ContraindicationTrapDetail[];
+  counterfactual_mimic_audits: CounterfactualMimicAudit[];
+  mandatory_rule_outs: string[];
+  blocked_interventions: string[];
+  certified_safe_interventions: string[];
+  corrected_clinical_plan: string[];
+  guardrail_execution_time_ms: number;
+  audit_summary: string;
+}
+
+export async function auditClinicalSafetyGuardrail(
+  payload: SafetyGuardrailCheckRequest
+): Promise<ApiResult<SafetyGuardrailAuditResponse>> {
+  return authedFetch<SafetyGuardrailAuditResponse>(
+    `${BASE_URL}/api/v1/clinical-knowledge/safety-guardrail-audit`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      timeoutMs: 15000,
+    }
+  );
+}
 

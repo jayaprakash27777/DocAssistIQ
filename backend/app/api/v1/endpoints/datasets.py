@@ -95,3 +95,17 @@ async def approve_dataset(
         return ds
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/offline-warehouse")
+async def get_offline_warehouse_status():
+    """Retrieve operational status and statistics of offline datasets at D:\\OFFLINE DATA."""
+    from app.services.offline_data_service import offline_data_service
+    manifest = offline_data_service.get_manifest()
+    return {
+        "status": "ready" if offline_data_service.is_available else "offline",
+        "storage_path": offline_data_service.base_dir,
+        "is_available": offline_data_service.is_available,
+        "manifest": manifest,
+    }
+

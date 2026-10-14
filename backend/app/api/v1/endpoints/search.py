@@ -23,35 +23,37 @@ async def search_all(
     Phase 36: Semantic Patient Search.
     Embeds the user's search query and retrieves the most conceptually similar past consultations.
     """
+    user_id = current_user.id
+    rows = []
     try:
-        # 1. Embed the search query using the current embedding provider
         provider = get_embedding_provider()
         query_vector = await provider.generate_embedding(q)
+        stmt = (
+            select(Consultation, EmbeddingRecord.embedding.cosine_distance(query_vector).label("distance"))
+            .join(EmbeddingRecord, text("consultations.id::text = embedding_records.source_record_id"))
+            .where(Consultation.doctor_id == user_id)
+            .where(EmbeddingRecord.source_record_type == "clinical_note")
+            .order_by(text("distance ASC"))
+            .limit(10)
+        )
+        result = await db.execute(stmt)
+        rows = result.all()
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Search embedding failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to embed search query")
+        import structlog
+        structlog.get_logger(__name__).warning("semantic_search_fallback_to_text", error=str(e))
+        rows = []
 
-    user_id = current_user.id
-    # 1. Hybrid Search in Vector DBsimilarity search (Cosine Distance) using pgvector
-    # We want clinical notes belonging to consultations owned by the requesting user.
-    # Note: EmbeddingRecord.embedding.cosine_distance(query_vector) is the sqlalchemy-pgvector syntax
-    
-    # We join EmbeddingRecord with Consultation
-    # Wait, source_record_id is string, so we need to cast or join carefully.
-    
-    # SQLAlchemy pgvector approach:
-    stmt = (
-        select(Consultation, EmbeddingRecord.embedding.cosine_distance(query_vector).label("distance"))
-        .join(EmbeddingRecord, text("consultations.id::text = embedding_records.source_record_id"))
-        .where(Consultation.doctor_id == user_id)
-        .where(EmbeddingRecord.source_record_type == "clinical_note")
-        .order_by(text("distance ASC"))
-        .limit(10)
-    )
-
-    result = await db.execute(stmt)
-    rows = result.all()
+    # If semantic search produced no results or failed, perform real-time text query fallback
+    if not rows:
+        text_stmt = (
+            select(Consultation)
+            .where(Consultation.doctor_id == user_id)
+            .where(Consultation.input_text.ilike(f"%{q}%"))
+            .order_by(Consultation.created_at.desc())
+            .limit(10)
+        )
+        text_result = await db.execute(text_stmt)
+        rows = [(c, 0.0) for c in text_result.scalars().all()]
     
     # Map to summary schema, deduplicating consultations that might have multiple embeddings
     summaries = []

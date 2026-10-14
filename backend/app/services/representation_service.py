@@ -57,7 +57,11 @@ SYMPTOM_PATTERNS = [
     r"confusion|altered consciousness|seizures|weakness|paraesthesia|paresthesia|back pain|neck stiffness|"
     r"photophobia|phonophobia|dysuria|polyuria|polydipsia|polyphagia|blurred vision|"
     r"bleeding|bruising|petechiae|purpura|haemorrhage|hemorrhage|pica|koilonychia|claudication|podagra|"
-    r"orthopnea|stridor|wheezing|chest pressure|pruritus|eschar|thrombocytopenia|anemia|pallor)\b",
+    r"orthopnea|stridor|wheezing|chest pressure|pruritus|eschar|thrombocytopenia|anemia|pallor|"
+    r"poor growth|growth failure|failure to thrive|short stature|low body weight|underweight|lipodystrophy|"
+    r"hair loss|alopecia|joint stiffness|stiff joints|progeria|progeroid|thin skin|"
+    r"loss of coordination|ataxia|balance problems|problems with balance|involuntary movements|chorea|dystonia|"
+    r"dysarthria|slurred speech|speech difficulty|dysphagia|difficulty swallowing|vision problems)\b",
 ]
 
 DURATION_PATTERNS = [
@@ -233,10 +237,23 @@ def _extract_from_text(text: str) -> dict:
     # ── History ───────────────────────────────────────────────────────────
     for pat in HISTORY_PATTERNS:
         for m in re.finditer(pat, text, re.IGNORECASE):
-            items = [s.strip() for s in re.split(r"[,;]|\band\b", m.group(1)) if s.strip()]
+            preceding_window = text[max(0, m.start() - 35):m.start()]
+            is_negated_hist = bool(re.search(r"\b(?:no|not|denies?|without|negative for|nil|never|free of)\b", preceding_window, re.I))
+            items = [s.strip() for s in re.split(r"[,;]|\band\b|\bor\b", m.group(1)) if s.strip()]
             for item in items:
-                if 3 < len(item) < 80 and item.lower().strip() not in NON_SYMPTOM_TOKENS:
-                    results["history"].append(item.lower().strip())
+                clean_item = item.lower().strip()
+                if 2 < len(clean_item) < 80 and clean_item not in NON_SYMPTOM_TOKENS:
+                    if is_negated_hist:
+                        if clean_item not in results["negations"]:
+                            results["negations"].append(clean_item)
+                    else:
+                        results["history"].append(clean_item)
+
+    # Filter any history item that was explicitly negated
+    results["history"] = [
+        h for h in results["history"]
+        if not any(h in neg.lower() or neg.lower() in h for neg in results["negations"])
+    ]
 
     # ── Medications ───────────────────────────────────────────────────────
     for pat in MEDICATION_PATTERNS:
@@ -582,6 +599,16 @@ async def build_clinical_representation(
                 add_item(rep.vitals, f"{vit_name}: {vit_val}", "vitals", "confirmed", prov_consult)
             for hist in parsed_note.get("background_history", []):
                 add_item(rep.history, hist, "history", "confirmed", prov_consult)
+
+            # Update patient context demographics from parsed consultation text
+            if rep.patient_context and parsed_note.get("demographics"):
+                p_demo = parsed_note["demographics"]
+                if not rep.patient_context.age and p_demo.get("age") is not None:
+                    rep.patient_context.age = p_demo["age"]
+                elif not rep.patient_context.age and p_demo.get("is_pediatric"):
+                    rep.patient_context.age = 8
+                if not rep.patient_context.sex and p_demo.get("sex"):
+                    rep.patient_context.sex = p_demo["sex"]
         except Exception:
             pass
 
